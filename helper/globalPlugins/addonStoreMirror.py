@@ -6,7 +6,7 @@ import config
 import globalPluginHandler
 from logHandler import log
 
-MIRROR_STORE_URL = "https://serrebidev.github.io/nvda-addon-mirror/"
+MIRROR_STORE_URL = "https://serrebidev.github.io/nvda-addon-mirror"
 
 confspec = {
 	"originalStoreURL": "string(default='')",
