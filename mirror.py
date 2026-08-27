@@ -44,18 +44,20 @@ LOCALES = [
     "zh_TW",
 ]
 
-# NVDA requests channel "all" (client-side filtering of stable/beta/dev).
-# The others are emitted too (cheap via symlink) for safety.
-CHANNELS = ["all", "stable", "beta", "dev", "external"]
+# NVDA always requests channel "all" (its _preferredChannel is fixed) and
+# filters stable/beta/dev client-side, so only "all" is emitted. That keeps the
+# published site small enough for GitHub Pages, which also forbids symlinks --
+# so every path below is a real copy.
+CHANNELS = ["all"]
 
 # Recent NVDA API versions to expose. "latest" always resolves the "show all
 # (incompatible)" view; the numbered entries cover the default "compatible"
-# view for each recent NVDA release. The current dev version is appended at
-# build time.
+# view for recent NVDA releases. The current dev version is prepended at build
+# time. Kept deliberately short: Pages forbids symlinks, so every path is a
+# real ~2.6 MB copy, and 73 locales multiply it -- 4 copies/locale keeps the
+# published site under the 1 GB Pages warning.
 CURATED_API_VERSIONS = [
-    "2026.2.0", "2026.1.1", "2026.1.0", "2025.3.0", "2025.2.1", "2025.2.0",
-    "2025.1.0", "2024.4.2", "2024.4.1", "2024.4.0", "2024.3.0", "2024.2.0",
-    "2024.1.0", "2023.3.0", "2023.2.0", "2023.1.0",
+    "2026.2.0", "2026.1.1",
 ]
 
 # API version regex mirrors NVDA source/addonAPIVersion.py: year.major(.minor)
@@ -429,7 +431,6 @@ def emit(
     api_versions,
     locales,
     channels,
-    use_symlinks,
     stats,
     rejected,
 ):
@@ -464,18 +465,11 @@ def emit(
         f.write(index_html)
 
     def write_path(rel_path):
+        # GitHub Pages rejects artifacts containing symlinks, and the artifact
+        # upload follows them anyway (ballooning size), so always write real
+        # copies of the canonical JSON.
         target = os.path.join(out_dir, rel_path)
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        if use_symlinks:
-            depth = rel_path.count("/")
-            link_src = ("../" * depth) + "addons.json"
-            try:
-                if os.path.lexists(target):
-                    os.remove(target)
-                os.symlink(link_src, target)
-                return
-            except (OSError, NotImplementedError):
-                pass  # fall back to a real copy (e.g. Windows without privilege)
         with open(target, "wb") as f:
             f.write(canonical_bytes)
 
@@ -504,8 +498,6 @@ def main():
                         help="always re-download, never trust cached hashes")
     parser.add_argument("--hashcache", default="hashcache.json",
                         help="path to persistent sha256 cache")
-    parser.add_argument("--copies", action="store_true", help="write real files, not symlinks")
-    parser.add_argument("--symlinks", action="store_true", help="force symlinks")
     parser.add_argument("--workers", type=int, default=10)
     args = parser.parse_args()
 
@@ -521,8 +513,6 @@ def main():
         if current and current not in api_versions:
             api_versions.insert(0, current)
     api_versions = list(dict.fromkeys(api_versions))
-
-    use_symlinks = args.symlinks or (not args.copies)
 
     hashcache = load_hashcache(args.hashcache)
     new_hashcache = dict(hashcache)
@@ -651,7 +641,6 @@ def main():
         api_versions,
         locales,
         channels,
-        use_symlinks,
         stats,
         rejected,
     )
