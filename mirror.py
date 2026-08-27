@@ -15,11 +15,14 @@ Stdlib only (Python 3.11+).
 
 import argparse
 import concurrent.futures
+import fnmatch
 import hashlib
+import io
 import json
 import os
 import re
 import threading
+import zipfile
 from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -54,10 +57,10 @@ CHANNELS = ["all"]
 # (incompatible)" view; the numbered entries cover the default "compatible"
 # view for recent NVDA releases. The current dev version is prepended at build
 # time. Kept deliberately short: Pages forbids symlinks, so every path is a
-# real ~2.6 MB copy, and 73 locales multiply it -- 4 copies/locale keeps the
-# published site under the 1 GB Pages warning.
+# real copy and 73 locales multiply it -- 3 copies/locale keeps the published
+# site near 750 MB of the 1 GB Pages warning as the catalog grows.
 CURATED_API_VERSIONS = [
-    "2026.2.0", "2026.1.1",
+    "2026.2.0",
 ]
 
 # API version regex mirrors NVDA source/addonAPIVersion.py: year.major(.minor)
@@ -72,7 +75,9 @@ USER_AGENT = (
     "serrebidev/nvda-addon-mirror)"
 )
 
-ALL_SOURCES = ("bestmidi", "ru")
+ALL_SOURCES = ("official", "bestmidi", "ru", "pinned")
+PINNED_CONFIG_PATH = "pinned.json"
+GITHUB_API = "https://api.github.com"
 
 
 def log(msg):
@@ -233,6 +238,287 @@ def _norm_channel_ru(channel):
     return "stable"
 
 
+# The official NV Access store and the NVDA Chinese community mirror
+# (addonstore.nvaccess.mirror.nvdadr.com) serve the SAME catalog data; the
+# Chinese site is a CDN mirror used as a failover if the official one is slow.
+OFFICIAL_STORE_URLS = [
+    "https://addonstore.nvaccess.org/en/all/latest.json",
+    "https://addonstore.nvaccess.mirror.nvdadr.com/en/all/latest.json",
+]
+
+
+def fetch_official():
+    """Fetch the NV Access store catalog (with Chinese mirror as failover).
+
+    These add-ons already carry sha256 and VirusTotal data, so they cost zero
+    download time. The JSON is passed through nearly verbatim -- it already
+    follows NVDA's expected schema -- and normalized into our entry shape so
+    dedupe/transform see one consistent format.
+    """
+    data = None
+    for url in OFFICIAL_STORE_URLS:
+        try:
+            data = http_get_json(url)
+            break
+        except (HTTPError, URLError, OSError) as exc:
+            log(f"official store source {url} failed: {exc}")
+    if data is None:
+        raise RuntimeError("could not fetch any official store source")
+
+    entries = []
+    for a in data:
+        version_number = a.get("addonVersionNumber") or {}
+        scan = a.get("scanResults")
+        entries.append(
+            {
+                "name": (a.get("addonId") or "").strip(),
+                "summary": clean_text(a.get("displayName")),
+                "description": a.get("description") or "",
+                "author": (a.get("publisher") or "").strip(),
+                "version": (a.get("addonVersionName") or "").strip(),
+                "channel": (a.get("channel") or "stable").strip().lower(),
+                "homepage": (a.get("homepage") or "").strip(),
+                "source_url": (a.get("sourceURL") or "").strip(),
+                "license": (a.get("license") or "").strip(),
+                "license_url": (a.get("licenseURL") or "").strip(),
+                "changelog": clean_text(a.get("changelog")),
+                "download_url": (a.get("URL") or "").strip(),
+                "submission_ms": a.get("submissionTime") or None,
+                "min_nvda": parse_api_version_dict(version_number),
+                "last_tested": parse_api_version_dict(a.get("lastTestedVersion") or {}),
+                # Pass-through: already computed upstream, so no download needed.
+                "sha256": (a.get("sha256") or "").strip().lower(),
+                # Sanitized scan data: drop explicit-null dicts so NVDA's
+                # fromDict neither errors nor floods the log.
+                "scan_results": _sanitize_scan(scan, a),
+                "source": "official",
+            }
+        )
+    return entries
+
+
+def parse_api_version_dict(d):
+    """Convert an official-store {major,minor,patch} dict to our tuple form."""
+    try:
+        return (int(d["major"]), int(d["minor"]), int(d["patch"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _sanitize_scan(scan, addon):
+    """Return a well-formed VirusTotal scan dict, or None.
+
+    The official feed occasionally emits scanResults: null, which NVDA logs as
+    "Malformed add-on scan results". Keep only fully-formed dicts.
+    """
+    if not isinstance(scan, dict):
+        return None
+    vt = scan.get("virusTotal")
+    stats = None
+    try:
+        stats = vt[0].get("last_analysis_stats")
+    except (IndexError, AttributeError, TypeError):
+        return None
+    if not isinstance(stats, dict):
+        return None
+    return {
+        "virusTotal": [
+            {"last_analysis_stats": stats}
+        ],
+        "vtScanUrl": (addon.get("vtScanUrl") or "").strip(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Pinned variants: add-ons taken directly from a GitHub repo's releases and
+# published under a distinct add-on ID so they can be chosen alongside the
+# original. See pinned.json.
+# ---------------------------------------------------------------------------
+
+_MANIFEST_KEYS_ORDER = [
+    "name", "summary", "description", "author", "url", "version",
+    "changelog", "docFileName", "minimumNVDAVersion", "lastTestedNVDAVersion",
+    "updateChannel",
+]
+
+
+def _parse_manifest(text):
+    """Minimal manifest.ini reader (no configparser: values span raw lines)."""
+    values = {}
+    current = None
+    buf = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            continue
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$", stripped)
+        if m and not current:
+            current = m.group(1)
+            buf = [m.group(2)]
+            continue
+        if current:
+            buf.append(stripped)
+            # A line ending the multi-line value: next key or blank at top level
+            if stripped and not stripped.startswith(("\"", "'")) and "=" in stripped \
+                    and re.match(r"^[A-Za-z_]", stripped):
+                # looks like a new key got swallowed; treat conservatively
+                pass
+    if current:
+        values[current] = "\n".join(buf).strip()
+    return values
+
+
+def _load_pinned_config(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f).get("pinned", [])
+    except FileNotFoundError:
+        return []
+
+
+def fetch_pinned(config_path=PINNED_CONFIG_PATH):
+    """Fetch pinned variant add-ons from GitHub releases.
+
+    The bundle's manifest `name` is rewritten to `addon_id` so the variant is
+    listed as its own add-on (avoiding an ID collision with the original).
+    The repackaged bundle is what gets hashed and linked, so NVDA's checksum
+    verification applies to exactly the file we serve.
+    """
+    return _fetch_pinned_impl(config_path)
+
+
+def _fetch_pinned_impl(config_path):
+    pinned = _load_pinned_config(config_path)
+    entries = []
+    for spec in pinned:
+        repo = spec.get("repo")
+        addon_id = spec.get("addon_id")
+        if not repo or not addon_id:
+            log(f"pinned entry missing repo/addon_id: {spec!r}")
+            continue
+        try:
+            entries.extend(_fetch_one_pinned(spec, repo, addon_id))
+        except Exception as exc:  # noqa: BLE001 - one bad pinned entry must not kill the build
+            log(f"pinned entry {repo} failed: {exc}")
+    return entries
+
+
+def _fetch_one_pinned(spec, repo, addon_id):
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/vnd.github+json",
+    }
+    releases = json.loads(http_get(
+        f"{GITHUB_API}/repos/{repo}/releases?per_page=20", headers=headers
+    ).decode("utf-8"))
+    glob = spec.get("asset_glob", "*.nvda-addon")
+
+    release = next((r for r in releases if not r.get("prerelease")), None)
+    if release is None:
+        raise RuntimeError("no non-prerelease release found")
+    assets = [a for a in release.get("assets", []) if fnmatch.fnmatch(a["name"], glob)]
+    if not assets:
+        raise RuntimeError(f"no asset matching {glob!r} in release {release['tag_name']}")
+    asset = assets[0]
+
+    raw = http_get(asset["browser_download_url"], headers=headers)
+    with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+        manifest_text = zf.read("manifest.ini").decode("utf-8")
+        names = zf.namelist()
+
+    original_name = _manifest_name(manifest_text)
+    if original_name == addon_id:
+        log(f"pinned {repo}: manifest already named {addon_id}")
+    summary = spec.get("summary") or _manifest_value(manifest_text, "summary") or release["name"] or addon_id
+    description = _manifest_value(manifest_text, "description") or ""
+    author = spec.get("publisher") or _manifest_value(manifest_text, "author") or ""
+    version = (asset["name"].rsplit(".nvda-addon", 1)[0] or release["tag_name"]).strip()
+    # Prefer the manifest version if it embeds the tag (e.g. 19.1.3-RS)
+    mv = _manifest_value(manifest_text, "version")
+    if mv:
+        version = mv
+    min_nvda = (parse_api_version(_manifest_value(manifest_text, "minimumNVDAVersion"))
+                or parse_api_version(spec.get("min_nvda_version") or ""))
+    last_tested = (parse_api_version(_manifest_value(manifest_text, "lastTestedNVDAVersion"))
+                   or parse_api_version(spec.get("last_tested_nvda_version") or ""))
+
+    # Rewrite manifest name -> addon_id, keep everything else.
+    new_manifest = _rename_manifest_name(manifest_text, addon_id)
+    patched = _repack_addon(zf_bytes=None, raw=raw, names=names,
+                            new_manifest=new_manifest.encode("utf-8"))
+
+    digest = hashlib.sha256(patched).hexdigest()
+
+    entry = {
+        "name": addon_id,
+        "summary": summary,
+        "description": description,
+        "author": author,
+        "version": version,
+        "channel": spec.get("channel", "stable"),
+        "homepage": f"https://github.com/{repo}",
+        "source_url": f"https://github.com/{repo}",
+        "license": spec.get("license", "Unknown"),
+        "license_url": spec.get("license_url", ""),
+        "changelog": (release.get("body") or "").strip(),
+        "download_url": f"https://github.com/{repo}/releases/download/{release['tag_name']}/{asset['name']}",
+        "submission_ms": parse_iso8601_to_ms(release.get("published_at")),
+        "min_nvda": min_nvda,
+        "last_tested": last_tested,
+        "source": "pinned",
+        # Pre-computed: the build hashed the repackaged bundle above.
+        "sha256": digest,
+        "_patched_bytes": patched,
+    }
+    return [entry]
+
+
+def _manifest_name(manifest_text):
+    for line in manifest_text.splitlines():
+        m = re.match(r"^name\s*=\s*(.+)$", line.strip())
+        if m:
+            return m.group(1).strip().strip('"')
+    return ""
+
+
+def _manifest_value(manifest_text, key):
+    lines = manifest_text.splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(rf"^{key}\s*=\s*(.*)$", line.strip())
+        if m:
+            val = m.group(1).strip().strip('"')
+            # triple-quoted values
+            if val.startswith('"""') and not val.endswith('"""'):
+                rest = []
+                for cont in lines[i + 1:]:
+                    if cont.strip().endswith('"""'):
+                        rest.append(cont.strip()[:-3])
+                        break
+                    rest.append(cont.strip())
+                return val[3:] + "\n" + "\n".join(rest)
+            return val
+    return ""
+
+
+def _rename_manifest_name(manifest_text, new_name):
+    return re.sub(r"^name\s*=.*$", f"name = {new_name}", manifest_text,
+                  count=1, flags=re.MULTILINE)
+
+
+def _repack_addon(zf_bytes, raw, names, new_manifest):
+    """Rebuild the .nvda-addon zip with a replaced manifest.ini."""
+    src = zipfile.ZipFile(io.BytesIO(raw))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dest:
+        for info in src.infolist():
+            data = src.read(info.filename)
+            if info.filename == "manifest.ini":
+                data = new_manifest
+            dest.writestr(info.filename, data)
+    src.close()
+    return out.getvalue()
+
+
 def fetch_bestmidi():
     data = http_get_json(BESTMIDI_URL)
     entries = []
@@ -309,6 +595,7 @@ def reject_reason(entry):
     name = (entry.get("name") or "").strip()
     version = (entry.get("version") or "").strip()
     download_url = (entry.get("download_url") or "").strip()
+    source = entry.get("source")
 
     if not name or name.lower() in _TEMPLATE_NAMES:
         return "missing or template add-on id"
@@ -316,7 +603,10 @@ def reject_reason(entry):
         return "voice/data pack (skipped)"
     if entry.get("subcategory") in ("vosk", "silero", "vosk_tts"):
         return "voice/data model (skipped)"
-    if sanitize_version(version) is None:
+    # Official store entries are NV Access-reviewed with upstream-computed
+    # hashes; their version strings are already store-valid, so only the
+    # community catalogs go through the lenient sanitizer check.
+    if source != "official" and sanitize_version(version) is None:
         return f"unparseable version {version!r}"
     if not download_url:
         return "no download_url"
@@ -364,7 +654,9 @@ def transform(entry, sha256):
         "licenseURL": license_url,
         "sourceURL": source_url,
         "URL": download_url,
-        "sha256": sha256,
+        # Official store entries bring their own upstream hash; community
+        # entries get the one computed by this build.
+        "sha256": entry.get("sha256") or sha256,
         "minNVDAVersion": {
             "major": min_nvda[0],
             "minor": min_nvda[1],
@@ -387,31 +679,45 @@ def transform(entry, sha256):
         # Keep absolute URLs only; a bare path renders as a broken link.
         if homepage.startswith("http"):
             obj["homepage"] = homepage
+    scan = entry.get("scan_results")
+    if scan:
+        obj["scanResults"] = scan
+        obj["vtScanUrl"] = scan["vtScanUrl"]
 
     return obj
 
 
 def dedupe(entries):
-    """Dedupe by addonId. Entries with a download_url win over ones without;
-    within a source, first occurrence wins. On cross-source collision, the
-    nvda-addons.ru entry is preferred (curated catalog, direct download links)."""
-    by_name = {}
+    """Dedupe by (addonId, channel).
+
+    The official store lists one entry PER CHANNEL for the same add-on (e.g.
+    stable 2026.05.03 + dev 2024.09.09 of robEnhancements); NVDA's client
+    indexes by [channel][addonId], so all variants must survive. Community
+    catalogs list one entry per add-on, which lands in whatever channel the
+    catalog declares.
+
+    Preference order within the same (addonId, channel): official (NV
+    Access-reviewed, VirusTotal data, upstream hash) > nvda-addons.ru
+    (curated, direct links) > bestmidi. Within a single source, the first
+    occurrence wins; an entry with a download URL beats one without.
+    """
+    priority = {"official": 2, "ru": 1, "bestmidi": 0}
+    by_key = {}
     for e in entries:
-        name = e["name"]
-        existing = by_name.get(name)
+        key = (e["name"], e.get("channel") or "stable")
+        existing = by_key.get(key)
         if existing is None:
-            by_name[name] = e
+            by_key[key] = e
             continue
         # Prefer an entry with a download_url.
         if not existing["download_url"] and e["download_url"]:
-            by_name[name] = e
+            by_key[key] = e
             continue
         if existing["download_url"] and not e["download_url"]:
             continue
-        # Prefer the ru catalog on ties (both have download URLs).
-        if e["source"] == "ru" and existing["source"] != "ru":
-            by_name[name] = e
-    return list(by_name.values())
+        if priority.get(e["source"], 0) > priority.get(existing["source"], 0):
+            by_key[key] = e
+    return list(by_key.values())
 
 
 def load_hashcache(path):
@@ -560,6 +866,7 @@ def emit(
     channels,
     stats,
     rejected,
+    hosted,
 ):
     os.makedirs(out_dir, exist_ok=True)
 
@@ -577,16 +884,29 @@ def emit(
     with open(os.path.join(out_dir, ".nojekyll"), "wb") as f:
         pass
 
+    # Pinned variant add-ons: host the repackaged bundles ourselves, since the
+    # original release asset's manifest carries the colliding add-on ID.
+    if hosted:
+        os.makedirs(os.path.join(out_dir, "downloads"), exist_ok=True)
+        for rel, blob in hosted:
+            with open(os.path.join(out_dir, rel), "wb") as f:
+                f.write(blob)
+
     index_html = (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<title>NVDA Add-on Mirror</title></head><body>"
         "<h1>NVDA Add-on Store Mirror</h1>"
-        f"<p>{stats['accepted']} add-ons mirrored from "
+        f"<p>{stats['accepted']} add-ons mirrored from the "
+        "<a href='https://github.com/nvaccess/addon-datastore'>official NV Access "
+        "add-on store</a> (with the "
+        "<a href='https://github.com/nvdacn/NVDAUpdateMirror'>Chinese community "
+        "mirror</a> as failover), "
         "<a href='https://bestmidi.com/addons/'>bestmidi.com/addons/</a> and "
         "<a href='https://nvda-addons.ru/'>nvda-addons.ru</a>.</p>"
         "<p>Set the NVDA Add-on Store base URL to this site to use it. "
-        "These add-ons are untested; install at your own risk.</p>"
+        "Community add-ons are untested; install at your own risk. Official "
+        "store add-ons include VirusTotal scan results.</p>"
         f"<p><a href='rejected.html'>{len(rejected)} rejected candidates</a> "
         "are listed on a separate page.</p>"
         "</body></html>"
@@ -631,6 +951,9 @@ def main():
                         help="always re-download, never trust cached hashes")
     parser.add_argument("--hashcache", default="hashcache.json",
                         help="path to persistent sha256 cache")
+    parser.add_argument("--site-base-url",
+                        default="https://serrebidev.github.io/nvda-addon-mirror",
+                        help="public base URL of the mirror (used for hosted pinned add-ons)")
     parser.add_argument("--workers", type=int, default=10)
     args = parser.parse_args()
 
@@ -654,6 +977,12 @@ def main():
     all_entries = []
     rejected = []
 
+    if "official" in sources:
+        log("Fetching official NV Access add-on store (Chinese mirror failover)")
+        entries = fetch_official()
+        log(f"official: {len(entries)} add-ons")
+        all_entries.extend(entries)
+
     if "bestmidi" in sources:
         log(f"Fetching {BESTMIDI_URL}")
         entries = fetch_bestmidi()
@@ -664,6 +993,12 @@ def main():
         log(f"Fetching {RU_ADDONS_URL}")
         entries = fetch_ru()
         log(f"nvda-addons.ru: {len(entries)} add-ons")
+        all_entries.extend(entries)
+
+    if "pinned" in sources:
+        log("Fetching pinned variant add-ons")
+        entries = fetch_pinned()
+        log(f"pinned: {len(entries)} add-ons")
         all_entries.extend(entries)
 
     if args.limit:
@@ -702,6 +1037,22 @@ def main():
 
     def hash_one(e):
         url = e["download_url"]
+        # Pinned variants: we host the repackaged bundle ourselves, so the
+        # hash is already computed and the bytes are already in memory.
+        if e.get("source") == "pinned":
+            patched = e.pop("_patched_bytes")
+            rel = f"downloads/{e['name']}-{e['version']}.nvda-addon"
+            with cache_lock:
+                hosted.append((rel, patched))
+                new_hashcache[url] = {
+                    "sha256": e["sha256"], "size": len(patched),
+                }
+            return e, e["sha256"], len(patched), None
+
+        # Official store entries ship an upstream sha256 -- nothing to download.
+        if e.get("sha256"):
+            return e, e["sha256"], 0, None
+
         if args.skip_download:
             digest = hashlib.sha256(url.encode()).hexdigest()
             with cache_lock:
@@ -726,6 +1077,7 @@ def main():
 
     results = []
     download_failed = []
+    hosted = []  # (relative path, bytes) for pinned add-ons we host ourselves
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
         futures = {pool.submit(hash_one, e): e for e in todo}
         for fut in concurrent.futures.as_completed(futures):
@@ -744,6 +1096,13 @@ def main():
 
     log(f"Hashed {len(results)}, download-failed {len(download_failed)}")
 
+    # Rewrite pinned variants' download URL to the hosted copy (their original
+    # release asset carries the colliding manifest name).
+    base = args.site_base_url.rstrip("/")
+    for e, digest, size in results:
+        if e.get("source") == "pinned":
+            e["download_url"] = f"{base}/downloads/{e['name']}-{e['version']}.nvda-addon"
+
     # 5. Transform.
     output = []
     for e, digest, size in results:
@@ -752,7 +1111,7 @@ def main():
     rejected.extend(download_failed)
     rejected.sort(key=lambda r: (r.get("source") or "", r.get("addonId") or ""))
 
-    output.sort(key=lambda o: o["addonId"])
+    output.sort(key=lambda o: (o["addonId"], o["channel"]))
 
     canonical_bytes = json.dumps(
         output, ensure_ascii=False, separators=(",", ":")
@@ -776,6 +1135,7 @@ def main():
         channels,
         stats,
         rejected,
+        hosted,
     )
 
     # Persist the hash cache so the next run only re-downloads changed add-ons.

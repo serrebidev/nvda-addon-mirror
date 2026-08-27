@@ -1,0 +1,15 @@
+{
+  "pinned": [
+    {
+      "repo": "Nick6489/Eloquence64RS",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "Eloquence64RS",
+      "summary": "Eloquence64RS Synthesizer (community Rust-host build)",
+      "publisher": "Nick Giannak III and contributors",
+      "license": "Unknown",
+      "channel": "stable",
+      "min_nvda_version": "2024.1",
+      "last_tested_nvda_version": "2026.1"
+    }
+  ]
+}
