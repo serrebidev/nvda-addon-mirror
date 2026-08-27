@@ -41,24 +41,34 @@ files. Each entry's `URL` points at the original host (GitHub release or
 `nvda.ru` upload), and NVDA downloads directly from there. The build downloads
 each file only once to compute the SHA-256 checksum NVDA enforces on install.
 
-Point NVDA's Add-on Store at the site:
+Point NVDA's Add-on Store at the live mirror:
 
 ```
-https://<owner>.github.io/<repo>/
+https://serrebidev.github.io/nvda-addon-mirror
 ```
 
 Two ways to do this:
 
-1. **Install the helper add-on** (`dist/addonStoreMirror-1.0.0.nvda-addon`).
+1. **Install the helper add-on** — latest build:
+   [dist/addonStoreMirror-1.1.0.nvda-addon](dist/addonStoreMirror-1.1.0.nvda-addon)
+   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.1.0.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
+   Requires 1.1.0 or later; 1.0.0 had a trailing-slash bug in the mirror URL.
 2. **Edit `nvda.ini`** manually:
    ```ini
    [addonStore]
-   baseServerURL = https://<owner>.github.io/<repo>/
+   baseServerURL = https://serrebidev.github.io/nvda-addon-mirror
    ```
    then restart NVDA.
+
+## Browsing what was rejected
+
+The site publishes [rejected.html](https://serrebidev.github.io/nvda-addon-mirror/rejected.html)
+— every candidate excluded while building the mirror, grouped by reason
+(voice/data packs skipped, no download URL, unparseable version, …), with an
+in-page filter. The same data is available as JSON at `rejected.json`.
 
 ## Repo layout
 

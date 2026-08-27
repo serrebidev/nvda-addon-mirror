@@ -424,6 +424,115 @@ def current_nvda_api_version():
     return f"{year.group(1)}.{major.group(1)}.{minor.group(1)}"
 
 
+def _esc(text):
+    return (
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def build_rejected_page(rejected, stats):
+    """Render an accessible, browsable page of the rejected candidates."""
+    groups = {}
+    for r in rejected:
+        groups.setdefault(r.get("reason") or "unknown", []).append(r)
+
+    def group_slug(reason):
+        # Stable, CSS/anchor-safe id per reason.
+        return re.sub(r"[^a-z0-9]+", "-", reason.lower()).strip("-") or "other"
+
+    rows = []
+    toc = []
+    for reason in sorted(groups, key=lambda g: (-len(groups[g]), g)):
+        entries = groups[reason]
+        slug = group_slug(reason)
+        toc.append(
+            f"<li><a href='#{slug}'>{_esc(reason)}</a> ({len(entries)})</li>"
+        )
+        items = []
+        for e in sorted(entries, key=lambda x: (x.get("addonId") or "").lower()):
+            src = e.get("source") or "unknown"
+            items.append(
+                "<tr>"
+                f"<td>{_esc(e.get('addonId') or '(unnamed)')}</td>"
+                f"<td>{_esc(src)}</td>"
+                f"<td>{_esc(reason)}</td>"
+                "</tr>"
+            )
+        rows.append(
+            f"<section id='{slug}'>"
+            f"<h2>{_esc(reason)} ({len(entries)})</h2>"
+            "<table>"
+            "<caption>Add-ons excluded for this reason</caption>"
+            "<thead><tr><th scope='col'>Add-on</th>"
+            "<th scope='col'>Source</th>"
+            "<th scope='col'>Reason</th></tr></thead>"
+            f"<tbody>{''.join(items)}</tbody>"
+            "</table></section>"
+        )
+
+    total = len(rejected)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rejected candidates — NVDA Add-on Store Mirror</title>
+<style>
+body {{ font-family: sans-serif; max-width: 70rem; margin: 1rem auto; padding: 0 1rem; line-height: 1.5; }}
+table {{ border-collapse: collapse; width: 100%; margin: 1rem 0; }}
+th, td {{ border: 1px solid #999; padding: 0.25rem 0.5rem; text-align: left; vertical-align: top; }}
+thead th {{ background: #eee; }}
+caption {{ text-align: left; font-style: italic; padding-bottom: 0.25rem; }}
+h1, h2 {{ line-height: 1.2; }}
+.search {{ margin: 1rem 0; }}
+.result {{ font-weight: bold; }}
+</style>
+</head>
+<body>
+<h1>Rejected candidates</h1>
+<p>
+{stats['accepted']} add-ons are mirrored. {total} candidates were excluded
+while building this mirror. They are listed below for transparency and
+browsing; they are not available in the mirror's add-on store data.
+</p>
+<p class="search">
+<label for="filter">Filter by add-on name or reason</label>:
+<input id="filter" type="search" size="40" autocomplete="off">
+<span id="count" class="result" role="status" aria-live="polite"></span>
+</p>
+<h2>Reasons</h2>
+<ul>
+{''.join(toc)}
+</ul>
+{''.join(rows)}
+<p><a href="index.html">Back to the mirror home page</a></p>
+<script>
+(function () {{
+  var input = document.getElementById("filter");
+  var count = document.getElementById("count");
+  var rows = Array.prototype.slice.call(document.querySelectorAll("tbody tr"));
+  function update() {{
+    var q = input.value.trim().toLowerCase();
+    var shown = 0;
+    rows.forEach(function (row) {{
+      var match = !q || row.textContent.toLowerCase().indexOf(q) !== -1;
+      row.style.display = match ? "" : "none";
+      if (match) shown++;
+    }});
+    count.textContent = q ? shown + " matching of " + rows.length : "";
+  }}
+  input.addEventListener("input", update);
+}})();
+</script>
+</body>
+</html>
+"""
+
+
 def emit(
     out_dir,
     canonical_bytes,
@@ -451,7 +560,8 @@ def emit(
         pass
 
     index_html = (
-        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<title>NVDA Add-on Mirror</title></head><body>"
         "<h1>NVDA Add-on Store Mirror</h1>"
         f"<p>{stats['accepted']} add-ons mirrored from "
@@ -459,10 +569,15 @@ def emit(
         "<a href='https://nvda-addons.ru/'>nvda-addons.ru</a>.</p>"
         "<p>Set the NVDA Add-on Store base URL to this site to use it. "
         "These add-ons are untested; install at your own risk.</p>"
+        f"<p><a href='rejected.html'>{len(rejected)} rejected candidates</a> "
+        "are listed on a separate page.</p>"
         "</body></html>"
     )
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
         f.write(index_html)
+
+    with open(os.path.join(out_dir, "rejected.html"), "w", encoding="utf-8") as f:
+        f.write(build_rejected_page(rejected, stats))
 
     def write_path(rel_path):
         # GitHub Pages rejects artifacts containing symlinks, and the artifact
