@@ -33,6 +33,16 @@ RU_ADDONS_URL = "https://nvda-addons.ru/get.php?addonslist"
 NVDA_BUILD_VERSION_URL = (
     "https://raw.githubusercontent.com/nvaccess/nvda/master/source/buildVersion.py"
 )
+NVDA_API_VERSION_URL = (
+    "https://raw.githubusercontent.com/nvaccess/nvda/master/source/addonAPIVersion.py"
+)
+
+#: Fallback BACK_COMPAT_TO (year, major, minor). NVDA considers an add-on
+#: "compatible" when minimumNVDAVersion <= current and
+#: lastTestedNVDAVersion >= BACK_COMPAT_TO. Kept in sync with
+#: nvaccess/nvda source/addonAPIVersion.py, but refreshed from that file at
+#: build time when reachable.
+FALLBACK_BACK_COMPAT_TO = (2026, 1, 0)
 
 # Every locale NVDA ships (source/locale/*). NVDA requests its store data at
 # {base}/{lang}/{channel}/{apiVersion}.json and uses the language code only as a
@@ -859,6 +869,48 @@ def current_nvda_api_version():
     return f"{year.group(1)}.{major.group(1)}.{minor.group(1)}"
 
 
+def back_compat_to_version():
+    """Fetch NVDA's BACK_COMPAT_TO tuple, else the hardcoded fallback.
+
+    An add-on is compatible with NVDA when
+    ``minimumNVDAVersion <= current`` and
+    ``lastTestedNVDAVersion >= BACK_COMPAT_TO``. NVDA trusts the
+    ``{apiVersion}.json`` endpoint to contain only such add-ons, so the mirror
+    must apply the same rule when filtering that file (the "compatible" view).
+    """
+    try:
+        src = http_get(NVDA_API_VERSION_URL, timeout=30).decode("utf-8")
+    except (HTTPError, URLError, OSError):
+        return FALLBACK_BACK_COMPAT_TO
+    m = re.search(r"BACK_COMPAT_TO\s*[:=]\s*\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)", src)
+    if not m:
+        return FALLBACK_BACK_COMPAT_TO
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+
+def _ver_tuple(d):
+    """{major, minor, patch} dict -> (major, minor, patch) int tuple."""
+    try:
+        return (int(d["major"]), int(d["minor"]), int(d["patch"]))
+    except (KeyError, TypeError, ValueError):
+        return (0, 0, 0)
+
+
+def _compatible_for_api_version(output, api_version_tuple, back_compat_to):
+    """Filter store objects to those compatible with the given API version.
+
+    Mirrors NVDA's addonHandler.addonVersionCheck.isAddonCompatible:
+    minimumNVDAVersion <= apiVersion AND lastTestedNVDAVersion >= BACK_COMPAT_TO.
+    """
+    compatible = []
+    for obj in output:
+        min_nvda = _ver_tuple(obj["minNVDAVersion"])
+        last_tested = _ver_tuple(obj["lastTestedVersion"])
+        if min_nvda <= api_version_tuple and last_tested >= back_compat_to:
+            compatible.append(obj)
+    return compatible
+
+
 def _esc(text):
     return (
         str(text)
@@ -971,6 +1023,7 @@ browsing; they are not available in the mirror's add-on store data.
 def emit(
     out_dir,
     canonical_bytes,
+    compatible_bytes,
     cache_hash,
     api_versions,
     locales,
@@ -1028,20 +1081,25 @@ def emit(
     with open(os.path.join(out_dir, "rejected.html"), "w", encoding="utf-8") as f:
         f.write(build_rejected_page(rejected, stats))
 
-    def write_path(rel_path):
+    def write_bytes(rel_path, data):
         # GitHub Pages rejects artifacts containing symlinks, and the artifact
         # upload follows them anyway (ballooning size), so always write real
-        # copies of the canonical JSON.
+        # copies rather than symlinks.
         target = os.path.join(out_dir, rel_path)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, "wb") as f:
-            f.write(canonical_bytes)
+            f.write(data)
 
     for lang in locales:
         for channel in channels:
-            write_path(f"{lang}/{channel}/latest.json")
+            # "latest.json" is NVDA's "include incompatible add-ons" view: the
+            # full catalog. The per-apiVersion files are the "compatible" view
+            # and must only contain add-ons compatible with that API version.
+            write_bytes(f"{lang}/{channel}/latest.json", canonical_bytes)
             for ver in api_versions:
-                write_path(f"{lang}/{channel}/{ver}.json")
+                if ver == "latest":
+                    continue
+                write_bytes(f"{lang}/{channel}/{ver}.json", compatible_bytes[ver])
 
 
 # ---------------------------------------------------------------------------
@@ -1227,22 +1285,51 @@ def main():
 
     output.sort(key=lambda o: (o["addonId"], o["channel"]))
 
-    canonical_bytes = json.dumps(
-        output, ensure_ascii=False, separators=(",", ":")
-    ).encode("utf-8")
-    cache_hash = hashlib.sha256(canonical_bytes).hexdigest()
+    def dump(obj):
+        return json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+    canonical_bytes = dump(output)
+
+    # NVDA's "compatible" endpoint ({apiVersion}.json) must contain only add-ons
+    # compatible with that API version (minimumNVDAVersion <= apiVersion and
+    # lastTestedNVDAVersion >= BACK_COMPAT_TO). The "latest.json" endpoint keeps
+    # the full catalog and backs the "include incompatible add-ons" toggle.
+    back_compat_to = back_compat_to_version()
+    compatible_bytes = {}
+    for ver in api_versions:
+        if ver == "latest":
+            continue
+        ver_tuple = parse_api_version(ver) or (0, 0, 0)
+        compatible_bytes[ver] = dump(
+            _compatible_for_api_version(output, ver_tuple, back_compat_to)
+        )
+    log(f"BACK_COMPAT_TO={back_compat_to}; compatible counts: "
+        f"{ {v: len(json.loads(b)) for v, b in compatible_bytes.items()} }")
+
+    # Hash the canonical catalog plus every compatibility-filtered view, so any
+    # change to the catalog OR the filter bumps the hash and forces NVDA clients
+    # to re-fetch the affected endpoint.
+    hash_input = canonical_bytes
+    for ver in api_versions:
+        if ver == "latest":
+            continue
+        hash_input += b"\x00" + compatible_bytes[ver]
+    cache_hash = hashlib.sha256(hash_input).hexdigest()
 
     stats = {
         "accepted": len(output),
         "rejected": len(rejected),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "api_versions": api_versions,
+        "back_compat_to": list(back_compat_to),
+        "compatible_counts": {v: len(json.loads(b)) for v, b in compatible_bytes.items()},
         "sources": sources,
     }
 
     emit(
         args.out,
         canonical_bytes,
+        compatible_bytes,
         cache_hash,
         api_versions,
         locales,
