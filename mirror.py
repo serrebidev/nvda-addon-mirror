@@ -324,7 +324,16 @@ def reject_reason(entry):
 
 
 def transform(entry, sha256):
-    """Map a normalized entry to the NVDA add-on store object."""
+    """Map a normalized entry to the NVDA add-on store object.
+
+    Field conventions follow the official store data (addonStore.nvaccess.org):
+    optional keys are OMITTED rather than set to null, because NVDA's
+    VirusTotalScanResults.fromDict treats an explicit None as malformed scan
+    data, and the store GUI renders some fields without a None guard
+    (details.py _appendDetailsLabelValue -> AppendText raises on None).
+    The reviews key is "reviewUrl" (lowercase "rl") -- NVDA reads
+    addon.get("reviewUrl").
+    """
     name = entry["name"]
     version = entry["version"]
 
@@ -334,11 +343,12 @@ def transform(entry, sha256):
 
     author = entry.get("author") or "Unknown"
     license_name = entry.get("license") or "Unknown"
-    license_url = entry.get("license_url") or None
-    homepage = entry.get("homepage") or None
-    source_url = entry.get("source_url") or entry.get("homepage") or None
+    license_url = entry.get("license_url") or ""
+    homepage = entry.get("homepage") or ""
+    download_url = entry.get("download_url") or ""
+    source_url = entry.get("source_url") or homepage or download_url
 
-    return {
+    obj = {
         "addonId": name,
         "displayName": clean_text(entry.get("summary")) or name,
         "description": entry.get("description") or "",
@@ -350,12 +360,10 @@ def transform(entry, sha256):
             "minor": addon_version[1],
             "patch": addon_version[2],
         },
-        "homepage": homepage,
-        "changelog": entry.get("changelog") or None,
         "license": license_name,
         "licenseURL": license_url,
         "sourceURL": source_url,
-        "URL": entry.get("download_url") or "",
+        "URL": download_url,
         "sha256": sha256,
         "minNVDAVersion": {
             "major": min_nvda[0],
@@ -367,10 +375,20 @@ def transform(entry, sha256):
             "minor": last_tested[1],
             "patch": last_tested[2],
         },
-        "reviewURL": None,
-        "submissionTime": entry.get("submission_ms"),
+        "submissionTime": entry.get("submission_ms") or 0,
         "legacy": False,
     }
+
+    # Optional keys are present-or-absent, never null (see docstring).
+    changelog = clean_text(entry.get("changelog"))
+    if changelog:
+        obj["changelog"] = changelog
+    if homepage:
+        # Keep absolute URLs only; a bare path renders as a broken link.
+        if homepage.startswith("http"):
+            obj["homepage"] = homepage
+
+    return obj
 
 
 def dedupe(entries):
