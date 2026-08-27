@@ -23,6 +23,7 @@ import threading
 from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlsplit, urlunsplit
 
 BESTMIDI_URL = "https://bestmidi.com/addons/addons.json"
 RU_ADDONS_URL = "https://nvda-addons.ru/get.php?addonslist"
@@ -76,6 +77,14 @@ def log(msg):
     print(msg, flush=True)
 
 
+def quote_url(url):
+    """Percent-encode the path of a URL, tolerating spaces and other
+    characters that urllib rejects. Keeps scheme, host, query and fragment."""
+    parts = urlsplit(url)
+    path = quote(parts.path, safe="/%:@!$&'()*+,;=-._~")
+    return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
+
+
 def http_get(url, timeout=120, headers=None):
     h = {"User-Agent": USER_AGENT, "Accept": "*/*"}
     if headers:
@@ -95,7 +104,7 @@ def http_head_length(url, timeout=60):
     Uses a ranged GET (bytes=0-0); servers that support ranges reply with
     "Content-Range: bytes 0-0/TOTAL", which gives the full size cheaply.
     """
-    req = Request(url, headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"})
+    req = Request(quote_url(url), headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"})
     try:
         with urlopen(req, timeout=timeout) as resp:
             cr = resp.headers.get("Content-Range", "")
@@ -182,7 +191,7 @@ def clean_text(text):
 
 def sha256_stream(url, timeout=3600):
     """Stream-download url and return (hex_sha256, size_bytes)."""
-    req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+    req = Request(quote_url(url), headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
     digest = hashlib.sha256()
     size = 0
     with urlopen(req, timeout=timeout) as resp:
