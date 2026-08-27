@@ -1,7 +1,7 @@
 # NVDA Add-on Update Mirror
 
 A self-updating mirror of two NVDA add-on catalogs, published in the exact wire
-format NVDA's built-in Add-on Store consumes. It refreshes every 12 hours via
+format NVDA's built-in Add-on Store consumes. It refreshes every 10 minutes via
 GitHub Actions and is served from GitHub Pages.
 
 Sources:
@@ -73,7 +73,7 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 ## Repo layout
 
 - `mirror.py` — the whole pipeline (stdlib only, Python 3.11+).
-- `.github/workflows/update.yml` — cron `0 */12 * * *` + manual dispatch.
+- `.github/workflows/update.yml` — cron `*/10 * * * *` + manual dispatch.
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
   packs it into `dist/`.
 - `public/` — generated site (published to GitHub Pages by Actions).

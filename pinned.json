@@ -10,6 +10,13 @@
       "channel": "stable",
       "min_nvda_version": "2024.1",
       "last_tested_nvda_version": "2026.1"
+    },
+    {
+      "repo": "tgeczy/panthera-speech",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "pantheraspeech",
+      "license": "MIT",
+      "channel": "stable"
     }
   ]
 }

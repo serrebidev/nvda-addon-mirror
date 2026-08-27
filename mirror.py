@@ -79,6 +79,11 @@ ALL_SOURCES = ("official", "bestmidi", "ru", "pinned")
 PINNED_CONFIG_PATH = "pinned.json"
 GITHUB_API = "https://api.github.com"
 
+# GitHub API token, when present (e.g. GITHUB_TOKEN in Actions). Raises the
+# api.github.com rate limit from 60 to 1000 requests/hour, which matters when
+# the mirror rebuilds more often than the upstream catalogs change.
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+
 
 def log(msg):
     print(msg, flush=True)
@@ -404,12 +409,14 @@ def _fetch_pinned_impl(config_path):
 
 
 def _fetch_one_pinned(spec, repo, addon_id):
-    headers = {
+    api_headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/vnd.github+json",
     }
+    if GITHUB_TOKEN:
+        api_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
     releases = json.loads(http_get(
-        f"{GITHUB_API}/repos/{repo}/releases?per_page=20", headers=headers
+        f"{GITHUB_API}/repos/{repo}/releases?per_page=20", headers=api_headers
     ).decode("utf-8"))
     glob = spec.get("asset_glob", "*.nvda-addon")
 
@@ -421,7 +428,12 @@ def _fetch_one_pinned(spec, repo, addon_id):
         raise RuntimeError(f"no asset matching {glob!r} in release {release['tag_name']}")
     asset = assets[0]
 
-    raw = http_get(asset["browser_download_url"], headers=headers)
+    # The asset download hits github.com (redirected to the release CDN), not
+    # api.github.com, so it does not need (or want) the Authorization header.
+    raw = http_get(asset["browser_download_url"], headers={
+        "User-Agent": USER_AGENT,
+        "Accept": "application/octet-stream",
+    })
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         manifest_text = zf.read("manifest.ini").decode("utf-8")
         names = zf.namelist()
@@ -506,7 +518,15 @@ def _rename_manifest_name(manifest_text, new_name):
 
 
 def _repack_addon(zf_bytes, raw, names, new_manifest):
-    """Rebuild the .nvda-addon zip with a replaced manifest.ini."""
+    """Rebuild the .nvda-addon zip with a replaced manifest.ini.
+
+    Passes the original ZipInfo through to writestr (rather than the bare
+    filename) so the repack preserves each entry's date_time. Passing a bare
+    name would stamp every entry with "now", so the repacked bundle's bytes --
+    and therefore its sha256 and the whole mirror's cacheHash -- would change
+    on every build even when nothing upstream changed, churning the published
+    catalog for every NVDA client.
+    """
     src = zipfile.ZipFile(io.BytesIO(raw))
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dest:
@@ -514,7 +534,7 @@ def _repack_addon(zf_bytes, raw, names, new_manifest):
             data = src.read(info.filename)
             if info.filename == "manifest.ini":
                 data = new_manifest
-            dest.writestr(info.filename, data)
+            dest.writestr(info, data)
     src.close()
     return out.getvalue()
 
