@@ -672,6 +672,36 @@ def reject_reason(entry):
     return None
 
 
+#: Static English translations for add-ons whose only available summary /
+#: description is Russian (nvda-addons.ru). Keyed by addonId. See
+#: translations.json.
+TRANSLATIONS_PATH = "translations.json"
+TRANSLATIONS = {}
+
+
+def load_translations(path=TRANSLATIONS_PATH):
+    """Load the static English translation map, if present. Never raises."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data.get("translations", data)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    return {}
+
+
+def _translate_entry(entry):
+    """Overlay English translations onto an entry's summary/description."""
+    tr = TRANSLATIONS.get(entry["name"])
+    if not tr:
+        return
+    if tr.get("summary"):
+        entry["summary"] = tr["summary"]
+    if tr.get("description"):
+        entry["description"] = tr["description"]
+
+
 def transform(entry, sha256):
     """Map a normalized entry to the NVDA add-on store object.
 
@@ -685,6 +715,8 @@ def transform(entry, sha256):
     """
     name = entry["name"]
     version = entry["version"]
+
+    _translate_entry(entry)
 
     addon_version = sanitize_version(version)
     min_nvda = entry.get("min_nvda") or (0, 0, 0)
@@ -1039,6 +1071,9 @@ def main():
     sources = args.sources.split(",")
     locales = args.locales.split(",") if args.locales else LOCALES
     channels = args.channels.split(",") if args.channels else CHANNELS
+
+    global TRANSLATIONS
+    TRANSLATIONS = load_translations()
 
     api_versions = list(CURATED_API_VERSIONS) + ["latest"]
     if args.api_versions:
