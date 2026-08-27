@@ -1,0 +1,9 @@
+# Generated mirror output (published to gh-pages, not tracked in main)
+public/
+
+# Persistent sha256 cache (restored from the deployed site, not committed)
+hashcache.json
+
+# Python
+__pycache__/
+*.pyc
