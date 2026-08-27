@@ -281,6 +281,8 @@ def fetch_ru():
                 "submission_ms": parse_ru_modified(link.get("modified")),
                 "min_nvda": parse_api_version(link.get("minimum")),
                 "last_tested": parse_api_version(link.get("lasttested")),
+                "category": (item.get("category") or "").strip().lower(),
+                "subcategory": (item.get("subcategory") or "").strip(),
                 "source": "ru",
             }
         )
@@ -299,6 +301,10 @@ def reject_reason(entry):
 
     if not name or name.lower() in _TEMPLATE_NAMES:
         return "missing or template add-on id"
+    if entry.get("category") == "synth-voice":
+        return "voice/data pack (skipped)"
+    if entry.get("subcategory") in ("vosk", "silero", "vosk_tts"):
+        return "voice/data model (skipped)"
     if sanitize_version(version) is None:
         return f"unparseable version {version!r}"
     if not download_url:
