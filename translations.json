@@ -4047,6 +4047,90 @@
   },
   "msn_messenger": {
    "description": "Not found"
+  },
+  "D4GameEnhancer": {
+   "summary": "Diablo IV improvements for Korean users"
+  },
+  "DictSwitcher": {
+   "summary": "NVDA multi-function speech dictionary switcher"
+  },
+  "EngelsizAndroidRSS": {
+   "summary": "Access the latest posts from the Engelsiz Android project, or share them via social media and email"
+  },
+  "Intec_SystemUtilities": {
+   "summary": "Add-on that speeds up functions used daily in a technical support service"
+  },
+  "ManusAssistantEnhanced": {
+   "summary": "Enhanced NVDA add-on with automatic replies and interface recognition for the Manus AI assistant"
+  },
+  "NVDA-WCT": {
+   "summary": "Edit your texts with an accessible interface and AI support; translate between English and Turkish"
+  },
+  "NVDAext_Alcatel-Lucent-4059mac": {
+   "summary": "NVDA extension for the Alcatel-Lucent 4059mac telephone switchboard software"
+  },
+  "RayoAI_connector": {
+   "summary": "Add-on to connect RayoAI with NVDA and share images more easily"
+  },
+  "TranslateOffline": {
+   "summary": "Neural-network-based offline machine translation add-on for NVDA"
+  },
+  "USB-D": {
+   "summary": "NVDA add-on for using a braille display upside down"
+  },
+  "abaAcademy": {
+   "summary": "Arab Blind Academy: a full Arabic learning and games add-on for NVDA — lessons, Qur'an, AI games, and quizzes"
+  },
+  "brailleExport": {
+   "summary": "NVDA braille output, exported to a file"
+  },
+  "brailleTableSwitcher": {
+   "summary": "NVDA add-on to cycle the braille translation table between Taiwan Chinese and UEB via a hotkey"
+  },
+  "clipboardProcessor": {
+   "summary": "NVDA add-on for quick clipboard processing via GPT"
+  },
+  "correctorOrtografico": {
+   "summary": "Spell checker for NVDA"
+  },
+  "favoritos": {
+   "summary": "NVDA add-on: save and quickly access favorite links, folders, and file/program shortcuts"
+  },
+  "mlrecorder": {
+   "summary": "Global NVDA commands to isolate and record audio from the focused process, microphone, or mixed audio using MLRecorder"
+  },
+  "mouseReadAfterStopDelay": {
+   "summary": "NVDA add-on that adds a delay before announcing content under the mouse pointer"
+  },
+  "odooTasks": {
+   "summary": "NVDA add-on to search for and manage Odoo tasks"
+  },
+  "sayDescription": {
+   "summary": "sayDescription: check the Description property via a hotkey"
+  },
+  "selectorSalidaAudioNVDA": {
+   "summary": "Per-application audio output selector"
+  },
+  "speakActions": {
+   "summary": "NVDA add-on that reads stock and Selic prices aloud via a Java API"
+  },
+  "terminalMenuNav": {
+   "summary": "NVDA add-on that makes interactive CLI menus in terminals usable with speech - announces only the selected option and its position"
+  },
+  "textToAudioConverter": {
+   "summary": "Add-on that converts text to MP3 audio"
+  },
+  "vozNativaDoDosvox": {
+   "summary": "Native Portuguese DOSVOX voice from 1993 adapted as a synthesizer for NVDA"
+  },
+  "youtube_subtitle_reader": {
+   "summary": "YouTube subtitle reader"
+  },
+  "zhDict": {
+   "summary": "NVDA Mandarin dictionary and English translation lookup add-on"
+  },
+  "zhuyin_say": {
+   "summary": "NVDA Addon - Zhuyin (Bopomofo) explanation mode"
   }
  }
 }
