@@ -17,6 +17,12 @@
       "addon_id": "pantheraspeech",
       "license": "MIT",
       "channel": "stable"
+    },
+    {
+      "repo": "anujj87/NVDAEqualizer",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "NVDAEqualizer",
+      "channel": "stable"
     }
   ]
 }

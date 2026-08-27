@@ -68,6 +68,10 @@ _API_VERSION_RE = re.compile(r"^(0|\d{4})\.(\d)(?:\.(\d))?$")
 
 _INT_RUN_RE = re.compile(r"\d+")
 
+#: Cyrillic block, used to detect Russian (nvda-addons.ru) text so the store
+#: can prefer English where an English sibling source exists.
+_CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
+
 _TEMPLATE_NAMES = {"addontemplate", "__addon_id__"}
 
 USER_AGENT = (
@@ -272,7 +276,6 @@ def fetch_official():
 
     entries = []
     for a in data:
-        version_number = a.get("addonVersionNumber") or {}
         scan = a.get("scanResults")
         entries.append(
             {
@@ -289,7 +292,12 @@ def fetch_official():
                 "changelog": clean_text(a.get("changelog")),
                 "download_url": (a.get("URL") or "").strip(),
                 "submission_ms": a.get("submissionTime") or None,
-                "min_nvda": parse_api_version_dict(version_number),
+                # min_nvda must come from minNVDAVersion (the minimum NVDA the
+                # add-on supports), NOT addonVersionNumber (the add-on's own
+                # release version). Using the latter made e.g. robEnhancements
+                # claim minNVDA 2026.5.3 instead of 2024.1.0, breaking NVDA's
+                # client-side compatibility gating.
+                "min_nvda": parse_api_version_dict(a.get("minNVDAVersion") or {}),
                 "last_tested": parse_api_version_dict(a.get("lastTestedVersion") or {}),
                 # Pass-through: already computed upstream, so no download needed.
                 "sha256": (a.get("sha256") or "").strip().lower(),
@@ -539,19 +547,50 @@ def _repack_addon(zf_bytes, raw, names, new_manifest):
     return out.getvalue()
 
 
+def _version_from_filename(download_name):
+    """Best-effort version from a .nvda-addon asset filename, or None.
+
+    bestmidi sometimes reports version "Unknown" while the asset filename
+    carries the real version (e.g. "TeleNVDA.Accessolutions-2026.08.26.1049",
+    "mygrammarplugin-2024.03.24", "Eloquence-19.1.3-RS"). Extracts the
+    trailing dotted-numeric run so the entry can still be published.
+    """
+    if not download_name:
+        return None
+    stem = re.sub(r"\.nvda-addon$", "", download_name, flags=re.IGNORECASE).strip()
+    if not stem:
+        return None
+    match = re.search(
+        r"(?<![0-9A-Za-z])[vV]?(\d+(?:[._]\d+){1,3})(?:[-_.](?:dev|beta|rc|rs)\d*)?$",
+        stem,
+    )
+    if not match:
+        return None
+    return match.group(1).replace("_", ".")
+
+
 def fetch_bestmidi():
     data = http_get_json(BESTMIDI_URL)
     entries = []
     for a in data.get("addons", []):
         name = (a.get("name") or "").strip()
         download_url = (a.get("download_url") or "").strip()
+        version = (a.get("version") or "").strip()
+        # bestmidi's version field is sometimes "Unknown" (or otherwise
+        # unparseable) even though the release asset filename carries the real
+        # version. Recover it from the filename so a valid, downloadable
+        # add-on is not rejected for a missing version string.
+        if sanitize_version(version) is None:
+            recovered = _version_from_filename(a.get("download_name"))
+            if recovered is not None:
+                version = recovered
         entries.append(
             {
                 "name": name,
                 "summary": clean_text(a.get("summary")),
                 "description": clean_text(a.get("description")),
                 "author": (a.get("author") or "").strip() or (a.get("owner") or "").strip(),
-                "version": (a.get("version") or "").strip(),
+                "version": version,
                 "channel": _norm_channel_bestmidi(a.get("update_channel")),
                 "homepage": (a.get("homepage_url") or "").strip(),
                 "source_url": (a.get("source_url") or "").strip()
@@ -707,6 +746,11 @@ def transform(entry, sha256):
     return obj
 
 
+def _has_cyrillic(text):
+    """True when text contains Cyrillic (Russian) characters."""
+    return bool(text and _CYRILLIC_RE.search(text))
+
+
 def dedupe(entries):
     """Dedupe by (addonId, channel).
 
@@ -720,24 +764,39 @@ def dedupe(entries):
     Access-reviewed, VirusTotal data, upstream hash) > nvda-addons.ru
     (curated, direct links) > bestmidi. Within a single source, the first
     occurrence wins; an entry with a download URL beats one without.
+
+    When the winning entry's text is Russian, English summary/description/
+    changelog are adopted from a non-Cyrillic sibling (official first, then
+    bestmidi), so the store shows English wherever an English source exists
+    while keeping the winner's reliable download URL and hash.
     """
     priority = {"official": 2, "ru": 1, "bestmidi": 0}
     by_key = {}
     for e in entries:
         key = (e["name"], e.get("channel") or "stable")
-        existing = by_key.get(key)
-        if existing is None:
-            by_key[key] = e
-            continue
-        # Prefer an entry with a download_url.
-        if not existing["download_url"] and e["download_url"]:
-            by_key[key] = e
-            continue
-        if existing["download_url"] and not e["download_url"]:
-            continue
-        if priority.get(e["source"], 0) > priority.get(existing["source"], 0):
-            by_key[key] = e
-    return list(by_key.values())
+        by_key.setdefault(key, []).append(e)
+
+    result = []
+    for group in by_key.values():
+        winner = max(
+            group,
+            key=lambda e: (1 if e["download_url"] else 0, priority.get(e["source"], 0)),
+        )
+        if _has_cyrillic(winner.get("summary")) or _has_cyrillic(winner.get("description")):
+            english = sorted(
+                group,
+                key=lambda e: priority.get(e["source"], 0),
+                reverse=True,
+            )
+            for cand in english:
+                if _has_cyrillic(cand.get("summary")) or _has_cyrillic(cand.get("description")):
+                    continue
+                for field in ("summary", "description", "changelog"):
+                    if cand.get(field):
+                        winner[field] = cand[field]
+                break
+        result.append(winner)
+    return result
 
 
 def load_hashcache(path):
