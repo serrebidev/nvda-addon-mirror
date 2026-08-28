@@ -23,6 +23,20 @@
       "asset_glob": "*.nvda-addon",
       "addon_id": "NVDAEqualizer",
       "channel": "stable"
+    },
+    {
+      "repo": "serrebidev/nvda-addon-mirror",
+      "asset_glob": "addonStoreMirror-*.nvda-addon",
+      "addon_id": "addonStoreMirror",
+      "license": "GPL v2",
+      "channel": "stable"
+    },
+    {
+      "repo": "serrebidev/logCollector",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "logCollectorAndFixesFromSerrebi",
+      "license": "Unknown",
+      "channel": "stable"
     }
   ]
 }
