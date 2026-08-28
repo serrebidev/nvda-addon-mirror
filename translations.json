@@ -5,7 +5,7 @@
    "summary": "MVSEP Minus"
   },
   "Thoughtfulmind-s-NVDA-Addon": {
-    "description": "Supplement for announcing actions related to the clipboard.",
+   "description": "Supplement for announcing actions related to the clipboard.",
    "summary": "Thoughtfulmind"
   },
   "wordAccessEnhancement": {
@@ -4054,88 +4054,115 @@
    "summary": "D4 Game Enhancer"
   },
   "DictSwitcher": {
-   "summary": "Dict Switcher"
+   "summary": "Dict Switcher",
+   "description": "Corrects polyphonic characters and braille dictionaries. Use NVDA+Alt+D to switch the pronunciation dictionary."
   },
   "EngelsizAndroidRSS": {
-   "summary": "Engelsiz Android RSS"
+   "summary": "Engelsiz Android RSS",
+   "description": "Engelsiz Android Latest Posts."
   },
   "Intec_SystemUtilities": {
-   "summary": "Intec System Utilities"
+   "summary": "Intec System Utilities",
+   "description": "Shut down and restart the PC with the classic Windows sound. View and inspect complete system information, open the Roaming folder and run system tools directly."
   },
   "ManusAssistantEnhanced": {
-   "summary": "Manus Assistant Enhanced"
+   "summary": "Manus Assistant Enhanced",
+   "description": "Enhanced NVDA add-on module with automatic responses for interacting with the Manus AI assistant."
   },
   "NVDA-WCT": {
-   "summary": "NVDA WCT"
+   "summary": "NVDA WCT",
+   "description": "With AI support, automatically correct your writing, translate, convert your text to speech, or copy it to the clipboard."
   },
   "NVDAext_Alcatel-Lucent-4059mac": {
-   "summary": "Alcatel-Lucent 4059mac"
+   "summary": "Alcatel-Lucent 4059mac",
+   "description": "Add-on for the Alcatel-Lucent 4059 IP standard software."
   },
   "RayoAI_connector": {
-   "summary": "RayoAI Connector"
+   "summary": "RayoAI Connector",
+   "description": "Add-on to describe the object navigator with RayoAI."
   },
   "TranslateOffline": {
-   "summary": "Translate Offline"
+   "summary": "Translate Offline",
+   "description": "Automatic translation add-on based on neural networks with no internet required. Models developed at the University of Helsinki and (now) at Stockholm University. Various translation utilities. Online mode with Google Translate. See the documentation for more information."
   },
   "USB-D": {
-   "summary": "USB-D"
+   "summary": "USB-D",
+   "description": "An add-on for using a braille display upside down. The braille output, routing switches and some keys of the supported braille display are inverted."
   },
   "abaAcademy": {
-   "summary": "Arab Blind Academy"
+   "summary": "Arab Blind Academy",
+   "description": "A complete educational academy inside NVDA for Arabic-speaking blind users: Arabic (grammar and dictation up to the Al-Ajurrumiyya level), English, French, Braille, computers and NVDA, Windows and Office skills, mathematics, science, history, geography, and general culture. More than seven hundred lessons with a real progressive path, a standard lesson engine (JSON), a limitless procedural question generator that produces endless examples, spaced repetition, statistics, and typing challenges. No external library needs to be installed: the database is embedded inside the add-on (SQLite when available, otherwise a pure Python engine). The interface is always in Arabic regardless of the NVDA language. Press Escape to close, and Shift+Escape to exit completely. The window can be reopened in the same session after being closed."
   },
   "brailleExport": {
-   "summary": "Braille Export"
+   "summary": "Braille Export",
+   "description": "Intercepts NVDA's braille output and exports it as Unicode braille .txt or BRF .brf files."
   },
   "brailleTableSwitcher": {
-   "summary": "Braille Table Switcher"
+   "summary": "Braille Table Switcher",
+   "description": "NVDA+Alt+B cycles through output braille tables; NVDA+Alt+I cycles through input braille tables; NVDA+Alt+O announces the current braille table."
   },
   "clipboardProcessor": {
-   "summary": "Clipboard Processor"
+   "summary": "Clipboard Processor",
+   "description": "Uses the OpenAI API to process text from the clipboard or a text selection."
   },
   "correctorOrtografico": {
-   "summary": "Spell checker for NVDA"
+   "summary": "Spell checker for NVDA",
+   "description": "Add-on for checking spelling in NVDA. Based on the work of the Blind Pandas team."
   },
   "favoritos": {
-   "summary": "Favoritos (Favorites)"
+   "summary": "Favoritos (Favorites)",
+   "description": "Allows you to add links, folders and shortcuts to files or programs to a favorites menu accessible from NVDA's Tools menu."
   },
   "mlrecorder": {
-   "summary": "ML Recorder"
+   "summary": "ML Recorder",
+   "description": "This add-on provides global NVDA commands to isolate and record the audio of the focused process, microphone or mixed audio using MLRecorder."
   },
   "mouseReadAfterStopDelay": {
-   "summary": "Mouse Read After Stop Delay"
+   "summary": "Mouse Read After Stop Delay",
+   "description": "Speaks the content under the mouse pointer only after a pause. The delay is adjustable in NVDA settings."
   },
   "odooTasks": {
-   "summary": "Odoo Tasks"
+   "summary": "Odoo Tasks",
+   "description": "Accessible search of the Odoo tasks the user is subscribed to."
   },
   "sayDescription": {
-   "summary": "Say Description"
+   "summary": "Say Description",
+   "description": "Use a shortcut to check the description attribute of a specific element. Refer to the readme file for add-on usage."
   },
   "selectorSalidaAudioNVDA": {
-   "summary": "Per-application audio output selector"
+   "summary": "Per-application audio output selector",
+   "description": "Allows you to select an application with active audio and send it to a specific output device. Includes SoundVolumeView as a portable external engine to apply the per-application output change. NVDA is hidden for security to prevent the user from losing the screen reader's voice."
   },
   "speakActions": {
-   "summary": "Speak Actions"
+   "summary": "Speak Actions",
+   "description": "This add-on checks stock prices and the Selic rate."
   },
   "terminalMenuNav": {
    "summary": "Terminal Menu Navigation"
   },
   "textToAudioConverter": {
-   "summary": "Text to Audio Converter"
+   "summary": "Text to Audio Converter",
+   "description": "Converts text from PDF files into MP3 files with Brazilian Portuguese neural voices."
   },
   "vozNativaDoDosvox": {
-   "summary": "Voz Nativa do DOSVOX (DOSVOX Native Voice)"
+   "summary": "Voz Nativa do DOSVOX (DOSVOX Native Voice)",
+   "description": "Portuguese synthesizer for NVDA based on the native voice originating from the DOSVOX system, developed at UFRJ from 1993."
   },
   "youtube_subtitle_reader": {
-   "summary": "YouTube subtitle reader"
+   "summary": "YouTube subtitle reader",
+   "description": "Reads subtitles with NVDA when focus is on the YouTube video player."
   },
   "zhDict": {
-   "summary": "Chinese Dictionary"
+   "summary": "Chinese Dictionary",
+   "description": "Select text and press Alt+NVDA+K to automatically detect Chinese or English: Chinese is looked up in the Ministry of Education Mandarin dictionary (MoeDict), and English is translated into Chinese."
   },
   "zhuyin_say": {
-   "summary": "Zhuyin Say"
+   "summary": "Zhuyin Say",
+   "description": "When Zhuyin explanation mode is on, pressing a keyboard key does not type text, but instead speaks the Zhuyin symbol and tone corresponding to that key."
   },
   "BraiLab PC Beszédszintetizátor": {
-   "summary": "BraiLab PC Beszédszintetizátor (BraiLab PC Speech Synthesizer)"
+   "summary": "BraiLab PC Beszédszintetizátor (BraiLab PC Speech Synthesizer)",
+   "description": "This is the BraiLab PC speech system, based on the work of András Arató and KFKI. A very portable and lightweight synthesizer, albeit with a somewhat robotic sound."
   },
   "CaptionLocal": {
    "summary": "Caption Local"
@@ -4171,7 +4198,8 @@
    "summary": "InsightAid Bridge"
   },
   "JadwalKu": {
-   "summary": "Jadwal Ku (My Schedule)"
+   "summary": "Jadwal Ku (My Schedule)",
+   "description": "Add-on for reminders of routine schedules (daily/weekly), periodic time reminders (from 5 minutes to 1 hour), a calendar, a world clock, and a standalone SAPI 5 TTS engine that is 100% screen reader accessibility friendly. Managed with an easy Combo Box & Checkbox interface via the NVDA + / Command Mode shortcut."
   },
   "KHW_Speak_Note": {
    "summary": "KHW Speak Note"
@@ -4183,7 +4211,8 @@
    "summary": "Lang Detect Speech"
   },
   "ListeIconesZoneNotification": {
-   "summary": "Liste Icones Zone Notification (Notification Area Icons List)"
+   "summary": "Liste Icones Zone Notification (Notification Area Icons List)",
+   "description": "Displays the list of icons in the notification area with NVDA+F11."
   },
   "MathCAT": {
    "summary": "MathCAT"
@@ -4192,7 +4221,8 @@
    "summary": "MathCAT for NVDA 2025"
   },
   "Milena_MBROLA": {
-   "summary": "Milena (MBROLA)"
+   "summary": "Milena (MBROLA)",
+   "description": "NVDA add-on with the Polish Milena synthesizer and MBROLA backend."
   },
   "Ms-Teams": {
    "summary": "Microsoft Teams"
@@ -4291,7 +4321,8 @@
    "summary": "Apollo 2"
   },
   "arubaSignCampiFirma": {
-   "summary": "Aruba Sign Campi Firma"
+   "summary": "ArubaSign Signature Fields",
+   "description": "Detects the signature fields in ArubaSign's \"Graphic Signature\" view and lets you place a graphic signature on each field (or all of them) without using the mouse. Press NVDA+Shift+S in the ArubaSign window to open the list of fields."
   },
   "autorunOrganizerAccess": {
    "summary": "Autorun Organizer Access"
@@ -4354,7 +4385,8 @@
    "summary": "Duxbury Info"
   },
   "fileContentManager": {
-   "summary": "File Content Manager"
+   "summary": "File Content Manager",
+   "description": "Manages the content of text files and paths from Windows Explorer."
   },
   "focusStartHelper": {
    "summary": "Focus Start Helper"
@@ -4429,7 +4461,8 @@
    "summary": "metecBD"
   },
   "mgDados": {
-   "summary": "MG Dados"
+   "summary": "MG Dados",
+   "description": "A utility that lets you roll dice of different types and keep track of players' scores. Designed to give you dice in NVDA for playing role-playing games."
   },
   "modernMono": {
    "summary": "Modern Mono"
@@ -4492,7 +4525,8 @@
    "summary": "PCRobot"
   },
   "pctalker": {
-   "summary": "PCTalker"
+   "summary": "PCTalker",
+   "description": "Three Hungarian speech synthesizers by József Király, with the original DOS engines, running in the Unicorn CPU emulator within NVDA's own process. No DOSBox and no external program."
   },
   "pipiqVisionAssist": {
    "summary": "Pipiq Vision Assist"
@@ -4504,10 +4538,12 @@
    "summary": "PowerPoint Comments"
   },
   "pyr": {
-   "summary": "Pyr"
+   "summary": "Pyr",
+   "description": "An accessible question-and-answer game by categories for NVDA."
   },
   "python_tutor": {
-   "summary": "Python Tutor"
+   "summary": "Python Tutor",
+   "description": "An NVDA add-on designed to make learning the Python programming language easier for people with visual impairments through a fast navigation and control interface."
   },
   "quickBooks2014": {
    "summary": "QuickBooks 2014"
@@ -4549,7 +4585,8 @@
    "summary": "Simple ChatGPT"
   },
   "sopAccess": {
-   "summary": "Sop Access"
+   "summary": "Sop Access",
+   "description": "Provides screen reader support for the visual novel \"Sister Other Paranoia\": automatically reads dialogue and character names, announces mind-reading inner thoughts, announces options and hints at how to select them, announces menus and buttons, echoes mind-reading input, and provides shortcuts for browsing and rereading dialogue history. Requires the corresponding BepInEx plugin (SopAccess.dll) installed in the game directory."
   },
   "speakPasswords": {
    "summary": "Speak Passwords"
@@ -4636,7 +4673,8 @@
    "summary": "WhatsApp Web Plus Companion"
   },
   "winGlulxe": {
-   "summary": "Win Glulxe"
+   "summary": "Win Glulxe",
+   "description": "This module works automatically with the winGlulxe interpreter with any adventure, automatically reads and allows navigation through the text with object commands."
   },
   "wordCount": {
    "summary": "Word Count"
@@ -4651,10 +4689,59 @@
    "summary": "Ya Music Helper"
   },
   "youtubeMusicPlayer": {
-   "summary": "YouTube Music Player"
+   "summary": "YouTube Music Player",
+   "description": "Search for and play music from YouTube and YouTube Music directly in NVDA."
   },
   "zararadio": {
-   "summary": "ZaraRadio"
+   "summary": "ZaraRadio",
+   "description": "Provides some shortcuts for quick access to relevant information and focus adjustment to cover all controls."
+  },
+  "batteryAlarm": {
+   "description": "Plays a sound when the battery reaches a configurable percentage, both when discharging and when charging."
+  },
+  "biblia-acessivel": {
+   "description": "Bible with fully accessible reading so you can grow closer to the Word of God.\nIt has 10 Bible versions, search by biblical passages and a complete notes system (create, edit and remove).\nIncludes shortcut keys for quick navigation between chapters, access to the book list, version selection and opening the main menu.\nActivate the application with NVDA+Shift+I."
+  },
+  "blackbox_v8": {
+   "description": "Standalone NVDA driver with the native BlackBox V8 engine."
+  },
+  "listLevelAddon": {
+   "description": "An NVDA add-on that reads the level of lists, their count and the number of items in the current level of the current list."
+  },
+  "meteoFrance": {
+   "summary": "Météo-France (French Weather Service)",
+   "description": "Easily get weather forecasts via the Météo-France service."
+  },
+  "Vnspeak": {
+   "summary": "Vnspeak TTS for NVDA",
+   "description": "The Vnspeak reader for NVDA, created by Lê Anh Tuấn together with the Nhật Hồng Blind Support Center with sponsorship from CBM. The copyright and intellectual property of the reader belong to the author Lê Anh Tuấn."
+  },
+  "zhcnViDict": {
+   "description": "A specialized Chinese-Vietnamese dictionary add-on for visually impaired gamers to experience Chinese game titles through NVDA.\nThe dictionary data was developed by the Convert Chinese-Vietnamese stories community and converted to an NVDA-compatible format by Lê Trọng Tấn."
+  },
+  "blindGame": {
+   "description": "Your games hub in NVDA. Activate the add-on with the NVDA+Shift+J shortcut, choose your favorite game and have fun.\nPause and resume the soundtrack with the NVDA+Shift+P shortcut."
+  },
+  "flixgrab": {
+   "description": "This extension improves the accessibility of FlixGrab by labeling many elements."
+  },
+  "iexplorer": {
+   "description": "This extension improves the accessibility of Macroplanet's iExplorer, a program for accessing iOS devices.\nThis version of the extension improves the accessibility of iExplorer's detail view."
+  },
+  "localisateur": {
+   "summary": "Locator",
+   "description": "This module lets you read the information area without moving the focus, and find out which forms are present in the window when the focus is in the sources list. The command is Control+Space."
+  },
+  "MenuVirtual": {
+   "summary": "Virtual Menu Example",
+   "description": "Example of a virtual menu."
+  },
+  "Pico Synthesizer for NVDA.": {
+   "summary": "Pico Synthesizer",
+   "description": "Run Control+NVDA+S to select the synthesizer."
+  },
+  "volksverschluesselung": {
+   "description": "NVDA extension for Volksverschlüsselung (public encryption)."
   }
  }
 }
