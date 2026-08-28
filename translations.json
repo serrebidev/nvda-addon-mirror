@@ -1148,7 +1148,7 @@
    "description": "Links Management is an add-on for NVDA that improves navigation in view mode when screen view is disabled.\nIt is enabled at the user's request in the settings.\nWhen the add-on is active, each link behaves as a separate row for navigation with up and down arrows.\nTrailing punctuation marks are intelligently attached to the reference string.\nThis avoids the appearance of empty lines or lines consisting only of punctuation marks.\nThe add-on is inspired by a similar function in JAWS.\n• The add-on only affects the behavior of the view mode.\n• It is intended for users who prefer structured navigation using links.\n• The add-on settings are located in the NVDA menu → Options → Settings → “Link Management”."
   },
   "soat_addoni": {
-   "summary": "Soat Addoni",
+   "summary": "Soat Addoni (Clock Add-on)",
    "description": "The SoatAddoni add-on is a simple talking clock.\nWhen you press the NVDA + I key combination, the current time will be announced in the Uzbek voice of Dilfuza Tokhtakhodzhaeva.\nThe add-on does not have settings, and there is also no way to change the keyboard shortcut through input gestures."
   },
   "time": {
@@ -1220,7 +1220,7 @@
    "description": "The SimpleCopy add-on for NVDA expands your ability to capture text, links, and voice messages.\n• URL Capture:\nA single click copies the address of the current page.\nDouble-clicking copies the URL of the hyperlink under the cursor.\n• Working with text:\nA single click copies the selection or adds it to the existing contents of the buffer.\nDouble tapping clears the clipboard.\n• Speech history management:\nA single press copies the last message NVDA spoke.\nDouble-clicking adds the last speech to the buffer.\nA triple press copies the entire accumulated speech history.\nA quadruple press opens the speech recording file for viewing.\nAll actions are accompanied by voice confirmation."
   },
   "tabelaBrasileirao": {
-   "summary": "Tabela Brasileirão (Brazileirão tournament table)",
+   "summary": "Tabela Brasileirão (Brasileirão tournament table)",
    "description": "Tabela Brasileirão is an add-on for NVDA that allows you to view the Brazilian Serie A standings with full accessibility.\nThe data is obtained from the website www.sentidodabola.com.br.\nTo open a table, use the standard keyboard shortcut Control+Shift+T.\nInside the table window, a Refresh Table button is available to force the data to refresh.\nThe add-on uses the cache for 30 minutes, which speeds up opening and saves Internet traffic.\nThe following hotkeys are available in the list of commands for quickly viewing statistics.\n• Up and down arrows move through the list with beeps at the beginning and end.\n• The F1 key opens help with a list of all hotkeys.\n• V shows the team's number of wins.\n• E shows the number of ties.\n• D shows the number of lesions.\n• S displays the difference between goals scored and goals conceded.\n• J shows the number of matches played.\n• P displays the number of goals scored.\n• C shows the number of goals conceded.\n• A displays the percentage of points scored.\nYou can change the keyboard shortcut to open the add-on in the NVDA menu: Options - Input Gestures - Tabela Brasileirão."
   },
   "IBMTTS": {
@@ -1913,7 +1913,7 @@
   },
   "AddonsManager": {
    "summary": "AddonsManager",
-   "description": "The AddonsManager add-on will help return the old functionality for managing add-ons to the new NVDA interface.\nAs of NVDA 2023.2, the “Add-on Manager” has been removed and replaced with the “Add-on Store”.\nSomeone might want to remember the interface of this add-on on NVDA 2025 and newer versions of NVDA.\nYou can open the Add-on Manager dialog box through the NVDA menu, Tools submenu, Add-on Manager.\nIn the input gesture settings, in the “Tools” category, there is a shortcut “Activates the NVDA Add-on Manager for installing and uninstalling add-on packages for NVDA\n» without a designated combination.\nFor the “AddonsManager” add-on, the code was taken from the NVDA 2023.1 sources.\nAll functionality of the add-on is described in detail in the reference manual."
+   "description": "The AddonsManager add-on will help return the old functionality for managing add-ons to the new NVDA interface.\nAs of NVDA 2023.2, the “Add-on Manager” has been removed and replaced with the “Add-on Store”.\nSomeone might want to remember the interface of this add-on on NVDA 2025 and newer versions of NVDA.\nYou can open the Add-on Manager dialog box through the NVDA menu, Tools submenu, Add-on Manager.\nIn the input gesture settings, in the “Tools” category, there is a shortcut “Activates the NVDA Add-on Manager for installing and uninstalling add-on packages for NVDA\n without a designated combination.\nFor the “AddonsManager” add-on, the code was taken from the NVDA 2023.1 sources.\nAll functionality of the add-on is described in detail in the reference manual."
   },
   "CerenceTTS": {
    "summary": "Cerence TTS",
@@ -1948,7 +1948,7 @@
    "description": "The uTubeDownload add-on is a YouTube video hosting downloader with queue, resume, download section, as well as trimming and screenshot systems.\nFeatures:\nuTubeDownload:\nAbility to select downloads in MP3 or MP4 format, either a single file or a playlist.\nEquipped with a background system to ensure efficient loading.\nQueue Manager: Organizes downloads one at a time to prevent high CPU and RAM load (supports smooth downloading of large number of files at the same time).\nResume System: Supports continued downloading after interruptions caused by restarting NVDA or shutting down/on Windows (can resume downloading remaining files the next day or when NVDA is restarted). A resume window will appear asking: If you select Yes, it will resume from pending files; if you select No, it will delete the remaining download history.\nAutomatic file recovery: Automatically repairs damaged files caused by incomplete downloads.\nChecking uploaded files: Skips already uploaded files to prevent duplication.\nMulti-Part Section Upload: Can split a file into up to 16 parts to increase download speed by 50%.\nAll of the above background systems can be enabled or disabled in NVDA Settings / uTubeDownload.\nuTubeTrim:\nA function to trim YouTube videos by setting the start and end time (a specific segment of the clip).\nPossibility to select MP3 format with Quality 128–320 kbps and MP4 H.265.\nIncludes a preview button to test the selected starting point before loading.\nWhen you are on the YouTube page you want to trim, press NVDA+ALT+Y to open the uTubeTrim settings window.\nuTubeSnapshot:\nCan capture static images from YouTube videos in .jpg format using the keyboard shortcut Control+Shift+Y.\nKeyboard shortcuts:\nNVDA+Y - Download as MP3 (single press).\nNVDA+Y twice - Download as MP4 (double press).\nNVDA+Shift+Y - Switch playlist mode.\nNVDA+Ctrl+Y - Open the downloads folder.\nNVDA+ALT+Y - Open uTubeTrim settings.\nControl+Shift+Y - Automatic snapshot.\nThe keyboard shortcut can be changed in the input gestures, in the category \"UBBDownload\"."
   },
   "contador": {
-   "summary": "Contador",
+   "summary": "Contador (Counter)",
    "description": "The Contador add-on allows NVDA users to count the number of characters and words of text copied\nto the clipboard, providing results using keyboard shortcuts.\nCharacter Count: Use the keyboard shortcut NVDA+shift+C to declare the number of characters in the clipboard text.\nWord Count: Use the keyboard shortcut NVDA+shift+W to declare the word count in the clipboard text.\nThe keyboard shortcut can be changed in input gestures, in the subsection Counting the number of characters and words."
   },
   "geminiSpellChecker": {
@@ -3970,7 +3970,7 @@
    "description": "enables/disables speech dictionary processing"
   },
   "word": {
-   "description": "This module complements the scripts built into the base version of NVDA and brings:\n\nkeyboard control NVDA+alt+F5 to get a list of various Word objects (comments, changes, bookmarks,...), \nkeyboard control Alt+éfacement to find out if: the row, column and page number at the system cursor position, the beginning and end of the selection, or the row and column number of the current table cell (indicating possible positions in relation to the left margin and above),\nkeyboard control NVDA+shift+alt+ c to insert a comment at the cursor position,\nkeyboard control NVDA+alt+n to read footnotes or at the end at the cursor position,\nkeyboard control NVDA+alt+r for reading editing text at the cursor position,\nadding to the basic scenarios movement from point to point (Control+down or up arrow), the ability is configured to skip empty paragraphs,\nscripts for moving in a table or reading its elements (row, column, cell),\ndeclaring a title level change when using the keyboard command shift+alt+right or left arrow for a word,\nfull mode navigation for NVDA new commands in Microsoft Word,\nmoving a word in a sentence (keyboard commands alt+ down or up arrow.\n\nFor more information, see Using the Module."
+   "description": "This module complements the scripts built into the base version of NVDA and brings:\n\nkeyboard control NVDA+alt+F5 to get a list of various Word objects (comments, changes, bookmarks,...), \nkeyboard control Alt+Delete to find out if: the row, column and page number at the system cursor position, the beginning and end of the selection, or the row and column number of the current table cell (indicating possible positions in relation to the left margin and above),\nkeyboard control NVDA+shift+alt+ c to insert a comment at the cursor position,\nkeyboard control NVDA+alt+n to read footnotes or at the end at the cursor position,\nkeyboard control NVDA+alt+r for reading editing text at the cursor position,\nadding to the basic scenarios movement from point to point (Control+down or up arrow), the ability is configured to skip empty paragraphs,\nscripts for moving in a table or reading its elements (row, column, cell),\ndeclaring a title level change when using the keyboard command shift+alt+right or left arrow for a word,\nfull mode navigation for NVDA new commands in Microsoft Word,\nmoving a word in a sentence (keyboard commands alt+ down or up arrow.\n\nFor more information, see Using the Module."
   },
   "NVSettings": {
    "description": "Not found"
@@ -4096,7 +4096,7 @@
    "summary": "Spell checker for NVDA"
   },
   "favoritos": {
-   "summary": "Favoritos"
+   "summary": "Favoritos (Favorites)"
   },
   "mlrecorder": {
    "summary": "ML Recorder"
@@ -4123,7 +4123,7 @@
    "summary": "Text to Audio Converter"
   },
   "vozNativaDoDosvox": {
-   "summary": "Voz Nativa do DOSVOX"
+   "summary": "Voz Nativa do DOSVOX (DOSVOX Native Voice)"
   },
   "youtube_subtitle_reader": {
    "summary": "YouTube subtitle reader"
@@ -4135,7 +4135,7 @@
    "summary": "Zhuyin Say"
   },
   "BraiLab PC Beszédszintetizátor": {
-   "summary": "BraiLab PC Beszédszintetizátor"
+   "summary": "BraiLab PC Beszédszintetizátor (BraiLab PC Speech Synthesizer)"
   },
   "CaptionLocal": {
    "summary": "Caption Local"
@@ -4171,7 +4171,7 @@
    "summary": "InsightAid Bridge"
   },
   "JadwalKu": {
-   "summary": "Jadwal Ku"
+   "summary": "Jadwal Ku (My Schedule)"
   },
   "KHW_Speak_Note": {
    "summary": "KHW Speak Note"
@@ -4183,7 +4183,7 @@
    "summary": "Lang Detect Speech"
   },
   "ListeIconesZoneNotification": {
-   "summary": "Liste Icones Zone Notification"
+   "summary": "Liste Icones Zone Notification (Notification Area Icons List)"
   },
   "MathCAT": {
    "summary": "MathCAT"
@@ -4348,7 +4348,7 @@
    "summary": "Discord Messages Reader"
   },
   "dosya_arsivim": {
-   "summary": "Dosya Arşivim"
+   "summary": "Dosya Arşivim (My File Archive)"
   },
   "duxburyInfo": {
    "summary": "Duxbury Info"
