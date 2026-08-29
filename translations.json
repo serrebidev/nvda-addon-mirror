@@ -1,5 +1,8 @@
 {
  "translations": {
+  "NVDABackupManager": {
+   "description": "A simple backup add-on for NVDA. It asks what you want to back up (configuration, profiles, dictionaries, add-ons, scratchpad), creates a zip backup with a manifest, and allows restoration with a recommendation to restart NVDA. It also supports automatic backups with a configurable interval."
+  },
   "mvsep_minus": {
    "description": "NVDA add-on for removing vocals and creating professional backing tracks (instruments) via the MVSEP API.",
    "summary": "MVSEP Minus"
@@ -582,6 +585,7 @@
   },
   "KingMouse": {
    "summary": "KingMouse",
+   "author": "Nikita Kovalev <nikkov95@mail.ru>",
    "description": "King Mouse is a new implementation of a talking mouse based on open source components.\nThe synthesis library was taken from the free version on a third-party site; developments from ruTTS were also used.\nChunkBefore and ChunkDelay parameters are available in the settings to eliminate cut speech fragments.\nThe CommaDelay and PointDelay parameters adjust punctuation pauses in milliseconds.\nDecimalPoint allows you to specify the pronunciation of the decimal point in numbers, such as \"and\" or \"dot\".\nThe Change_speed_mode setting controls speed changes: only by the engine, only through Sonic or mixed mode.\nThe SingleCyr parameter is responsible for the phonetic reading of single letters B, V, K and S.\nYou can enable reading of abbreviations and use a custom dictionary from the kingmouse.dic file.\nThere are sections for setting the pronunciation of Unicode characters, replacing Latin letters with Russian ones, and voicing single Latin letters.\nFor convenience, a graphical configurator with tabs has been developed that allows you to edit the dictionary and settings without editing ini files.\nEverything is described in as much detail as possible in the reference manual.\nNote: This is a beta version, the synthesizer is under active development, so there may be various unexpected problems that are best reported to the developer.\nNote: This is a beta version and the synthesizer is under active development, so various unexpected problems may arise, which are best reported to the developer.\nHow to do this, read the help."
   },
   "ReminderApp": {
@@ -1859,6 +1863,12 @@
    "summary": "MWWordLexicon (Merriam-Webster Dictionary)",
    "description": "MW Word Lexicon is an add-on for NVDA that provides instant access to the Merriam-Webster dictionary and thesaurus.\nAllows you to get definitions, synonyms and antonyms for any selected word directly from the running application without switching to the browser.\nIncludes a Word of the Day feature to expand your vocabulary, search history, and flexible results display modes.\nSupports interactive dialogues with word pronunciation and audio settings.\nWorks through the official API with a limit of 1000 requests per day.\nIdeal for students, writers and anyone who works with texts.\nThe add-on settings are located in the NVDA menu, Options, Settings, “MwWordLexicon” panel.\nTo use the main add-on keyboard shortcuts, you must first press Control+Shift+D to enter the main add-on layer.\nWhile you're inside this layer, tap one letter to perform an action such as getting a definition, showing synonyms, getting the Word of the Day, moving through history, and more.\nAll functionality of the add-on is described in detail in the help.\nNote: The developer has not implemented the ability to localize the add-on interface."
   },
+  "SaveLog": {
+   "author": "Unknown"
+  },
+  "TapinRadioStatusAnnouncer": {
+   "author": "Unknown"
+  },
   "youtube_indirici_pro": {
    "summary": "YoutubeIndiriciPro (Pro Downloader from Youtube)",
    "description": "YoutubeIndiriciPro add-on for NVDA makes working with YouTube easy.\nYou can search for videos, process video links and playlists, play content and download it in MP3 or MP4 formats.\nA convenient playlist manager is available to organize your media library.\nAll operations are performed using the keyboard: fast loading using F1/F2, preview using Enter, managing playlists.\nFlexible settings allow you to choose video and audio quality, download folder.\nDownloads are performed in the background without interfering with your work.\nThe functionality of the add-on is described in more detail in the help."
@@ -2165,6 +2175,7 @@
   },
   "WindowsMail": {
    "summary": "WindowsMail (Improving WindowsMail accessibility)",
+   "author": "Unknown",
    "description": "The WindowsMail add-on adds various commands to make it easier to work with the Windows Mail email client of the same name.\nCompatible with Windows 7-10, NVDA 2019.3 and later.\nAll keyboard shortcuts are described in detail in the add-on help."
   },
   "Live Internet Speed Tester": {
@@ -2205,6 +2216,7 @@
   },
   "EOFbeep": {
    "summary": "EOFbeep (End of File Beep)",
+   "author": "Quark unofficial",
    "description": "The EOFbeep add-on adds the following functionality:\nWhen the cursor reaches the end or beginning of the file, a signal sounds.\nNote: Disabled in Unigram.\nThe add-on does not have settings or keyboard shortcuts."
   },
   "rtkuwp": {
@@ -3708,6 +3720,7 @@
   },
   "VKSmiliesReader": {
    "summary": "VKSmiliesReader (VK emoticon reader)",
+   "author": "Artem Plaksin AKA maniyax <admin@maniyax.ru>",
    "description": "VKSmiliesReader add-on for reading VKontakte emoticons and other Unicode characters.\nEnabling or disabling automatic reading of emoticons and symbols is done by pressing the key combination NVDA+Alt+E."
   },
   "UnigramHelper": {
@@ -4584,6 +4597,10 @@
   "simpleChatGPT": {
    "summary": "Simple ChatGPT"
   },
+  "sonidos_navegacion_ruben": {
+   "summary": "Navigation sound effects",
+   "description": "NVDA add-on for navigation and typing sound effects with customizable sound packages, support for browse mode, and mouse feedback."
+  },
   "sopAccess": {
    "summary": "Sop Access",
    "description": "Provides screen reader support for the visual novel \"Sister Other Paranoia\": automatically reads dialogue and character names, announces mind-reading inner thoughts, announces options and hints at how to select them, announces menus and buttons, echoes mind-reading input, and provides shortcuts for browsing and rereading dialogue history. Requires the corresponding BepInEx plugin (SopAccess.dll) installed in the game directory."
@@ -4647,6 +4664,9 @@
   },
   "urlAnnouncer": {
    "summary": "URL Announcer"
+  },
+  "userParams": {
+   "author": "Unknown"
   },
   "verbosityPlus": {
    "summary": "Verbosity Plus"

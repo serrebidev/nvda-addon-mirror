@@ -702,7 +702,7 @@ def load_translations(path=TRANSLATIONS_PATH):
 
 
 def _translate_entry(entry):
-    """Overlay English translations onto an entry's summary/description."""
+    """Overlay English translations onto an entry's summary/description/author."""
     tr = TRANSLATIONS.get(entry["name"])
     if not tr:
         return
@@ -710,6 +710,8 @@ def _translate_entry(entry):
         entry["summary"] = tr["summary"]
     if tr.get("description"):
         entry["description"] = tr["description"]
+    if tr.get("author"):
+        entry["author"] = tr["author"]
 
 
 def transform(entry, sha256):
