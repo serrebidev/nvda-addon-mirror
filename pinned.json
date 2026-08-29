@@ -15,7 +15,7 @@
       "repo": "hozosch/eloquence_64",
       "asset_glob": "*.nvda-addon",
       "addon_id": "Eloquence16k",
-      "summary": "Eloquence Synthesizer (native 16 kHz)",
+      "summary": "Eloquence 64 (16 kHz)",
       "publisher": "HOzosch",
       "license": "Unknown",
       "channel": "stable",
