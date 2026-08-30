@@ -96,14 +96,22 @@ Windows where symlink creation needs privileges.
   is identical for all of them. The `apiVersion` is the *running NVDA's own*
   add-on API version (e.g. `2026.1.1`), so the mirror must emit a file for
   every released NVDA version still in use or those users get a 404 and an
-  empty "compatible" list. GitHub Pages forbids symlinks in Actions artifacts
-  (and dereferences them on upload anyway), so the mirror writes **real
-  copies**: 73 locales × channel `all` (the only one NVDA requests) ×
-  `CURATED_API_VERSIONS` (plus `latest` and the auto-detected dev version) ≈
-  800 MB. Add a version to `CURATED_API_VERSIONS` to cover another release's
-  "compatible" view — each extra version adds ~140 MB, so stay under the 1 GB
-  Pages warning. Users on a release whose file is absent still get the
-  `latest` (incompatible) view.
+  empty "compatible" list.
+  - **Old NVDA support has a hard floor of NVDA 2024.1**: the Add-on Store
+    client itself only shipped in NVDA 2024.1. NVDA 2018–2023.3 have no code
+    that fetches `{version}.json` at all, so no mirror of this kind can serve
+    them — "back to 2018" is structurally impossible, not just a size problem.
+  - GitHub Pages forbids symlinks in Actions artifacts (and dereferences them
+    on upload anyway), so the mirror writes **real copies**: 73 locales ×
+    channel `all` (the only one NVDA requests) × `CURATED_API_VERSIONS` (plus
+    `latest` and the auto-detected dev version) ≈ 800 MB. Each extra version
+    adds ~140 MB against the 1 GB Pages limit, so only a handful of versions
+    fit. Because NVDA auto-updates within a release line, users converge on the
+    latest patch of their line, and the mirror covers the current 64-bit stable
+    (`2026.1.1`), its predecessor (`2026.1`), and the final 32-bit release
+    (`2025.3.3`). Users on a release whose file is absent still get the
+    `latest` (incompatible) view. Per-version `BACK_COMPAT_TO` comes from
+    `nvdaAPIVersions.json` (mirrors `nvaccess/addon-datastore`).
 - **Version sanitization**: many non-GitHub add-ons use versions NVDA's
   `MajorMinorPatch` can't natively hold (`4.1.1009.12`, `2023.12.10.06.44.50`,
   `v20`, `1.0-beta`). The mirror keeps the first up-to-three integer runs and

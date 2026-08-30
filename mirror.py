@@ -69,9 +69,16 @@ CHANNELS = ["all"]
 # released NVDA version a user might still run needs a file here or they get a
 # 404 and an empty "compatible" list. "latest" always resolves the "show all
 # (incompatible)" view; the numbered entries cover the default "compatible"
-# view. The current dev version is prepended at build time. Kept deliberately
-# short: Pages forbids symlinks, so every path is a real copy and 73 locales
-# multiply it -- each numbered version adds ~140 MB of the 1 GB Pages warning.
+# view. The current dev version is prepended at build time.
+#
+# Why only these three: the Add-on Store client only shipped in NVDA 2024.1, so
+# nothing older than 2024.1 can consume this mirror at all (there is no
+# 2018-2023 "version" to serve). NVDA auto-updates within a release line, so
+# users converge on the latest patch of their line; the only hard wall is the
+# 32-bit -> 64-bit migration. That leaves just the current 64-bit stable, its
+# predecessor, and the final 32-bit release. Covering every 2024.1+ patch would
+# be ~2 GB -- Pages forbids symlinks, so every path is a real copy and 73
+# locales multiply it (~140 MB per version), against the 1 GB Pages limit.
 #  2026.1.1  current stable (64-bit)
 #  2026.1    previous stable (64-bit)
 #  2025.3.3  last 32-bit release (long tail during the 64-bit migration)
@@ -99,6 +106,7 @@ USER_AGENT = (
 
 ALL_SOURCES = ("official", "bestmidi", "ru", "pinned")
 PINNED_CONFIG_PATH = "pinned.json"
+NVDA_API_VERSIONS_PATH = "nvdaAPIVersions.json"
 GITHUB_API = "https://api.github.com"
 
 # GitHub API token, when present (e.g. GITHUB_TOKEN in Actions). Raises the
@@ -914,6 +922,33 @@ def back_compat_to_version():
     return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
 
+def load_nvda_api_versions(path=NVDA_API_VERSIONS_PATH):
+    """Map "year.major.minor" -> BACK_COMPAT_TO tuple for each NVDA release.
+
+    The bundled file mirrors nvaccess/addon-datastore's transform/nvdaAPIVersions.json:
+    every released NVDA API version has its OWN BACK_COMPAT_TO (which rose over
+    time; a single master value would wrongly shrink older releases' compatible
+    lists). The current dev version may not be listed, so callers fall back to
+    back_compat_to_version() when a version is absent. Never raises.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    result = {}
+    for entry in data:
+        api = entry.get("apiVer") or {}
+        back = entry.get("backCompatTo") or {}
+        ver = parse_api_version(
+            f"{api.get('major')}.{api.get('minor')}.{api.get('patch')}"
+        )
+        if ver is None:
+            continue
+        result[f"{ver[0]}.{ver[1]}.{ver[2]}"] = _ver_tuple(back)
+    return result
+
+
 def _ver_tuple(d):
     """{major, minor, patch} dict -> (major, minor, patch) int tuple."""
     try:
@@ -1345,16 +1380,25 @@ def main():
     # compatible with that API version (minimumNVDAVersion <= apiVersion and
     # lastTestedNVDAVersion >= BACK_COMPAT_TO). The "latest.json" endpoint keeps
     # the full catalog and backs the "include incompatible add-ons" toggle.
-    back_compat_to = back_compat_to_version()
+    #
+    # BACK_COMPAT_TO is per-version: it rose over time, so a single master value
+    # would shrink older releases' compatible lists. The bundled
+    # nvdaAPIVersions.json supplies each released version's value; the master
+    # fetch is the fallback for versions not listed (e.g. the current dev build).
+    nvda_api_versions = load_nvda_api_versions()
+    master_back_compat_to = back_compat_to_version()
     compatible_bytes = {}
+    back_compat_by_ver = {}
     for ver in api_versions:
         if ver == "latest":
             continue
         ver_tuple = parse_api_version(ver) or (0, 0, 0)
+        back_compat_to = nvda_api_versions.get(ver, master_back_compat_to)
+        back_compat_by_ver[ver] = back_compat_to
         compatible_bytes[ver] = dump(
             _compatible_for_api_version(output, ver_tuple, back_compat_to)
         )
-    log(f"BACK_COMPAT_TO={back_compat_to}; compatible counts: "
+    log(f"compatible counts (BACK_COMPAT_TO per version): "
         f"{ {v: len(json.loads(b)) for v, b in compatible_bytes.items()} }")
 
     # Hash the canonical catalog plus every compatibility-filtered view, so any
@@ -1372,7 +1416,7 @@ def main():
         "rejected": len(rejected),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "api_versions": api_versions,
-        "back_compat_to": list(back_compat_to),
+        "back_compat_to": back_compat_by_ver,
         "compatible_counts": {v: len(json.loads(b)) for v, b in compatible_bytes.items()},
         "sources": sources,
     }
