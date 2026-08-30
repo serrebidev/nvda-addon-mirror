@@ -445,16 +445,26 @@ def fetch_pinned(config_path=PINNED_CONFIG_PATH):
 def _fetch_pinned_impl(config_path):
     pinned = _load_pinned_config(config_path)
     entries = []
+    failures = []
     for spec in pinned:
         repo = spec.get("repo")
         addon_id = spec.get("addon_id")
         if not repo or not addon_id:
-            log(f"pinned entry missing repo/addon_id: {spec!r}")
+            message = f"pinned entry missing repo/addon_id: {spec!r}"
+            log(message)
+            failures.append(message)
             continue
         try:
             entries.extend(_fetch_one_pinned(spec, repo, addon_id))
-        except Exception as exc:  # noqa: BLE001 - one bad pinned entry must not kill the build
-            log(f"pinned entry {repo} failed: {exc}")
+        except Exception as exc:  # noqa: BLE001 - report every failed pin together
+            message = f"pinned entry {repo} failed: {exc}"
+            log(message)
+            failures.append(message)
+    if failures:
+        raise RuntimeError(
+            "refusing to publish an incomplete pinned add-on set: "
+            + "; ".join(failures)
+        )
     return entries
 
 
@@ -494,11 +504,8 @@ def _fetch_one_pinned(spec, repo, addon_id):
     summary = spec.get("summary") or _manifest_value(manifest_text, "summary") or release["name"] or addon_id
     description = _manifest_value(manifest_text, "description") or ""
     author = spec.get("publisher") or _manifest_value(manifest_text, "author") or ""
-    version = (asset["name"].rsplit(".nvda-addon", 1)[0] or release["tag_name"]).strip()
-    # Prefer the manifest version if it embeds the tag (e.g. 19.1.3-RS)
     mv = _manifest_value(manifest_text, "version")
-    if mv:
-        version = mv
+    version = _select_pinned_version(mv, asset["name"], release["tag_name"])
     min_nvda = (parse_api_version(_manifest_value(manifest_text, "minimumNVDAVersion"))
                 or parse_api_version(spec.get("min_nvda_version") or ""))
     last_tested = (parse_api_version(_manifest_value(manifest_text, "lastTestedNVDAVersion"))
@@ -609,6 +616,31 @@ def _version_from_filename(download_name):
     if not match:
         return None
     return match.group(1).replace("_", ".")
+
+
+def _select_pinned_version(manifest_version, asset_name, release_tag):
+    """Return the newest usable version advertised by a pinned release.
+
+    Release authors sometimes upload a correctly named new asset while leaving
+    an older ``version`` in manifest.ini. Trusting the manifest unconditionally
+    makes NVDA see the new bytes as the old release and suppresses the update.
+    Compare the manifest, asset filename, and release tag, preserving the
+    original display spelling of whichever candidate has the highest numeric
+    version.
+    """
+    candidates = []
+    for value in (
+        (manifest_version or "").strip(),
+        _version_from_filename(asset_name),
+        _version_from_filename(release_tag),
+    ):
+        parsed = sanitize_version(value)
+        if parsed is not None:
+            candidates.append((parsed, value))
+    if not candidates:
+        fallback = (asset_name or "").rsplit(".nvda-addon", 1)[0].strip()
+        return fallback or (release_tag or "").strip()
+    return max(candidates, key=lambda item: item[0])[1]
 
 
 def fetch_bestmidi():
@@ -1171,7 +1203,7 @@ def main():
     parser = argparse.ArgumentParser(description="Build a NVDA add-on store mirror.")
     parser.add_argument("--out", default="public")
     parser.add_argument("--sources", default=",".join(ALL_SOURCES),
-                        help="comma-separated sources: bestmidi,ru")
+                        help="comma-separated sources: official,bestmidi,ru,pinned")
     parser.add_argument("--locales", help="comma-separated locale override")
     parser.add_argument("--api-versions", help="comma-separated apiVersion override")
     parser.add_argument("--channels", help="comma-separated channel override")

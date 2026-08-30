@@ -2,7 +2,10 @@ name: update-mirror
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Offset from the top of the hour, when GitHub says scheduled jobs are most
+    # likely to be delayed or dropped. The keep-alive job below also dispatches
+    # the next run, because cron delivery alone is not guaranteed.
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,17 +15,17 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
@@ -41,10 +44,10 @@ jobs:
         run: python mirror.py --out public
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: public
 
@@ -57,4 +60,30 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+
+  schedule-next:
+    # GitHub documents that scheduled events can be delayed or dropped. Keep a
+    # ten-minute chain alive with the repository-scoped GITHUB_TOKEN; cron above
+    # remains a watchdog that restarts the chain if a run is ever interrupted.
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Wait for the next refresh interval
+        run: sleep 600
+
+      - name: Dispatch the next refresh when none is pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ACTIVE_RUNS="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/update.yml/runs?per_page=20" \
+            --jq "[.workflow_runs[] | select(.id != ${GITHUB_RUN_ID} and (.status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"pending\"))] | length")"
+          if [ "$ACTIVE_RUNS" -eq 0 ]; then
+            gh workflow run update.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
+          else
+            echo "$ACTIVE_RUNS other refresh run(s) already active; no dispatch needed."
+          fi

@@ -1,8 +1,9 @@
 # NVDA Add-on Update Mirror
 
-A self-updating mirror of two NVDA add-on catalogs, published in the exact wire
-format NVDA's built-in Add-on Store consumes. It refreshes every 10 minutes via
-GitHub Actions and is served from GitHub Pages.
+A self-updating mirror of NVDA add-on catalogs and explicitly pinned GitHub
+releases, published in the exact wire format NVDA's built-in Add-on Store
+consumes. It refreshes every 10 minutes via GitHub Actions and is served from
+GitHub Pages.
 
 Sources:
 
@@ -73,7 +74,8 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 ## Repo layout
 
 - `mirror.py` — the whole pipeline (stdlib only, Python 3.11+).
-- `.github/workflows/update.yml` — cron `*/10 * * * *` + manual dispatch.
+- `.github/workflows/update.yml` — ten-minute cron plus a self-dispatching
+  ten-minute keep-alive, because GitHub may delay or drop scheduled events.
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
   packs it into `dist/`.
 - `public/` — generated site (published to GitHub Pages by Actions).
@@ -82,12 +84,11 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 
 ```sh
 python mirror.py --out public              # full build (both sources)
-python mirror.py --sources ru --limit 6 --skip-download --locales en --copies   # fast smoke test
+python mirror.py --sources ru --limit 6 --skip-download --locales en   # fast smoke test
 ```
 
-On Linux the mirror emits symlinks (a few MB of git). Use `--copies` to write
-real files instead (much larger, ~1 MB per file), for local inspection on
-Windows where symlink creation needs privileges.
+The mirror writes real files rather than symlinks because GitHub Pages rejects
+artifacts that contain symlinks.
 
 ## Notes and trade-offs
 
