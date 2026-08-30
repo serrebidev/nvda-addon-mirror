@@ -93,13 +93,17 @@ Windows where symlink creation needs privileges.
 
 - **File layout**: NVDA requests `{base}/{lang}/{channel}/{apiVersion}.json`,
   using the language/channel/apiVersion only as cache keys — the returned list
-  is identical for all of them. GitHub Pages forbids symlinks in Actions
-  artifacts (and dereferences them on upload anyway), so the mirror writes
-  **real copies**: 73 locales × channel `all` (the only one NVDA requests) ×
-  4 API versions (latest + current + 2 recent) ≈ 770 MB. Add a version to
-  `CURATED_API_VERSIONS` to cover an older NVDA release's "compatible" view —
-  each extra version adds ~760 MB, so stay under the 1 GB Pages warning.
-  Users on older NVDA releases still get the `latest` view.
+  is identical for all of them. The `apiVersion` is the *running NVDA's own*
+  add-on API version (e.g. `2026.1.1`), so the mirror must emit a file for
+  every released NVDA version still in use or those users get a 404 and an
+  empty "compatible" list. GitHub Pages forbids symlinks in Actions artifacts
+  (and dereferences them on upload anyway), so the mirror writes **real
+  copies**: 73 locales × channel `all` (the only one NVDA requests) ×
+  `CURATED_API_VERSIONS` (plus `latest` and the auto-detected dev version) ≈
+  800 MB. Add a version to `CURATED_API_VERSIONS` to cover another release's
+  "compatible" view — each extra version adds ~140 MB, so stay under the 1 GB
+  Pages warning. Users on a release whose file is absent still get the
+  `latest` (incompatible) view.
 - **Version sanitization**: many non-GitHub add-ons use versions NVDA's
   `MajorMinorPatch` can't natively hold (`4.1.1009.12`, `2023.12.10.06.44.50`,
   `v20`, `1.0-beta`). The mirror keeps the first up-to-three integer runs and

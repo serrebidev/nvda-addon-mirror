@@ -63,14 +63,22 @@ LOCALES = [
 # so every path below is a real copy.
 CHANNELS = ["all"]
 
-# Recent NVDA API versions to expose. "latest" always resolves the "show all
+# API versions for NVDA releases still in active use. NVDA requests
+# {base}/{lang}/all/{year}.{major}.{minor}.json using its OWN add-on API version
+# (see NVDA source/addonStore/network.py _getCurrentApiVersionForURL), so every
+# released NVDA version a user might still run needs a file here or they get a
+# 404 and an empty "compatible" list. "latest" always resolves the "show all
 # (incompatible)" view; the numbered entries cover the default "compatible"
-# view for recent NVDA releases. The current dev version is prepended at build
-# time. Kept deliberately short: Pages forbids symlinks, so every path is a
-# real copy and 73 locales multiply it -- 3 copies/locale keeps the published
-# site near 750 MB of the 1 GB Pages warning as the catalog grows.
+# view. The current dev version is prepended at build time. Kept deliberately
+# short: Pages forbids symlinks, so every path is a real copy and 73 locales
+# multiply it -- each numbered version adds ~140 MB of the 1 GB Pages warning.
+#  2026.1.1  current stable (64-bit)
+#  2026.1    previous stable (64-bit)
+#  2025.3.3  last 32-bit release (long tail during the 64-bit migration)
 CURATED_API_VERSIONS = [
-    "2026.2.0",
+    "2026.1.0",
+    "2026.1.1",
+    "2025.3.3",
 ]
 
 # API version regex mirrors NVDA source/addonAPIVersion.py: year.major(.minor)
