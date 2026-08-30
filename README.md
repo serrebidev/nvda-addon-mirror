@@ -13,16 +13,22 @@ Sources:
   (`get.php?addonslist`, the same JSON its own TiendaNVDA/Store add-ons use),
   which hosts many add-ons that never publish GitHub releases (synthesizers,
   voice packs, localized forks, etc.).
+- **[nvda.es](https://nvda.es/)** with
+  **[nvda-addons.org](https://nvda-addons.org/)** as failover — these two domains
+  serve the same Spanish-community catalog byte for byte. The mirror monitors
+  it for original add-on IDs and drops aliases or add-ons already covered by a
+  stronger source.
 
 ## What it does
 
-1. Fetches both catalogs.
+1. Fetches every catalog (using nvda-addons.org only if nvda.es fails).
 2. Rejects candidates that cannot be safely installed through NVDA's store:
    - no download URL,
    - missing / template add-on id,
    - a version string with no parseable numeric parts.
-3. Merges the two sources by add-on id (the nvda-addons.ru entry wins on
-   collision, since it's a curated catalog with direct download links).
+3. Merges sources case-insensitively by add-on id and channel. Explicitly pinned
+   releases win, followed by the official store, nvda-addons.ru, bestmidi, and
+   Spanish-catalog originals.
 4. Downloads each remaining `.nvda-addon`, computes its SHA-256 (NVDA enforces
    this checksum on install), and emits the NVDA store schema.
 5. Writes `cacheHash.json`, `addons.json`, and

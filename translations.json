@@ -4762,6 +4762,10 @@
   },
   "volksverschluesselung": {
    "description": "NVDA extension for Volksverschlüsselung (public encryption)."
+  },
+  "edgeReader": {
+   "summary": "Edge Reader",
+   "description": "Edge Reader automatically saves any text read by the screen reader as high-quality MP3 files, making it convenient to listen to your documents at any time."
   }
  }
 }

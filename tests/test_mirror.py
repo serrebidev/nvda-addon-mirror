@@ -55,5 +55,77 @@ class PinnedCompletenessTests(unittest.TestCase):
                     mirror.fetch_pinned(path)
 
 
+class DedupeTests(unittest.TestCase):
+    def test_pinned_release_wins_over_stale_bestmidi_metadata(self):
+        shared = {
+            "name": "pantheraspeech",
+            "channel": "stable",
+            "download_url": "https://example.invalid/panthera.nvda-addon",
+            "summary": "Panthera Speech",
+            "description": "",
+        }
+        bestmidi = dict(shared, source="bestmidi", version="1.5.0")
+        pinned = dict(shared, source="pinned", version="2.0.1")
+
+        self.assertEqual("2.0.1", mirror.dedupe([bestmidi, pinned])[0]["version"])
+
+    def test_addon_ids_are_deduplicated_case_insensitively(self):
+        shared = {
+            "channel": "stable",
+            "download_url": "https://example.invalid/addon.nvda-addon",
+            "summary": "Example",
+            "description": "",
+        }
+        official = dict(shared, name="ExampleAddon", source="official")
+        community = dict(shared, name="exampleaddon", source="bestmidi")
+
+        result = mirror.dedupe([community, official])
+        self.assertEqual(1, len(result))
+        self.assertEqual("ExampleAddon", result[0]["name"])
+
+
+class SpanishCatalogTests(unittest.TestCase):
+    def test_aliases_are_not_mistaken_for_original_addons(self):
+        official = {"name": "ifInterpreters", "source": "official"}
+        alias = {
+            "name": "IF Interpreters",
+            "catalog_name": "IF Interpreters",
+            "catalog_file": "ifinterpreters",
+            "source": "es",
+        }
+        original = {
+            "name": "newSpanishAddon",
+            "catalog_name": "newSpanishAddon",
+            "catalog_file": "newspanishaddon",
+            "source": "es",
+        }
+
+        result = mirror.keep_original_es_entries([official, alias, original])
+        self.assertEqual([official, original], result)
+
+    def test_known_product_name_maps_to_internal_id(self):
+        community = {"name": "codefactory-py3", "source": "ru"}
+        spanish = {
+            "name": "codefactory",
+            "catalog_name": "codefactory",
+            "catalog_file": "codefactory",
+            "source": "es",
+        }
+
+        self.assertEqual(
+            [community],
+            mirror.keep_original_es_entries([community, spanish]),
+        )
+
+
+class TranslationTests(unittest.TestCase):
+    def test_edge_reader_description_is_english(self):
+        translations = mirror.load_translations()
+        description = translations["edgeReader"]["description"]
+
+        self.assertIn("automatically saves any text", description)
+        self.assertNotRegex(description, r"[\u0400-\u04ff]")
+
+
 if __name__ == "__main__":
     unittest.main()

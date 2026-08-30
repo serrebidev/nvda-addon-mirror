@@ -5,6 +5,8 @@ Sources:
 - https://bestmidi.com/addons/addons.json  (GitHub-discovered "bleeding edge" list)
 - https://nvda-addons.ru/get.php?addonslist (Russian community catalog, many
   non-GitHub add-ons; the same JSON the TiendaNVDA/Store add-ons consume)
+- https://nvda.es/files/get.php?addonslist (Spanish community catalog, with
+  nvda-addons.org as its byte-identical failover; originals only)
 
 Fetch -> filter (reject "rejected candidates") -> download + sha256 -> transform
 to the NVDA add-on store schema -> emit a static site consumable by NVDA's
@@ -30,6 +32,10 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 BESTMIDI_URL = "https://bestmidi.com/addons/addons.json"
 RU_ADDONS_URL = "https://nvda-addons.ru/get.php?addonslist"
+ES_ADDONS_URLS = [
+    "https://nvda.es/files/get.php?addonslist",
+    "https://nvda-addons.org/files/get.php?addonslist",
+]
 NVDA_BUILD_VERSION_URL = (
     "https://raw.githubusercontent.com/nvaccess/nvda/master/source/buildVersion.py"
 )
@@ -104,7 +110,7 @@ USER_AGENT = (
     "serrebidev/nvda-addon-mirror)"
 )
 
-ALL_SOURCES = ("official", "bestmidi", "ru", "pinned")
+ALL_SOURCES = ("official", "bestmidi", "ru", "es", "pinned")
 PINNED_CONFIG_PATH = "pinned.json"
 NVDA_API_VERSIONS_PATH = "nvdaAPIVersions.json"
 GITHUB_API = "https://api.github.com"
@@ -270,6 +276,17 @@ def _norm_channel_ru(channel):
         return "beta"
     if c == "stable":
         return "stable"
+    return "stable"
+
+
+def _norm_channel_es(channel):
+    c = (channel or "").strip().lower()
+    if c in ("dev", "alpha"):
+        return "dev"
+    if c in ("beta", "rc", "rcbeta"):
+        return "beta"
+    # The feed also contains an "old" channel. It is a legacy download rather
+    # than a channel understood by NVDA's Add-on Store, so callers skip it.
     return "stable"
 
 
@@ -719,6 +736,122 @@ def fetch_ru():
     return entries
 
 
+def fetch_es():
+    """Fetch the shared nvda.es / nvda-addons.org community catalog.
+
+    Both domains currently return the same bytes. Use nvda.es as the primary
+    and nvda-addons.org as failover so the mirror does not fetch and merge the
+    same catalog twice. Every non-legacy download link becomes a candidate;
+    ``keep_original_es_entries`` later removes add-ons already supplied by a
+    stronger source.
+    """
+    data = None
+    for url in ES_ADDONS_URLS:
+        try:
+            data = http_get_json(url)
+            break
+        except (HTTPError, URLError, OSError, json.JSONDecodeError) as exc:
+            log(f"Spanish store source {url} failed: {exc}")
+    if data is None:
+        raise RuntimeError("could not fetch nvda.es or nvda-addons.org")
+
+    entries = []
+    for item in data:
+        if item.get("hidden"):
+            continue
+        catalog_name = (item.get("name") or "").strip()
+        for link in item.get("links") or []:
+            raw_channel = (link.get("channel") or "stable").strip().lower()
+            if raw_channel == "old":
+                continue
+            entries.append(
+                {
+                    "name": catalog_name,
+                    "catalog_name": catalog_name,
+                    "catalog_file": (link.get("file") or "").strip(),
+                    "summary": clean_text(item.get("summary")),
+                    "description": clean_text(item.get("description")),
+                    "author": (item.get("author") or "").strip(),
+                    "version": (link.get("version") or "").strip(),
+                    "channel": _norm_channel_es(raw_channel),
+                    "homepage": (item.get("url") or "").strip(),
+                    "source_url": (item.get("url") or "").strip(),
+                    "license": "",
+                    "license_url": "",
+                    "changelog": "",
+                    "download_url": (link.get("link") or "").strip(),
+                    "submission_ms": parse_es_modified(link.get("modified")),
+                    "min_nvda": parse_api_version(link.get("minimum")),
+                    "last_tested": parse_api_version(link.get("lasttested")),
+                    "source": "es",
+                }
+            )
+    return entries
+
+
+def parse_es_modified(value):
+    """Parse the Spanish catalog's naive modified timestamp as UTC."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.strip()).replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return int(dt.timestamp() * 1000)
+
+
+def _normalized_addon_id(value):
+    """Loose comparison key used only to match catalog aliases."""
+    return re.sub(r"[^a-z0-9]", "", (value or "").casefold())
+
+
+_ES_ID_OVERRIDES = {
+    # The feed uses the product name; manifest.ini uses codefactory-py3.
+    "codefactory": "codefactory-py3",
+}
+
+
+def keep_original_es_entries(entries):
+    """Keep Spanish-store candidates absent from every stronger source.
+
+    The Spanish feed often uses display labels (spaces, punctuation, or a
+    translated product name) where manifest.ini uses a compact internal ID.
+    Match both its name and file slug against existing IDs before deciding an
+    entry is original. This prevents aliases such as ``IF Interpreters`` and
+    ``ifInterpreters`` from appearing as separate add-ons.
+    """
+    non_es = [entry for entry in entries if entry.get("source") != "es"]
+    exact = {entry["name"].casefold(): entry["name"] for entry in non_es}
+    normalized = {
+        _normalized_addon_id(entry["name"]): entry["name"]
+        for entry in non_es
+        if _normalized_addon_id(entry["name"])
+    }
+
+    result = list(non_es)
+    for entry in entries:
+        if entry.get("source") != "es":
+            continue
+        candidates = (
+            _ES_ID_OVERRIDES.get(entry.get("catalog_name", "").casefold()),
+            entry.get("catalog_name"),
+            entry.get("catalog_file"),
+            entry.get("name"),
+        )
+        existing_name = None
+        for candidate in candidates:
+            if not candidate:
+                continue
+            existing_name = exact.get(candidate.casefold())
+            if existing_name is None:
+                existing_name = normalized.get(_normalized_addon_id(candidate))
+            if existing_name is not None:
+                break
+        if existing_name is None:
+            result.append(entry)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Filter + transform
 # ---------------------------------------------------------------------------
@@ -747,8 +880,7 @@ def reject_reason(entry):
 
 
 #: Static English translations for add-ons whose only available summary /
-#: description is Russian (nvda-addons.ru). Keyed by addonId. See
-#: translations.json.
+#: description is not English. Keyed by addonId. See translations.json.
 TRANSLATIONS_PATH = "translations.json"
 TRANSLATIONS = {}
 
@@ -868,20 +1000,21 @@ def dedupe(entries):
     catalogs list one entry per add-on, which lands in whatever channel the
     catalog declares.
 
-    Preference order within the same (addonId, channel): official (NV
-    Access-reviewed, VirusTotal data, upstream hash) > nvda-addons.ru
-    (curated, direct links) > bestmidi. Within a single source, the first
-    occurrence wins; an entry with a download URL beats one without.
+    Preference order within the same (addonId, channel): explicitly pinned
+    releases > official (NV Access-reviewed, VirusTotal data, upstream hash) >
+    nvda-addons.ru (curated, direct links) > bestmidi > the shared Spanish
+    catalog. Within a single source, the first occurrence wins; an entry with a
+    download URL beats one without.
 
     When the winning entry's text is Russian, English summary/description/
     changelog are adopted from a non-Cyrillic sibling (official first, then
     bestmidi), so the store shows English wherever an English source exists
     while keeping the winner's reliable download URL and hash.
     """
-    priority = {"official": 2, "ru": 1, "bestmidi": 0}
+    priority = {"pinned": 4, "official": 3, "ru": 2, "bestmidi": 1, "es": 0}
     by_key = {}
     for e in entries:
-        key = (e["name"], e.get("channel") or "stable")
+        key = (e["name"].casefold(), e.get("channel") or "stable")
         by_key.setdefault(key, []).append(e)
 
     result = []
@@ -1203,7 +1336,7 @@ def main():
     parser = argparse.ArgumentParser(description="Build a NVDA add-on store mirror.")
     parser.add_argument("--out", default="public")
     parser.add_argument("--sources", default=",".join(ALL_SOURCES),
-                        help="comma-separated sources: official,bestmidi,ru,pinned")
+                        help="comma-separated sources: official,bestmidi,ru,es,pinned")
     parser.add_argument("--locales", help="comma-separated locale override")
     parser.add_argument("--api-versions", help="comma-separated apiVersion override")
     parser.add_argument("--channels", help="comma-separated channel override")
@@ -1260,11 +1393,26 @@ def main():
         log(f"nvda-addons.ru: {len(entries)} add-ons")
         all_entries.extend(entries)
 
+    if "es" in sources:
+        log("Fetching nvda.es add-on catalog (nvda-addons.org failover)")
+        entries = fetch_es()
+        log(f"Spanish catalog: {len(entries)} add-on/channel candidates")
+        all_entries.extend(entries)
+
     if "pinned" in sources:
         log("Fetching pinned variant add-ons")
         entries = fetch_pinned()
         log(f"pinned: {len(entries)} add-ons")
         all_entries.extend(entries)
+
+    if "es" in sources:
+        before_es = sum(1 for entry in all_entries if entry.get("source") == "es")
+        all_entries = keep_original_es_entries(all_entries)
+        original_es = sum(1 for entry in all_entries if entry.get("source") == "es")
+        log(
+            f"Spanish catalog originals: {original_es}; "
+            f"already covered by stronger sources: {before_es - original_es}"
+        )
 
     if args.limit:
         all_entries = all_entries[: args.limit]
