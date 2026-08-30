@@ -1,11 +1,11 @@
 {
   "pinned": [
     {
-      "repo": "Nick6489/Eloquence64RS",
+      "repo": "fastfinge/eloquence_64",
       "asset_glob": "*.nvda-addon",
-      "addon_id": "Eloquence64RS",
-      "summary": "Eloquence64RS Synthesizer (community Rust-host build)",
-      "publisher": "Nick Giannak III and contributors",
+      "addon_id": "fastfinge-Eloquence64",
+      "summary": "Eloquence 64 (fastfinge)",
+      "publisher": "fastfinge",
       "license": "Unknown",
       "channel": "stable",
       "min_nvda_version": "2024.1",
@@ -14,12 +14,34 @@
     {
       "repo": "hozosch/eloquence_64",
       "asset_glob": "*.nvda-addon",
-      "addon_id": "Eloquence16k",
-      "summary": "Eloquence 64 (16 kHz)",
+      "addon_id": "hozosch-Eloquence64",
+      "summary": "Eloquence 64 (hozosch)",
       "publisher": "HOzosch",
       "license": "Unknown",
       "channel": "stable",
       "min_nvda_version": "2024.1",
+      "last_tested_nvda_version": "2026.1"
+    },
+    {
+      "repo": "Nick6489/Eloquence64RS",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "Nick-Eloquence64RS",
+      "summary": "Eloquence64RS Synthesizer (community Rust-host build)",
+      "publisher": "Nick Giannak III and contributors",
+      "license": "Unknown",
+      "channel": "stable",
+      "min_nvda_version": "2024.1",
+      "last_tested_nvda_version": "2026.1"
+    },
+    {
+      "repo": "pumper42nickel/eloquence_threshold",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "pumper42nickel-EloquenceThreshold",
+      "summary": "Legacy Eloquence (pumper42nickel)",
+      "publisher": "pumper42nickel",
+      "license": "Unknown",
+      "channel": "stable",
+      "min_nvda_version": "2019.3.0",
       "last_tested_nvda_version": "2026.1"
     },
     {
@@ -48,6 +70,11 @@
       "addon_id": "logCollectorAndFixesFromSerrebi",
       "license": "Unknown",
       "channel": "stable"
+    }
+  ],
+  "exclude": [
+    {
+      "name": "Eloquence"
     }
   ]
 }

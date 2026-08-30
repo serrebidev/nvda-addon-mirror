@@ -399,6 +399,22 @@ def _load_pinned_config(path):
         return []
 
 
+def _load_excluded(path):
+    """Return the list of community add-on names superseded by pinned variants.
+
+    A pinned variant renames the bundle's manifest `name` to a distinct add-on
+    ID, but the upstream catalogs still list the same add-on under its original
+    generic `name` (e.g. the four "Eloquence" forks all publish `name =
+    Eloquence`). Without this exclusion both the generic and the pinned entries
+    would appear, duplicating the add-on. See pinned.json "exclude".
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f).get("exclude", [])
+    except FileNotFoundError:
+        return []
+
+
 def fetch_pinned(config_path=PINNED_CONFIG_PATH):
     """Fetch pinned variant add-ons from GitHub releases.
 
@@ -1188,6 +1204,31 @@ def main():
             continue
         todo.append(e)
     log(f"After filter: {len(todo)} accepted, {len(rejected)} rejected")
+
+    # 2b. Drop community-source entries superseded by a pinned variant. These
+    # share the generic manifest name of a pinned add-on (e.g. the four
+    # "Eloquence" variants all publish name = Eloquence), so they would appear
+    # as duplicates alongside the distinctly-named pinned entries.
+    excluded_names = {
+        (spec.get("name") or "").strip()
+        for spec in _load_excluded(PINNED_CONFIG_PATH)
+    }
+    if excluded_names:
+        kept = []
+        excluded_count = 0
+        for e in todo:
+            if e.get("source") in ("ru", "bestmidi") and e.get("name") in excluded_names:
+                rejected.append({
+                    "addonId": e.get("name"),
+                    "source": e.get("source"),
+                    "reason": "excluded (pinned variant replaces it)",
+                })
+                excluded_count += 1
+                continue
+            kept.append(e)
+        todo = kept
+        if excluded_count:
+            log(f"Excluded {excluded_count} community entries replaced by pinned variants")
 
     # 3. Dedupe across sources.
     todo = dedupe(todo)
