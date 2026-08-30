@@ -3,6 +3,7 @@ public/
 
 # Persistent sha256 cache (restored from the deployed site, not committed)
 hashcache.json
+githubOwnerCache.json
 
 # Python
 __pycache__/

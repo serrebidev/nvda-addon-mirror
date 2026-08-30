@@ -25,10 +25,10 @@ jobs:
         run: git config --global init.defaultBranch main
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.13"
 
@@ -41,16 +41,25 @@ jobs:
           echo "Restoring hash cache from ${URL}"
           curl -fsSL "$URL" -o hashcache.json || echo "No previous cache (first run)."
 
+      - name: Restore GitHub author manifest cache
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          URL="https://${OWNER}.github.io/${REPO}/githubOwnerCache.json"
+          echo "Restoring GitHub author cache from ${URL}"
+          curl -fsSL "$URL" -o githubOwnerCache.json || echo "No previous author cache (first run)."
+
       - name: Build mirror
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python mirror.py --out public
 
       - name: Configure Pages
-        uses: actions/configure-pages@v6
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: public
 
@@ -63,7 +72,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
         # deploy-pages v5 currently carries a known @actions/artifact punycode
         # deprecation. Limit suppression to this upstream action only.
         env:

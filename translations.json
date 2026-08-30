@@ -4766,6 +4766,30 @@
   "edgeReader": {
    "summary": "Edge Reader",
    "description": "Edge Reader automatically saves any text read by the screen reader as high-quality MP3 files, making it convenient to listen to your documents at any time."
+  },
+  "Calendar": {
+   "summary": "Calendar for NVDA",
+   "description": "Calendar provides quick information about any date in any year and can copy the selected date to the clipboard. Press NVDA+grave accent to open or close its virtual calendar layer. Use the arrow keys to move by day or week, Page Up and Page Down to move by month, Home and End to move by year, C to copy the selected date, and T to return to today's date. The opening gesture can be changed under Input Gestures, in the Calendar category.",
+   "changelog": "Release notes are not available in English."
+  },
+  "NeuralVoicesUA": {
+   "summary": "Neural Voices",
+   "description": "NeuralVoices is an NVDA driver for Microsoft's natural neural voices. It can switch voices automatically according to the language of the text and lets you configure the rate, pitch, and volume for each voice. Enable Unicode-script language detection in NVDA's speech settings, then choose preferred voices under NVDA Settings, Neural Voices. Install one or more neural voices after installing the driver; MultiLang can be used to combine this synthesizer with other synthesizers.",
+   "changelog": "Release notes are not available in English."
+  },
+  "bluetoothAudioByFouadSilent": {
+   "summary": "Silent Bluetooth Audio Keep-Alive",
+   "description": "This add-on uses a silent audio file to keep a Bluetooth headset connection active without producing an audible sound."
+  },
+  "virtualBrailleDisplay": {
+   "summary": "Virtual Braille Display for NVDA",
+   "description": "A virtual braille line for inspecting and debugging NVDA's braille output. It captures exactly what NVDA sends to display(cells) and presents it in a human-readable form."
+  },
+  "lineDesktop": {
+   "summary": "LINE Desktop Accessibility Support"
+  },
+  "mandateOfHeavenSubtitles": {
+   "description": "Automatically reads subtitles in Mandate of Heaven using NVDA's accessibility tree. No arrow keys are needed. Built for blind gamers."
   }
  }
 }

@@ -1,7 +1,9 @@
 import json
+import io
 import os
 import tempfile
 import unittest
+import zipfile
 from unittest import mock
 
 import mirror
@@ -55,6 +57,29 @@ class PinnedCompletenessTests(unittest.TestCase):
                     mirror.fetch_pinned(path)
 
 
+class PinnedConfigurationTests(unittest.TestCase):
+    def test_serrebi_helper_and_log_collector_are_pinned(self):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "pinned.json",
+        )
+        with open(path, "r", encoding="utf-8") as config_file:
+            pinned = json.load(config_file)["pinned"]
+
+        configured = {
+            (entry.get("repo"), entry.get("addon_id"))
+            for entry in pinned
+        }
+        self.assertIn(
+            ("serrebidev/nvda-addon-mirror", "addonStoreMirror"),
+            configured,
+        )
+        self.assertIn(
+            ("serrebidev/logCollector", "logCollectorAndFixesFromSerrebi"),
+            configured,
+        )
+
+
 class DedupeTests(unittest.TestCase):
     def test_pinned_release_wins_over_stale_bestmidi_metadata(self):
         shared = {
@@ -82,6 +107,19 @@ class DedupeTests(unittest.TestCase):
         result = mirror.dedupe([community, official])
         self.assertEqual(1, len(result))
         self.assertEqual("ExampleAddon", result[0]["name"])
+
+    def test_direct_author_release_wins_over_store_copy(self):
+        shared = {
+            "name": "exampleAddon",
+            "channel": "stable",
+            "download_url": "https://example.invalid/example.nvda-addon",
+            "summary": "Example",
+            "description": "",
+        }
+        official = dict(shared, source="official", version="1.0")
+        author = dict(shared, source="github_owner", version="1.1")
+
+        self.assertEqual("1.1", mirror.dedupe([official, author])[0]["version"])
 
 
 class SpanishCatalogTests(unittest.TestCase):
@@ -117,6 +155,118 @@ class SpanishCatalogTests(unittest.TestCase):
             mirror.keep_original_es_entries([community, spanish]),
         )
 
+    def test_dev_entry_does_not_hide_stable_spanish_release(self):
+        russian_dev = {
+            "name": "exampleAddon",
+            "channel": "dev",
+            "source": "ru",
+        }
+        spanish_stable = {
+            "name": "exampleAddon",
+            "catalog_name": "exampleAddon",
+            "catalog_file": "exampleAddon",
+            "channel": "stable",
+            "source": "es",
+        }
+
+        self.assertEqual(
+            [russian_dev, spanish_stable],
+            mirror.keep_original_es_entries([russian_dev, spanish_stable]),
+        )
+
+
+class GitHubOwnerTests(unittest.TestCase):
+    def test_unchanged_release_reuses_conditional_cache(self):
+        candidate = {
+            "repo": "example/addon",
+            "asset_name": "addon-1.0.nvda-addon",
+        }
+        state = {"etag": '"release-etag"', "candidates": [candidate]}
+        with mock.patch.object(
+            mirror,
+            "_github_json_conditional",
+            return_value=(None, '"release-etag"', True),
+        ):
+            candidates, updated_state = mirror._github_release_asset_state(
+                "example/addon",
+                state,
+            )
+
+        self.assertEqual([candidate], candidates)
+        self.assertIs(state, updated_state)
+
+    def test_asset_families_ignore_version_suffixes(self):
+        self.assertEqual("brailab", mirror._asset_family("brailab-3.1.5.nvda-addon"))
+        self.assertEqual(
+            "pctalker_pc_speaker_hungarian_demo",
+            mirror._asset_family(
+                "PCTALKER_PC_SPEAKER_Hungarian_DEMO_0.2.5.1.nvda-addon"
+            ),
+        )
+        self.assertEqual(
+            "tgspeechbox",
+            mirror._asset_family("TGSpeechBox-v310b802.nvda-addon"),
+        )
+
+    def test_multiple_addon_families_survive_one_repository(self):
+        releases = [
+            {
+                "isDraft": False,
+                "isPrerelease": False,
+                "tagName": "v2",
+                "releaseAssets": {
+                    "nodes": [
+                        {"name": "brailab-3.1.5.nvda-addon", "downloadUrl": "https://a"},
+                        {"name": "brailabEmulated-3.2.2.nvda-addon", "downloadUrl": "https://b"},
+                        {"name": "readme.txt", "downloadUrl": "https://c"},
+                    ]
+                },
+            }
+        ]
+        candidates = mirror._release_asset_candidates_from_records(
+            "example/Brailab", releases
+        )
+
+        self.assertEqual(2, len(candidates))
+        self.assertEqual(
+            {"brailab-3.1.5.nvda-addon", "brailabEmulated-3.2.2.nvda-addon"},
+            {candidate["asset_name"] for candidate in candidates},
+        )
+
+    def test_bundle_requires_root_manifest(self):
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, "w") as archive:
+            archive.writestr("not-an-addon.txt", "no manifest")
+        candidate = {
+            "repo": "example/not-an-addon",
+            "channel": "stable",
+            "asset_name": "fake.nvda-addon",
+            "download_url": "https://example.invalid/fake.nvda-addon",
+            "release_tag": "v1",
+            "published_at": None,
+            "changelog": "",
+        }
+
+        with mock.patch.object(mirror, "http_get", return_value=stream.getvalue()):
+            with self.assertRaises(KeyError):
+                mirror._github_asset_entry(candidate)
+
+
+class BestMidiTests(unittest.TestCase):
+    def test_newer_asset_filename_repairs_stale_catalog_version(self):
+        source = {
+            "addons": [
+                {
+                    "name": "edgeReader",
+                    "version": "1.2.4",
+                    "download_name": "edgeReader-1.2.6.nvda-addon",
+                    "download_url": "https://example.invalid/edgeReader-1.2.6.nvda-addon",
+                }
+            ]
+        }
+        with mock.patch.object(mirror, "http_get_json", return_value=source):
+            self.assertEqual("1.2.6", mirror.fetch_bestmidi()[0]["version"])
+
 
 class TranslationTests(unittest.TestCase):
     def test_edge_reader_description_is_english(self):
@@ -125,6 +275,45 @@ class TranslationTests(unittest.TestCase):
 
         self.assertIn("automatically saves any text", description)
         self.assertNotRegex(description, r"[\u0400-\u04ff]")
+
+    def test_calendar_changelog_is_english(self):
+        translations = mirror.load_translations()
+        self.assertEqual(
+            "Release notes are not available in English.",
+            translations["Calendar"]["changelog"],
+        )
+
+    def test_untranslated_release_notes_get_english_fallback(self):
+        old_translations = mirror.TRANSLATIONS
+        mirror.TRANSLATIONS = {}
+        entry = {
+            "name": "exampleAddon",
+            "changelog": "Исправлена ошибка.",
+        }
+        try:
+            mirror._translate_entry(entry)
+        finally:
+            mirror.TRANSLATIONS = old_translations
+
+        self.assertEqual(
+            "Release notes are not available in English.",
+            entry["changelog"],
+        )
+
+
+class HelperSafetyTests(unittest.TestCase):
+    def test_helper_does_not_replace_nvda_data_manager_singleton(self):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "helper",
+            "globalPlugins",
+            "addonStoreMirror.py",
+        )
+        with open(path, "r", encoding="utf-8") as helper_file:
+            source = helper_file.read()
+
+        self.assertNotIn("dataManager.initialize()", source)
+        self.assertIn("dataManager.addonDataManager", source)
 
 
 if __name__ == "__main__":

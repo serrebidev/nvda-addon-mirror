@@ -1,12 +1,14 @@
 # NVDA Add-on Update Mirror
 
-A self-updating mirror of NVDA add-on catalogs and explicitly pinned GitHub
-releases, published in the exact wire format NVDA's built-in Add-on Store
+A self-updating mirror of NVDA add-on catalogs, direct author releases, and
+explicitly pinned GitHub releases, published in the exact wire format NVDA's built-in Add-on Store
 consumes. It refreshes every 10 minutes via GitHub Actions and is served from
 GitHub Pages.
 
 Sources:
 
+- **[NV Access Add-on Store](https://github.com/nvaccess/addon-datastore)** —
+  the official catalog, including its upstream hashes and VirusTotal results.
 - **[bestmidi.com/addons/](https://bestmidi.com/addons/)** — the GitHub-discovered
   "bleeding edge" list (`addons.json`).
 - **[nvda-addons.ru](https://nvda-addons.ru/)** — the Russian community catalog
@@ -18,6 +20,10 @@ Sources:
   serve the same Spanish-community catalog byte for byte. The mirror monitors
   it for original add-on IDs and drops aliases or add-ons already covered by a
   stronger source.
+- **Configured GitHub authors** — release assets from the requested author list
+  are accepted only when the filename ends in `.nvda-addon` and the downloaded
+  ZIP has a valid root `manifest.ini`. Known add-on repositories are checked on
+  every ten-minute run; a lightweight daily account scan discovers new repos.
 
 ## What it does
 
@@ -27,8 +33,8 @@ Sources:
    - missing / template add-on id,
    - a version string with no parseable numeric parts.
 3. Merges sources case-insensitively by add-on id and channel. Explicitly pinned
-   releases win, followed by the official store, nvda-addons.ru, bestmidi, and
-   Spanish-catalog originals.
+   releases win, followed by direct author releases, the official store,
+   nvda-addons.ru, bestmidi, and Spanish-catalog originals.
 4. Downloads each remaining `.nvda-addon`, computes its SHA-256 (NVDA enforces
    this checksum on install), and emits the NVDA store schema.
 5. Writes `cacheHash.json`, `addons.json`, and
@@ -57,12 +63,13 @@ https://serrebidev.github.io/nvda-addon-mirror
 Two ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [dist/addonStoreMirror-1.1.0.nvda-addon](dist/addonStoreMirror-1.1.0.nvda-addon)
-   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.1.0.nvda-addon).
+   [dist/addonStoreMirror-1.1.1.nvda-addon](dist/addonStoreMirror-1.1.1.nvda-addon)
+   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.1.1.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
-   Requires 1.1.0 or later; 1.0.0 had a trailing-slash bug in the mirror URL.
+   Use 1.1.1 or later. Version 1.1.1 fixes a crash caused by replacing NVDA's
+   live Add-on Store data manager; 1.0.0 had a trailing-slash URL bug.
 2. **Edit `nvda.ini`** manually:
    ```ini
    [addonStore]
@@ -89,7 +96,7 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 ## Running locally
 
 ```sh
-python mirror.py --out public              # full build (both sources)
+python mirror.py --out public              # full build (all sources)
 python mirror.py --sources ru --limit 6 --skip-download --locales en   # fast smoke test
 ```
 
@@ -123,12 +130,13 @@ artifacts that contain symlinks.
   `MajorMinorPatch` can't natively hold (`4.1.1009.12`, `2023.12.10.06.44.50`,
   `v20`, `1.0-beta`). The mirror keeps the first up-to-three integer runs and
   pads with `0`; `addonVersionName` keeps the original string for display.
-- **Bandwidth + hashes**: the combined catalogs are large (many voice packs are
-  hundreds of MiB), so the first run downloads everything once. A `hashcache.json`
-  is deployed with the site and restored at the start of each run; thereafter
-  only add-ons whose download size changed are re-downloaded (checked via a
-  cheap `HEAD`). This assumes same-size release assets are immutable, which
-  holds for GitHub release and `nvda.ru` hosted files in practice.
+- **Bandwidth + hashes**: the combined catalogs are large, so the first run
+  downloads each unhashed package once. `hashcache.json` stores the SHA-256,
+  version, size, ETag, and Last-Modified validator; changed validators or
+  versions trigger a re-download, including same-size replacements.
+  `githubOwnerCache.json` stores validated manifests, repository discovery, and
+  conditional GitHub release ETags so unchanged ten-minute checks normally use
+  quota-free HTTP 304 responses.
 - **No vetting**: neither source is audited. bestmidi's disclaimer applies
   ("not tested, not an official repository"); nvda-addons.ru carries the same
   caveat. The SHA-256 hash guarantees immutability of what is downloaded, not

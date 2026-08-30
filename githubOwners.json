@@ -1,0 +1,153 @@
+{
+  "logins": [
+    "CyrilleB79",
+    "Oleksii-debug",
+    "Surveyor123",
+    "tonygeb23",
+    "ABuffEr",
+    "BlindByte06",
+    "ogomez92",
+    "IsaraRak",
+    "RetroBunn",
+    "ibrahim-s",
+    "RareBird15",
+    "addonFactory",
+    "javidominguez",
+    "hxebolax",
+    "oabi-siriwat",
+    "CodedByGoose",
+    "mahmoodhozhabri",
+    "surfer0627",
+    "thomas-a-fayez",
+    "blindndangerous",
+    "fastfinge",
+    "jaxcze",
+    "cary-rowen",
+    "ChrisDuffley",
+    "LeonarddeR",
+    "Mahmoud-Abo-El-Fotouh",
+    "seedy60",
+    "Blindex09",
+    "chaichaimee",
+    "voduykhanhmata-ctrl",
+    "josephsl",
+    "kefaslungu",
+    "nvdaes",
+    "nguyenanhduc09",
+    "komilblindev",
+    "day-garwood",
+    "joshknnd1982",
+    "saedmohamedn2210-create",
+    "anujj87",
+    "Dennisl123",
+    "InfiArtt",
+    "djgraco",
+    "willbilec",
+    "nvda-es",
+    "chocolatecake14",
+    "borris84",
+    "accessolutions",
+    "daisy",
+    "towebo",
+    "jcoffin1",
+    "helmsaccess",
+    "travisroth",
+    "vbprofi",
+    "timonvanhasselt",
+    "Bibeksharma5",
+    "kazek5p-git",
+    "ahmedthebest31",
+    "keyang556",
+    "Merry-ai",
+    "kinto-technologies",
+    "Pates2004",
+    "WebFriendlyHelp",
+    "squalorso",
+    "AAClause",
+    "derekriemer",
+    "actlaboratory",
+    "stefantsvyatkov",
+    "demon-of-fire",
+    "davidacm",
+    "jamalmazrui",
+    "alexoloopios",
+    "tianzeshi-study",
+    "Glowing-Radiant",
+    "Ednunp",
+    "jbgrimsby",
+    "michaldziwisz",
+    "muhammadGagah",
+    "jame25",
+    "naokiluca",
+    "Fouadddiv",
+    "pumper42nickel"
+  ],
+  "owners": [
+    {
+      "login": "OnjLouis",
+      "repositories": [
+        "dateParser",
+        "fastRead",
+        "Minuter",
+        "newsFusion",
+        "nvdaComposer",
+        "pocket-TTS-nvda-screenreader-addon",
+        "prose2000",
+        "samsungGalaxyVoices",
+        "samsungTVVoices",
+        "soundWave",
+        "wikiFusion"
+      ]
+    },
+    {
+      "login": "masonasons",
+      "repositories": [
+        "DECTalkNVDA",
+        "monologue16-NVDA",
+        "NoSpeakRolls",
+        "OpenEVVWindows",
+        "typing_settings",
+        "Unspoken"
+      ]
+    },
+    {
+      "login": "tgeczy",
+      "repositories": [
+        "Brailab-wrapper",
+        "Flexvoice-wrapper",
+        "leopard-speech",
+        "outspoken-nvda",
+        "panthera-speech",
+        "pcrobot-emulator",
+        "pctalker-nvda",
+        "TGSpeechBox",
+        "votraxsc01-nvda"
+      ]
+    },
+    {
+      "login": "paulber19",
+      "repositories": [
+        "apprentiClavierAccessEnhancementNVDAAddon",
+        "audacityAccessEnhancementNVDAAddon",
+        "notepadPlusPlusAccessEnhancementNVDAAddon",
+        "NVDAExtensionGlobalPlugin",
+        "radioSureAccessEnhancementNVDAAddon",
+        "recuvaAccessEnhancementNVDAAddon",
+        "VLCAccessEnhancementNVDAAddon",
+        "wordAccessEnhancementNVDAAddon"
+      ],
+      "artifact_repositories": [
+        {
+          "repo": "paulber007/AllMyNVDAAddons",
+          "ref": "master"
+        }
+      ]
+    },
+    {
+      "login": "abdel792",
+      "repositories": [
+        "sayCurrentKeyboardLanguage"
+      ]
+    }
+  ]
+}
