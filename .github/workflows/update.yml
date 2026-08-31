@@ -1,6 +1,9 @@
 name: update-mirror
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     # Offset from the top of the hour, when GitHub says scheduled jobs are most
     # likely to be delayed or dropped. The keep-alive job below also dispatches
