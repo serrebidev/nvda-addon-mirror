@@ -176,51 +176,125 @@ class SpanishCatalogTests(unittest.TestCase):
 
 
 class GitHubOwnerTests(unittest.TestCase):
-    def test_owner_repository_discovery_can_exclude_forks(self):
+    def test_release_tag_version_rejects_incidental_digits(self):
+        self.assertIsNone(mirror._release_tag_version("sound_lib1"))
+        self.assertEqual((0, 2, 1), mirror._release_tag_version("v0.2.1"))
+        self.assertEqual((301, 0, 0), mirror._release_tag_version("v-301"))
+
+    def test_owner_repository_discovery_tracks_fork_parents(self):
         response = {
             "owner0": {
                 "repositories": {
                     "nodes": [
                         {"nameWithOwner": "example/original", "isFork": False},
-                        {"nameWithOwner": "example/forked", "isFork": True},
+                        {
+                            "nameWithOwner": "example/forked",
+                            "isFork": True,
+                            "parent": {"nameWithOwner": "upstream/original"},
+                        },
                     ],
                     "pageInfo": {"hasNextPage": False, "endCursor": None},
                 }
             }
         }
         with mock.patch.object(mirror, "_github_graphql", return_value=response):
-            repositories = mirror._github_owner_repository_names(
-                [{"login": "example", "include_forks": False}]
-            )
-
-        self.assertEqual({"example/original"}, repositories)
-
-    def test_owner_repository_discovery_includes_forks_by_default(self):
-        response = {
-            "owner0": {
-                "repositories": {
-                    "nodes": [
-                        {"nameWithOwner": "example/original", "isFork": False},
-                        {"nameWithOwner": "example/forked", "isFork": True},
-                    ],
-                    "pageInfo": {"hasNextPage": False, "endCursor": None},
-                }
-            }
-        }
-        with mock.patch.object(mirror, "_github_graphql", return_value=response):
-            repositories = mirror._github_owner_repository_names(
+            repositories, fork_parents = mirror._github_owner_repository_names(
                 [{"login": "example"}]
             )
 
         self.assertEqual({"example/original", "example/forked"}, repositories)
-
-    def test_serrebidev_configuration_excludes_forks(self):
-        owners = mirror._load_github_owners()
-        serrebi = next(
-            spec for spec in owners if spec["login"].casefold() == "serrebidev"
+        self.assertEqual(
+            {"example/forked": "upstream/original"},
+            fork_parents,
         )
 
-        self.assertIs(False, serrebi["include_forks"])
+    def test_owner_repository_exclusion_overrides_newer_fork_policy(self):
+        response = {
+            "owner0": {
+                "repositories": {
+                    "nodes": [
+                        {
+                            "nameWithOwner": "example/tdesktopnvda",
+                            "isFork": True,
+                            "parent": {"nameWithOwner": "upstream/tdesktopnvda"},
+                        },
+                        {"nameWithOwner": "example/original", "isFork": False},
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+        with mock.patch.object(mirror, "_github_graphql", return_value=response):
+            repositories, fork_parents = mirror._github_owner_repository_names(
+                [{"login": "example", "exclude_repositories": ["tdesktopnvda"]}]
+            )
+
+        self.assertEqual({"example/original"}, repositories)
+        self.assertEqual({}, fork_parents)
+
+    def test_telegram_configuration_selects_original_owner(self):
+        owners = mirror._load_github_owners()
+        by_login = {spec["login"].casefold(): spec for spec in owners}
+
+        self.assertIn("keyang556", by_login)
+        self.assertEqual("exclude", by_login["serrebidev"]["fork_policy"])
+
+    def test_owner_can_exclude_all_forks(self):
+        response = {
+            "owner0": {
+                "repositories": {
+                    "nodes": [
+                        {
+                            "nameWithOwner": "example/contribution",
+                            "isFork": True,
+                            "parent": {"nameWithOwner": "upstream/original"},
+                        },
+                        {"nameWithOwner": "example/original", "isFork": False},
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+        with mock.patch.object(mirror, "_github_graphql", return_value=response):
+            repositories, fork_parents = mirror._github_owner_repository_names(
+                [{"login": "example", "fork_policy": "exclude"}]
+            )
+
+        self.assertEqual({"example/original"}, repositories)
+        self.assertEqual({}, fork_parents)
+
+    def test_newer_fork_release_is_kept(self):
+        candidate = {
+            "repo": "example/forked",
+            "asset_name": "example-2.0.nvda-addon",
+            "release_tag": "v2.0",
+        }
+        kept, _states, rejected = mirror._filter_fork_candidates(
+            [candidate],
+            {"example/forked": "upstream/original"},
+            {"upstream/original": {"latest_version": [1, 5, 0]}},
+            {},
+        )
+
+        self.assertEqual([candidate], kept)
+        self.assertEqual([], rejected)
+
+    def test_equal_or_older_fork_release_is_rejected(self):
+        candidate = {
+            "repo": "example/forked",
+            "asset_name": "example-1.5.nvda-addon",
+            "release_tag": "v1.5",
+        }
+        kept, _states, rejected = mirror._filter_fork_candidates(
+            [candidate],
+            {"example/forked": "upstream/original"},
+            {"upstream/original": {"latest_version": [1, 5, 0]}},
+            {},
+        )
+
+        self.assertEqual([], kept)
+        self.assertEqual(1, len(rejected))
+        self.assertIn("is not newer", rejected[0]["reason"])
 
     def test_unchanged_release_reuses_conditional_cache(self):
         candidate = {

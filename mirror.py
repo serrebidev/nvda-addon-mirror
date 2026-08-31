@@ -215,6 +215,18 @@ def sanitize_version(version):
     return (nums[0], nums[1], nums[2])
 
 
+def _release_tag_version(tag):
+    """Parse a version-shaped GitHub tag without treating incidental digits as versions."""
+    if not tag:
+        return None
+    match = re.fullmatch(
+        r"(?i)v?[-_.]?(\d+(?:[._-]\d+){0,3})"
+        r"(?:[-_.]?(?:alpha|beta|b|rc|dev|rs)\d*)?",
+        tag.strip(),
+    )
+    return sanitize_version(match.group(1)) if match else None
+
+
 def parse_api_version(version):
     """Return (major, minor, patch) ints or None, using NVDA's API regex."""
     if not version:
@@ -558,6 +570,8 @@ def _fetch_one_pinned(spec, repo, addon_id):
     author = spec.get("publisher") or _manifest_value(manifest_text, "author") or ""
     mv = _manifest_value(manifest_text, "version")
     version = _select_pinned_version(mv, asset["name"], release["tag_name"])
+    if not _github_fork_release_qualifies(repo, sanitize_version(version)):
+        return []
     min_nvda = (parse_api_version(_manifest_value(manifest_text, "minimumNVDAVersion"))
                 or parse_api_version(spec.get("min_nvda_version") or ""))
     last_tested = (parse_api_version(_manifest_value(manifest_text, "lastTestedNVDAVersion"))
@@ -592,6 +606,43 @@ def _fetch_one_pinned(spec, repo, addon_id):
         "_patched_bytes": patched,
     }
     return [entry]
+
+
+def _github_repository_fork_parent(repo):
+    owner, name = repo.split("/", 1)
+    metadata = _github_json(
+        f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+    )
+    if not metadata.get("fork"):
+        return None
+    parent = metadata.get("parent") or {}
+    parent_name = parent.get("full_name")
+    if not parent_name:
+        raise RuntimeError(f"GitHub fork has no originating repository: {repo}")
+    return parent_name
+
+
+def _github_fork_release_qualifies(repo, fork_version=None):
+    """Return true for originals or forks released beyond their parent version."""
+    parent = _github_repository_fork_parent(repo)
+    if not parent:
+        return True
+    if fork_version is None:
+        _candidates, fork_state = _github_release_asset_state(repo)
+        fork_version = _release_state_version(fork_state)
+    _parent_candidates, parent_state = _github_release_asset_state(parent)
+    parent_version = _release_state_version(parent_state)
+    qualifies = (
+        fork_version is not None
+        and parent_version is not None
+        and fork_version > parent_version
+    )
+    if not qualifies:
+        log(
+            f"GitHub fork {repo}: release {fork_version or 'unknown'} is not newer "
+            f"than parent {parent} release {parent_version or 'unknown'}"
+        )
+    return qualifies
 
 
 def _manifest_name(manifest_text):
@@ -796,18 +847,29 @@ def _github_graphql(query, timeout=180):
 
 
 def _github_owner_repositories(spec):
-    """Return owner/repo names, dynamically discovered when authenticated."""
+    """Return configured owner repositories and their fork parents."""
     login = (spec.get("login") or "").strip()
     if not login:
         raise ValueError("GitHub owner entry has no login")
+    excluded = {
+        name.strip().casefold()
+        for name in spec.get("exclude_repositories", [])
+        if isinstance(name, str) and name.strip()
+    }
+    exclude_forks = spec.get("fork_policy") == "exclude"
     known = {
         f"{login}/{name.strip()}"
         for name in spec.get("repositories", [])
-        if isinstance(name, str) and name.strip()
+        if (
+            isinstance(name, str)
+            and name.strip()
+            and name.strip().casefold() not in excluded
+        )
     }
     if not GITHUB_TOKEN:
+        if not known:
+            return [], {}
         log(f"GitHub owner {login}: no token; checking {len(known)} configured repositories")
-        return sorted(known, key=str.casefold)
 
     encoded_login = quote(login, safe="")
     repos = _github_json(
@@ -819,7 +881,8 @@ def _github_owner_repositories(spec):
         if (
             isinstance(repo, dict)
             and repo.get("full_name")
-            and _owner_repository_is_included(spec, repo)
+            and repo["full_name"].split("/", 1)[-1].casefold() not in excluded
+            and not (exclude_forks and repo.get("fork"))
         )
     }
     missing_known = known - discovered
@@ -829,14 +892,24 @@ def _github_owner_repositories(spec):
             + ", ".join(sorted(missing_known))
         )
     log(f"GitHub owner {login}: discovered {len(discovered)} repositories")
-    return sorted(discovered, key=str.casefold)
-
-
-def _owner_repository_is_included(spec, repository):
-    """Apply an owner's fork policy to REST or GraphQL repository records."""
-    if spec.get("include_forks", True):
-        return True
-    return not bool(repository.get("isFork", repository.get("fork", False)))
+    fork_parents = {}
+    for repository in repos:
+        if not isinstance(repository, dict) or not repository.get("fork"):
+            continue
+        full_name = repository.get("full_name")
+        if not full_name or full_name not in discovered:
+            continue
+        parent_name = (repository.get("parent") or {}).get("full_name")
+        if not parent_name:
+            owner, name = full_name.split("/", 1)
+            metadata = _github_json(
+                f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+            )
+            parent_name = (metadata.get("parent") or {}).get("full_name")
+        if not parent_name:
+            raise RuntimeError(f"GitHub fork has no originating repository: {full_name}")
+        fork_parents[full_name.casefold()] = parent_name
+    return sorted(discovered, key=str.casefold), fork_parents
 
 
 def _asset_family(filename):
@@ -866,9 +939,16 @@ def _github_release_asset_state(repo, previous_state=None):
     )
     if not isinstance(previous_state, dict):
         previous_state = {}
+    # Older caches predate release-version tracking. Force one full response so
+    # fork-versus-parent comparisons are based on current release metadata.
+    cached_etag = (
+        previous_state.get("etag")
+        if "latest_version" in previous_state
+        else None
+    )
     releases, etag, not_modified = _github_json_conditional(
         url,
-        etag=previous_state.get("etag"),
+        etag=cached_etag,
     )
     if not_modified:
         cached_candidates = previous_state.get("candidates")
@@ -876,7 +956,38 @@ def _github_release_asset_state(repo, previous_state=None):
             raise RuntimeError(f"GitHub returned 304 without cached candidates: {repo}")
         return cached_candidates, previous_state
     candidates = _release_asset_candidates_from_records(repo, releases or [])
-    return candidates, {"etag": etag, "candidates": candidates}
+    release_versions = [
+        _release_tag_version(release.get("tag_name") or release.get("tagName") or "")
+        for release in (releases or [])
+        if not release.get("draft", release.get("isDraft", False))
+    ]
+    release_versions = [version for version in release_versions if version is not None]
+    latest_version = max(release_versions) if release_versions else None
+    return candidates, {
+        "etag": etag,
+        "candidates": candidates,
+        "latest_version": list(latest_version) if latest_version else None,
+    }
+
+
+def _github_candidate_version(candidate):
+    """Return the strongest numeric version advertised by a release candidate."""
+    versions = [
+        sanitize_version(_version_from_filename(candidate.get("asset_name"))),
+        _release_tag_version(candidate.get("release_tag")),
+    ]
+    versions = [version for version in versions if version is not None]
+    return max(versions) if versions else None
+
+
+def _release_state_version(state):
+    value = state.get("latest_version") if isinstance(state, dict) else None
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    try:
+        return tuple(int(part) for part in value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _release_asset_candidates_from_records(repo, releases):
@@ -1002,9 +1113,19 @@ repositories(first:100%s) {
     candidates = []
     for login, repositories in repos_by_login.items():
         spec = specs_by_login[login]
+        excluded = {
+            name.strip().casefold()
+            for name in spec.get("exclude_repositories", [])
+            if isinstance(name, str) and name.strip()
+        }
+        exclude_forks = spec.get("fork_policy") == "exclude"
         repositories = [
             repo for repo in repositories
-            if _owner_repository_is_included(spec, repo)
+            if (
+                repo.get("nameWithOwner", "").split("/", 1)[-1].casefold()
+                not in excluded
+                and not (exclude_forks and repo.get("isFork"))
+            )
         ]
         discovered = {
             repo.get("nameWithOwner")
@@ -1041,13 +1162,14 @@ repositories(first:100%s) {
 
 
 def _github_owner_repository_names(owner_specs, batch_size=8):
-    """Discover repository names without the expensive nested release graph."""
+    """Discover repository names and the parent of every fork."""
     specs_by_login = {
         spec["login"].casefold(): spec
         for spec in owner_specs
         if isinstance(spec, dict) and spec.get("login")
     }
     repositories = set()
+    fork_parents = {}
     cursors = {login: None for login in specs_by_login}
     pending = list(specs_by_login)
     while pending:
@@ -1068,10 +1190,12 @@ def _github_owner_repository_names(owner_specs, batch_size=8):
                 fields.append(
                     f"{alias}:repositoryOwner(login:{requested_login}) {{"
                     " ... on User { repositories(first:100,ownerAffiliations:OWNER"
-                    f"{after}) {{ nodes {{ nameWithOwner isFork }}"
+                    f"{after}) {{ nodes {{ nameWithOwner isFork"
+                    " parent { nameWithOwner } }"
                     " pageInfo { hasNextPage endCursor } } }"
                     " ... on Organization { repositories(first:100"
-                    f"{after}) {{ nodes {{ nameWithOwner isFork }}"
+                    f"{after}) {{ nodes {{ nameWithOwner isFork"
+                    " parent { nameWithOwner } }"
                     " pageInfo { hasNextPage endCursor } } } }"
                 )
             data = _github_graphql("query {" + "\n".join(fields) + "}")
@@ -1083,22 +1207,32 @@ def _github_owner_repository_names(owner_specs, batch_size=8):
                         f"{specs_by_login[login]['login']}"
                     )
                 result = owner.get("repositories") or {}
-                repositories.update(
-                    repo["nameWithOwner"]
-                    for repo in (result.get("nodes") or [])
-                    if (
-                        repo.get("nameWithOwner")
-                        and _owner_repository_is_included(
-                            specs_by_login[login], repo
-                        )
-                    )
+                excluded = {
+                    name.strip().casefold()
+                    for name in specs_by_login[login].get("exclude_repositories", [])
+                    if isinstance(name, str) and name.strip()
+                }
+                exclude_forks = (
+                    specs_by_login[login].get("fork_policy") == "exclude"
                 )
+                for repo in result.get("nodes") or []:
+                    repo_name = repo.get("nameWithOwner")
+                    if (
+                        not repo_name
+                        or repo_name.split("/", 1)[-1].casefold() in excluded
+                        or (exclude_forks and repo.get("isFork"))
+                    ):
+                        continue
+                    repositories.add(repo_name)
+                    parent_name = (repo.get("parent") or {}).get("nameWithOwner")
+                    if repo.get("isFork") and parent_name:
+                        fork_parents[repo_name.casefold()] = parent_name
                 page_info = result.get("pageInfo") or {}
                 if page_info.get("hasNextPage"):
                     cursors[login] = page_info.get("endCursor")
                     next_pending.append(login)
         pending = next_pending
-    return repositories
+    return repositories, fork_parents
 
 
 def _cached_github_repositories(cache):
@@ -1128,6 +1262,8 @@ def _github_artifact_candidates(spec):
     ref = (spec.get("ref") or "main").strip()
     if not repo or "/" not in repo:
         raise ValueError(f"invalid GitHub artifact repository: {spec!r}")
+    if not _github_fork_release_qualifies(repo):
+        return []
     owner, name = repo.split("/", 1)
     tree_url = (
         f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
@@ -1244,6 +1380,74 @@ def _write_github_owner_cache(cache, path=GITHUB_OWNER_CACHE_PATH):
     os.replace(temporary, path)
 
 
+def _filter_fork_candidates(
+    candidates,
+    fork_parents,
+    release_state,
+    parent_release_state,
+):
+    """Keep fork assets only when their version is newer than the parent release."""
+    fork_repositories = {
+        candidate.get("repo", "").casefold()
+        for candidate in candidates
+        if candidate.get("repo", "").casefold() in fork_parents
+    }
+    parents = {
+        fork_parents[repo].casefold(): fork_parents[repo]
+        for repo in fork_repositories
+    }
+    states = dict(parent_release_state)
+    missing_parents = {
+        key: name
+        for key, name in parents.items()
+        if key not in release_state
+    }
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {
+            pool.submit(
+                _github_release_asset_state,
+                parent,
+                parent_release_state.get(parent_key),
+            ): (parent_key, parent)
+            for parent_key, parent in missing_parents.items()
+        }
+        for future in concurrent.futures.as_completed(futures):
+            parent_key, parent = futures[future]
+            _parent_candidates, state = future.result()
+            states[parent_key] = state
+
+    kept = []
+    rejected = []
+    for candidate in candidates:
+        repo_key = candidate.get("repo", "").casefold()
+        parent = fork_parents.get(repo_key)
+        if not parent:
+            kept.append(candidate)
+            continue
+        fork_version = _github_candidate_version(candidate)
+        parent_key = parent.casefold()
+        parent_state = release_state.get(parent_key) or states.get(parent_key)
+        parent_version = _release_state_version(parent_state)
+        if (
+            fork_version is not None
+            and parent_version is not None
+            and fork_version > parent_version
+        ):
+            kept.append(candidate)
+            continue
+        reason = (
+            f"fork release {fork_version or 'unknown'} is not newer than "
+            f"parent {parent} release {parent_version or 'unknown'}"
+        )
+        rejected.append({
+            "addonId": candidate.get("asset_name"),
+            "source": "github_owner",
+            "reason": reason,
+        })
+        log(f"GitHub fork {candidate.get('repo')}: {reason}")
+    return kept, states, rejected
+
+
 def fetch_github_owners(
     config_path=GITHUB_OWNERS_PATH,
     cache_path=GITHUB_OWNER_CACHE_PATH,
@@ -1277,6 +1481,17 @@ def fetch_github_owners(
     release_state = discovery.get("release_state")
     if not isinstance(release_state, dict):
         release_state = {}
+    fork_parents = discovery.get("fork_parents")
+    if not isinstance(fork_parents, dict):
+        fork_parents = {}
+    fork_parents = {
+        repo.casefold(): parent
+        for repo, parent in fork_parents.items()
+        if isinstance(repo, str) and isinstance(parent, str) and "/" in parent
+    }
+    parent_release_state = discovery.get("parent_release_state")
+    if not isinstance(parent_release_state, dict):
+        parent_release_state = {}
     new_release_state = {
         repo: state
         for repo, state in release_state.items()
@@ -1288,7 +1503,12 @@ def fetch_github_owners(
         [
             {
                 "login": spec["login"].casefold(),
-                "include_forks": bool(spec.get("include_forks", True)),
+                "exclude_repositories": sorted(
+                    name.strip().casefold()
+                    for name in spec.get("exclude_repositories", [])
+                    if isinstance(name, str) and name.strip()
+                ),
+                "fork_policy": spec.get("fork_policy", "newer-release-only"),
             }
             for spec in owners
             if isinstance(spec, dict) and spec.get("login")
@@ -1304,10 +1524,13 @@ def fetch_github_owners(
         owner_scan_due = (
             time.time() - last_owner_scan >= GITHUB_OWNER_DISCOVERY_TTL_SECONDS
             or discovery.get("configured_owners") != configured_owners
+            or discovery.get("fork_policy") != "newer-release-only-v1"
         )
         if owner_scan_due:
             try:
-                discovered_repositories = _github_owner_repository_names(owners)
+                discovered_repositories, discovered_fork_parents = (
+                    _github_owner_repository_names(owners)
+                )
             except RuntimeError as exc:
                 if "RATE_LIMITED" not in str(exc) or not addon_repositories:
                     raise
@@ -1330,6 +1553,7 @@ def fetch_github_owners(
                 repositories = set(addon_repositories)
                 repositories.update(discovered_repositories - scanned_repositories)
                 scanned_repositories = discovered_repositories
+                fork_parents = discovered_fork_parents
                 last_owner_scan = int(time.time())
                 log(
                     f"GitHub owners: discovered {len(discovered_repositories)} total "
@@ -1338,7 +1562,9 @@ def fetch_github_owners(
         candidates = []
     else:
         for spec in owners:
-            repositories.update(_github_owner_repositories(spec))
+            owner_repositories, owner_fork_parents = _github_owner_repositories(spec)
+            repositories.update(owner_repositories)
+            fork_parents.update(owner_fork_parents)
         candidates = []
     failures = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -1375,12 +1601,22 @@ def fetch_github_owners(
     addon_repositories.update(
         item["repo"] for item in candidates if item.get("repo")
     )
+    candidates, parent_release_state, fork_rejections = _filter_fork_candidates(
+        candidates,
+        fork_parents,
+        new_release_state,
+        parent_release_state,
+    )
+    GITHUB_OWNER_REJECTIONS.extend(fork_rejections)
     discovery_snapshot = {
         "last_owner_scan": last_owner_scan,
         "configured_owners": configured_owners,
+        "fork_policy": "newer-release-only-v1",
         "scanned_repositories": sorted(scanned_repositories, key=str.casefold),
         "addon_repositories": sorted(addon_repositories, key=str.casefold),
         "release_state": new_release_state,
+        "fork_parents": fork_parents,
+        "parent_release_state": parent_release_state,
     }
     existing_by_url = {
         entry.get("download_url"): entry

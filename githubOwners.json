@@ -145,7 +145,7 @@
     },
     {
       "login": "serrebidev",
-      "include_forks": false,
+      "fork_policy": "exclude",
       "repositories": [
         "NVDARemoteAudioClient",
         "nvda-addon-mirror",

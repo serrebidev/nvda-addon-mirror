@@ -13,7 +13,8 @@ minutes and deployed through GitHub Pages.
 - `nvda-addons.ru` community catalog.
 - `nvda.es`, with `nvda-addons.org` as failover; only original add-ons not
   already covered by a valid stronger source in the same channel are retained.
-- Direct `.nvda-addon` release assets from owners in `githubOwners.json`.
+- Direct `.nvda-addon` release assets from owners in `githubOwners.json`;
+  forks are retained only when released beyond their parent repository.
 - Explicit variants and packages in `pinned.json`.
 
 Priority within an add-on ID and channel is: pinned, direct author, official,
