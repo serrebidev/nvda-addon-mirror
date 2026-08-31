@@ -9,7 +9,7 @@
       "license": "Unknown",
       "channel": "stable",
       "min_nvda_version": "2024.1",
-      "last_tested_nvda_version": "2026.1"
+      "last_tested_nvda_version": "2026.2"
     },
     {
       "repo": "hozosch/eloquence_64",
@@ -21,7 +21,7 @@
       "license": "Unknown",
       "channel": "stable",
       "min_nvda_version": "2024.1",
-      "last_tested_nvda_version": "2026.1"
+      "last_tested_nvda_version": "2026.2"
     },
     {
       "repo": "Nick6489/Eloquence64RS",
@@ -33,7 +33,7 @@
       "license": "Unknown",
       "channel": "stable",
       "min_nvda_version": "2024.1",
-      "last_tested_nvda_version": "2026.1"
+      "last_tested_nvda_version": "2026.2"
     },
     {
       "repo": "pumper42nickel/eloquence_threshold",
@@ -44,7 +44,7 @@
       "license": "Unknown",
       "channel": "stable",
       "min_nvda_version": "2019.3.0",
-      "last_tested_nvda_version": "2026.1"
+      "last_tested_nvda_version": "2026.2"
     },
     {
       "repo": "tgeczy/panthera-speech",

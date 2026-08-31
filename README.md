@@ -119,7 +119,7 @@ artifacts that contain symlinks.
 - **File layout**: NVDA requests `{base}/{lang}/{channel}/{apiVersion}.json`,
   using the language/channel/apiVersion only as cache keys — the returned list
   is identical for all of them. The `apiVersion` is the *running NVDA's own*
-  add-on API version (e.g. `2026.1.1`), so the mirror must emit a file for
+  add-on API version (e.g. `2026.2.0`), so the mirror must emit a file for
   every released NVDA version still in use or those users get a 404 and an
   empty "compatible" list.
   - **Old NVDA support has a hard floor of NVDA 2024.1**: the Add-on Store
@@ -133,7 +133,7 @@ artifacts that contain symlinks.
     adds ~140 MB against the 1 GB Pages limit, so only a handful of versions
     fit. Because NVDA auto-updates within a release line, users converge on the
     latest patch of their line, and the mirror covers the current 64-bit stable
-    (`2026.1.1`), its predecessor (`2026.1`), and the final 32-bit release
+    (`2026.2`), its predecessor (`2026.1.1`), and the final 32-bit release
     (`2025.3.3`). Users on a release whose file is absent still get the
     `latest` (incompatible) view. Per-version `BACK_COMPAT_TO` comes from
     `nvdaAPIVersions.json` (mirrors `nvaccess/addon-datastore`).

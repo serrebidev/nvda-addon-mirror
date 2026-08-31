@@ -5,6 +5,9 @@ public/
 hashcache.json
 githubOwnerCache.json
 
+# Temporary Firecrawl research output
+.firecrawl/
+
 # Python
 __pycache__/
 *.pyc

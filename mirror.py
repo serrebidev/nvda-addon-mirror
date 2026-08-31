@@ -88,11 +88,11 @@ CHANNELS = ["all"]
 # predecessor, and the final 32-bit release. Covering every 2024.1+ patch would
 # be ~2 GB -- Pages forbids symlinks, so every path is a real copy and 73
 # locales multiply it (~140 MB per version), against the 1 GB Pages limit.
-#  2026.1.1  current stable (64-bit)
-#  2026.1    previous stable (64-bit)
+#  2026.2    current stable (64-bit)
+#  2026.1.1  previous stable (64-bit)
 #  2025.3.3  last 32-bit release (long tail during the 64-bit migration)
 CURATED_API_VERSIONS = [
-    "2026.1.0",
+    "2026.2.0",
     "2026.1.1",
     "2025.3.3",
 ]

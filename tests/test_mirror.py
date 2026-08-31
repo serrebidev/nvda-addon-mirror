@@ -100,6 +100,34 @@ class PinnedConfigurationTests(unittest.TestCase):
         self.assertEqual("include", by_repo["hozosch/eloquence_64"]["fork_policy"])
         self.assertEqual("include", by_repo["Nick6489/Eloquence64RS"]["fork_policy"])
 
+    def test_pinned_compatibility_fallbacks_target_current_nvda(self):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "pinned.json",
+        )
+        with open(path, "r", encoding="utf-8") as config_file:
+            pinned = json.load(config_file)["pinned"]
+
+        fallbacks = {
+            entry["repo"]: entry["last_tested_nvda_version"]
+            for entry in pinned
+            if "last_tested_nvda_version" in entry
+        }
+        self.assertTrue(fallbacks)
+        self.assertEqual({"2026.2"}, set(fallbacks.values()))
+
+
+class NvdaReleaseMetadataTests(unittest.TestCase):
+    def test_curated_api_versions_cover_active_release_boundaries(self):
+        self.assertEqual(
+            ["2026.2.0", "2026.1.1", "2025.3.3"],
+            mirror.CURATED_API_VERSIONS,
+        )
+
+    def test_bundled_api_versions_include_nvda_2026_2(self):
+        versions = mirror.load_nvda_api_versions()
+        self.assertEqual((2026, 1, 0), versions["2026.2.0"])
+
 
 class PinnedForkPolicyTests(unittest.TestCase):
     def test_explicitly_included_variant_does_not_compare_parent_version(self):
