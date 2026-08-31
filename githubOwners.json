@@ -144,6 +144,16 @@
       ]
     },
     {
+      "login": "serrebidev",
+      "include_forks": false,
+      "repositories": [
+        "NVDARemoteAudioClient",
+        "nvda-addon-mirror",
+        "logCollector",
+        "signal-desktop-enhancements"
+      ]
+    },
+    {
       "login": "abdel792",
       "repositories": [
         "sayCurrentKeyboardLanguage"

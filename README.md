@@ -24,6 +24,8 @@ Sources:
   are accepted only when the filename ends in `.nvda-addon` and the downloaded
   ZIP has a valid root `manifest.ini`. Known add-on repositories are checked on
   every ten-minute run; a lightweight daily account scan discovers new repos.
+  An owner can set `"include_forks": false`; `serrebidev` uses this so only
+  original repositories owned by that account are monitored.
 
 ## What it does
 

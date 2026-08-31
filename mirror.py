@@ -816,7 +816,11 @@ def _github_owner_repositories(spec):
     discovered = {
         repo["full_name"]
         for repo in repos
-        if isinstance(repo, dict) and repo.get("full_name")
+        if (
+            isinstance(repo, dict)
+            and repo.get("full_name")
+            and _owner_repository_is_included(spec, repo)
+        )
     }
     missing_known = known - discovered
     if missing_known:
@@ -826,6 +830,13 @@ def _github_owner_repositories(spec):
         )
     log(f"GitHub owner {login}: discovered {len(discovered)} repositories")
     return sorted(discovered, key=str.casefold)
+
+
+def _owner_repository_is_included(spec, repository):
+    """Apply an owner's fork policy to REST or GraphQL repository records."""
+    if spec.get("include_forks", True):
+        return True
+    return not bool(repository.get("isFork", repository.get("fork", False)))
 
 
 def _asset_family(filename):
@@ -939,6 +950,7 @@ def _github_owner_asset_candidates(owner_specs, batch_size=4):
 repositories(first:100%s) {
   nodes {
     nameWithOwner
+    isFork
     releases(first:20, orderBy:{field:CREATED_AT,direction:DESC}) {
       nodes {
         isDraft
@@ -989,12 +1001,16 @@ repositories(first:100%s) {
 
     candidates = []
     for login, repositories in repos_by_login.items():
+        spec = specs_by_login[login]
+        repositories = [
+            repo for repo in repositories
+            if _owner_repository_is_included(spec, repo)
+        ]
         discovered = {
             repo.get("nameWithOwner")
             for repo in repositories
             if repo.get("nameWithOwner")
         }
-        spec = specs_by_login[login]
         known = {
             f"{spec['login']}/{name.strip()}"
             for name in spec.get("repositories", [])
@@ -1052,10 +1068,10 @@ def _github_owner_repository_names(owner_specs, batch_size=8):
                 fields.append(
                     f"{alias}:repositoryOwner(login:{requested_login}) {{"
                     " ... on User { repositories(first:100,ownerAffiliations:OWNER"
-                    f"{after}) {{ nodes {{ nameWithOwner }}"
+                    f"{after}) {{ nodes {{ nameWithOwner isFork }}"
                     " pageInfo { hasNextPage endCursor } } }"
                     " ... on Organization { repositories(first:100"
-                    f"{after}) {{ nodes {{ nameWithOwner }}"
+                    f"{after}) {{ nodes {{ nameWithOwner isFork }}"
                     " pageInfo { hasNextPage endCursor } } } }"
                 )
             data = _github_graphql("query {" + "\n".join(fields) + "}")
@@ -1070,7 +1086,12 @@ def _github_owner_repository_names(owner_specs, batch_size=8):
                 repositories.update(
                     repo["nameWithOwner"]
                     for repo in (result.get("nodes") or [])
-                    if repo.get("nameWithOwner")
+                    if (
+                        repo.get("nameWithOwner")
+                        and _owner_repository_is_included(
+                            specs_by_login[login], repo
+                        )
+                    )
                 )
                 page_info = result.get("pageInfo") or {}
                 if page_info.get("hasNextPage"):
@@ -1263,13 +1284,27 @@ def fetch_github_owners(
         or repo.casefold() in scanned_folded
     }
     last_owner_scan = discovery.get("last_owner_scan") or 0
+    configured_owners = sorted(
+        [
+            {
+                "login": spec["login"].casefold(),
+                "include_forks": bool(spec.get("include_forks", True)),
+            }
+            for spec in owners
+            if isinstance(spec, dict) and spec.get("login")
+        ],
+        key=lambda spec: spec["login"],
+    )
     repositories = set(addon_repositories)
     artifact_specs = []
     for spec in owners:
         artifact_specs.extend(spec.get("artifact_repositories", []))
 
     if GITHUB_TOKEN:
-        owner_scan_due = time.time() - last_owner_scan >= GITHUB_OWNER_DISCOVERY_TTL_SECONDS
+        owner_scan_due = (
+            time.time() - last_owner_scan >= GITHUB_OWNER_DISCOVERY_TTL_SECONDS
+            or discovery.get("configured_owners") != configured_owners
+        )
         if owner_scan_due:
             try:
                 discovered_repositories = _github_owner_repository_names(owners)
@@ -1286,6 +1321,10 @@ def fetch_github_owners(
                 }
                 addon_repositories = {
                     repo for repo in addon_repositories
+                    if repo.casefold() in discovered_folded
+                }
+                new_release_state = {
+                    repo: state for repo, state in new_release_state.items()
                     if repo.casefold() in discovered_folded
                 }
                 repositories = set(addon_repositories)
@@ -1338,6 +1377,7 @@ def fetch_github_owners(
     )
     discovery_snapshot = {
         "last_owner_scan": last_owner_scan,
+        "configured_owners": configured_owners,
         "scanned_repositories": sorted(scanned_repositories, key=str.casefold),
         "addon_repositories": sorted(addon_repositories, key=str.casefold),
         "release_state": new_release_state,

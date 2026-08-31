@@ -176,6 +176,52 @@ class SpanishCatalogTests(unittest.TestCase):
 
 
 class GitHubOwnerTests(unittest.TestCase):
+    def test_owner_repository_discovery_can_exclude_forks(self):
+        response = {
+            "owner0": {
+                "repositories": {
+                    "nodes": [
+                        {"nameWithOwner": "example/original", "isFork": False},
+                        {"nameWithOwner": "example/forked", "isFork": True},
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+        with mock.patch.object(mirror, "_github_graphql", return_value=response):
+            repositories = mirror._github_owner_repository_names(
+                [{"login": "example", "include_forks": False}]
+            )
+
+        self.assertEqual({"example/original"}, repositories)
+
+    def test_owner_repository_discovery_includes_forks_by_default(self):
+        response = {
+            "owner0": {
+                "repositories": {
+                    "nodes": [
+                        {"nameWithOwner": "example/original", "isFork": False},
+                        {"nameWithOwner": "example/forked", "isFork": True},
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+        with mock.patch.object(mirror, "_github_graphql", return_value=response):
+            repositories = mirror._github_owner_repository_names(
+                [{"login": "example"}]
+            )
+
+        self.assertEqual({"example/original", "example/forked"}, repositories)
+
+    def test_serrebidev_configuration_excludes_forks(self):
+        owners = mirror._load_github_owners()
+        serrebi = next(
+            spec for spec in owners if spec["login"].casefold() == "serrebidev"
+        )
+
+        self.assertIs(False, serrebi["include_forks"])
+
     def test_unchanged_release_reuses_conditional_cache(self):
         candidate = {
             "repo": "example/addon",
