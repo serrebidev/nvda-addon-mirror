@@ -570,8 +570,12 @@ def _fetch_one_pinned(spec, repo, addon_id):
     author = spec.get("publisher") or _manifest_value(manifest_text, "author") or ""
     mv = _manifest_value(manifest_text, "version")
     version = _select_pinned_version(mv, asset["name"], release["tag_name"])
-    if not _github_fork_release_qualifies(repo, sanitize_version(version)):
-        return []
+    if not _pinned_fork_release_qualifies(spec, repo, sanitize_version(version)):
+        raise RuntimeError(
+            f"pinned fork {repo} release {version!r} is not newer than its "
+            "parent; use fork_policy 'include' only for an intentionally "
+            "distinct, separately named variant"
+        )
     min_nvda = (parse_api_version(_manifest_value(manifest_text, "minimumNVDAVersion"))
                 or parse_api_version(spec.get("min_nvda_version") or ""))
     last_tested = (parse_api_version(_manifest_value(manifest_text, "lastTestedNVDAVersion"))
@@ -643,6 +647,25 @@ def _github_fork_release_qualifies(repo, fork_version=None):
             f"than parent {parent} release {parent_version or 'unknown'}"
         )
     return qualifies
+
+
+def _pinned_fork_release_qualifies(spec, repo, fork_version):
+    """Apply the configured fork policy for an explicitly pinned variant.
+
+    Pinned variants normally follow the global rule that a fork must release a
+    newer numeric version than its parent. ``fork_policy: include`` is a
+    deliberate exception for a separately named variant whose value is in its
+    implementation differences rather than a newer upstream version.
+    """
+    policy = spec.get("fork_policy", "newer")
+    if policy == "include":
+        return True
+    if policy != "newer":
+        raise RuntimeError(
+            f"invalid pinned fork_policy {policy!r} for {repo}; "
+            "expected 'newer' or 'include'"
+        )
+    return _github_fork_release_qualifies(repo, fork_version)
 
 
 def _manifest_name(manifest_text):

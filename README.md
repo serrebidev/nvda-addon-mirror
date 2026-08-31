@@ -30,6 +30,11 @@ Sources:
   An owner may exclude every fork; `serrebidev` does this because those forks
   are contribution/PR branches. The mirror therefore uses the original
   `keyang556/tdesktopnvda`, not `serrebidev/tdesktopnvda`.
+  Explicitly pinned variants can opt into `fork_policy: include` when they are
+  intentionally different products published under separate manifest IDs. The
+  four release-bearing Eloquence 64 variants are pinned this way where needed,
+  and are published with unique IDs and display names so installing one cannot
+  overwrite another.
 
 ## What it does
 

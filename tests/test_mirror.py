@@ -79,6 +79,64 @@ class PinnedConfigurationTests(unittest.TestCase):
             configured,
         )
 
+    def test_all_eloquence_variants_have_unique_ids_and_names(self):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "pinned.json",
+        )
+        with open(path, "r", encoding="utf-8") as config_file:
+            pinned = json.load(config_file)["pinned"]
+
+        eloquence = [
+            entry for entry in pinned
+            if "eloquence" in entry.get("repo", "").casefold()
+        ]
+        self.assertEqual(4, len(eloquence))
+        self.assertEqual(4, len({entry["repo"].casefold() for entry in eloquence}))
+        self.assertEqual(4, len({entry["addon_id"].casefold() for entry in eloquence}))
+        self.assertEqual(4, len({entry["summary"].casefold() for entry in eloquence}))
+
+        by_repo = {entry["repo"]: entry for entry in eloquence}
+        self.assertEqual("include", by_repo["hozosch/eloquence_64"]["fork_policy"])
+        self.assertEqual("include", by_repo["Nick6489/Eloquence64RS"]["fork_policy"])
+
+
+class PinnedForkPolicyTests(unittest.TestCase):
+    def test_explicitly_included_variant_does_not_compare_parent_version(self):
+        with mock.patch.object(
+            mirror,
+            "_github_fork_release_qualifies",
+            side_effect=AssertionError("parent comparison should be bypassed"),
+        ):
+            self.assertTrue(
+                mirror._pinned_fork_release_qualifies(
+                    {"fork_policy": "include"},
+                    "example/variant",
+                    (1, 0, 0),
+                )
+            )
+
+    def test_default_policy_requires_newer_fork(self):
+        with mock.patch.object(
+            mirror,
+            "_github_fork_release_qualifies",
+            return_value=False,
+        ) as qualifies:
+            self.assertFalse(
+                mirror._pinned_fork_release_qualifies(
+                    {}, "example/fork", (1, 0, 0)
+                )
+            )
+        qualifies.assert_called_once_with("example/fork", (1, 0, 0))
+
+    def test_unknown_policy_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "invalid pinned fork_policy"):
+            mirror._pinned_fork_release_qualifies(
+                {"fork_policy": "sometimes"},
+                "example/fork",
+                (1, 0, 0),
+            )
+
 
 class DedupeTests(unittest.TestCase):
     def test_pinned_release_wins_over_stale_bestmidi_metadata(self):
