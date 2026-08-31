@@ -100,33 +100,85 @@ class PinnedConfigurationTests(unittest.TestCase):
         self.assertEqual("include", by_repo["hozosch/eloquence_64"]["fork_policy"])
         self.assertEqual("include", by_repo["Nick6489/Eloquence64RS"]["fork_policy"])
 
-    def test_pinned_compatibility_fallbacks_target_current_nvda(self):
-        path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "pinned.json",
-        )
-        with open(path, "r", encoding="utf-8") as config_file:
-            pinned = json.load(config_file)["pinned"]
-
-        fallbacks = {
-            entry["repo"]: entry["last_tested_nvda_version"]
-            for entry in pinned
-            if "last_tested_nvda_version" in entry
-        }
-        self.assertTrue(fallbacks)
-        self.assertEqual({"2026.2"}, set(fallbacks.values()))
-
-
 class NvdaReleaseMetadataTests(unittest.TestCase):
-    def test_curated_api_versions_cover_active_release_boundaries(self):
+    @staticmethod
+    def _entry(version, back_compat=(2026, 1, 0), experimental=False):
+        entry = {
+            "apiVer": dict(zip(("major", "minor", "patch"), version)),
+            "backCompatTo": dict(
+                zip(("major", "minor", "patch"), back_compat)
+            ),
+        }
+        if experimental:
+            entry["experimental"] = True
+        return entry
+
+    def test_new_versions_are_added_without_pruning_experimental(self):
+        entries = [
+            self._entry((2023, 3, 0)),
+            self._entry((2025, 3, 3)),
+            self._entry((2026, 1, 1)),
+            self._entry((2026, 2, 0)),
+            self._entry((2026, 3, 0), experimental=True),
+            self._entry((2027, 1, 0)),
+        ]
         self.assertEqual(
-            ["2026.2.0", "2026.1.1", "2025.3.3"],
-            mirror.CURATED_API_VERSIONS,
+            [
+                "2027.1.0",
+                "2026.3.0",
+                "2026.2.0",
+                "2026.1.1",
+                "2025.3.3",
+            ],
+            mirror.published_nvda_api_versions(entries),
         )
 
     def test_bundled_api_versions_include_nvda_2026_2(self):
         versions = mirror.load_nvda_api_versions()
         self.assertEqual((2026, 1, 0), versions["2026.2.0"])
+
+    def test_scheduled_refresh_prefers_live_datastore_metadata(self):
+        bundled = [self._entry((2026, 2, 0), back_compat=(2025, 1, 0))]
+        live = [self._entry((2026, 2, 0)), self._entry((2027, 1, 0))]
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "nvdaAPIVersions.json")
+            with open(path, "w", encoding="utf-8") as metadata_file:
+                json.dump(bundled, metadata_file)
+            with mock.patch.object(
+                mirror,
+                "http_get_json",
+                return_value=live,
+            ) as fetch:
+                entries = mirror.load_nvda_api_version_entries(
+                    path=path,
+                    refresh=True,
+                )
+        self.assertEqual(
+            ["2027.1.0", "2026.2.0"],
+            mirror.published_nvda_api_versions(entries),
+        )
+        self.assertEqual(
+            (2026, 1, 0),
+            mirror.nvda_api_versions_from_entries(entries)["2026.2.0"],
+        )
+        fetch.assert_called_once_with(mirror.NVDA_API_VERSIONS_URL, timeout=30)
+
+    def test_scheduled_refresh_falls_back_to_bundled_metadata(self):
+        bundled = [self._entry((2026, 2, 0))]
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "nvdaAPIVersions.json")
+            with open(path, "w", encoding="utf-8") as metadata_file:
+                json.dump(bundled, metadata_file)
+            with mock.patch.object(
+                mirror,
+                "http_get_json",
+                side_effect=OSError("offline"),
+            ):
+                entries = mirror.load_nvda_api_version_entries(
+                    path=path,
+                    refresh=True,
+                )
+        self.assertEqual(bundled, entries)
 
 
 class PinnedForkPolicyTests(unittest.TestCase):

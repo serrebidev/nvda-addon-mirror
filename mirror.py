@@ -78,24 +78,14 @@ CHANNELS = ["all"]
 # released NVDA version a user might still run needs a file here or they get a
 # 404 and an empty "compatible" list. "latest" always resolves the "show all
 # (incompatible)" view; the numbered entries cover the default "compatible"
-# view. The current dev version is prepended at build time.
+# view. Every Add-on Store-era API version, including experimental entries, is
+# selected from NV Access's live addon-datastore metadata at build time. The
+# current dev version is also prepended from NVDA master when needed.
 #
-# Why only these three: the Add-on Store client only shipped in NVDA 2024.1, so
-# nothing older than 2024.1 can consume this mirror at all (there is no
-# 2018-2023 "version" to serve). NVDA auto-updates within a release line, so
-# users converge on the latest patch of their line; the only hard wall is the
-# 32-bit -> 64-bit migration. That leaves just the current 64-bit stable, its
-# predecessor, and the final 32-bit release. Covering every 2024.1+ patch would
-# be ~2 GB -- Pages forbids symlinks, so every path is a real copy and 73
-# locales multiply it (~140 MB per version), against the 1 GB Pages limit.
-#  2026.2    current stable (64-bit)
-#  2026.1.1  previous stable (64-bit)
-#  2025.3.3  last 32-bit release (long tail during the 64-bit migration)
-CURATED_API_VERSIONS = [
-    "2026.2.0",
-    "2026.1.1",
-    "2025.3.3",
-]
+# The Add-on Store client only shipped in NVDA 2024.1, so older API versions
+# cannot consume this mirror. All 2024.1+ versions remain published permanently
+# as new versions are appended.
+ADDON_STORE_FIRST_API_VERSION = (2024, 1, 0)
 
 # API version regex mirrors NVDA source/addonAPIVersion.py: year.major(.minor)
 _API_VERSION_RE = re.compile(r"^(0|\d{4})\.(\d)(?:\.(\d))?$")
@@ -138,6 +128,10 @@ GITHUB_OWNERS_PATH = "githubOwners.json"
 GITHUB_OWNER_CACHE_PATH = "githubOwnerCache.json"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
 NVDA_API_VERSIONS_PATH = "nvdaAPIVersions.json"
+NVDA_API_VERSIONS_URL = (
+    "https://raw.githubusercontent.com/nvaccess/addon-datastore/"
+    "master/transform/nvdaAPIVersions.json"
+)
 GITHUB_API = "https://api.github.com"
 GITHUB_OWNER_REJECTIONS = []
 
@@ -2192,31 +2186,84 @@ def back_compat_to_version():
     return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
 
-def load_nvda_api_versions(path=NVDA_API_VERSIONS_PATH):
-    """Map "year.major.minor" -> BACK_COMPAT_TO tuple for each NVDA release.
+def load_nvda_api_version_entries(path=NVDA_API_VERSIONS_PATH, refresh=False):
+    """Load bundled API history, optionally merging in live datastore data.
 
-    The bundled file mirrors nvaccess/addon-datastore's transform/nvdaAPIVersions.json:
-    every released NVDA API version has its OWN BACK_COMPAT_TO (which rose over
-    time; a single master value would wrongly shrink older releases' compatible
-    lists). The current dev version may not be listed, so callers fall back to
-    back_compat_to_version() when a version is absent. Never raises.
+    A scheduled build refreshes from nvaccess/addon-datastore so a new stable
+    release is served without a mirror code change. Bundled history is retained
+    if the live response is incomplete and is the offline fallback. Never raises.
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            bundled = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return {}
+        bundled = []
+    if not isinstance(bundled, list):
+        bundled = []
+    if not refresh:
+        return bundled
+    try:
+        live = http_get_json(NVDA_API_VERSIONS_URL, timeout=30)
+    except (HTTPError, URLError, OSError, ValueError, TypeError):
+        return bundled
+    if not isinstance(live, list):
+        return bundled
+    return _merge_nvda_api_version_entries(bundled, live)
+
+
+def _api_version_from_entry(entry):
+    if not isinstance(entry, dict):
+        return None
+    api = entry.get("apiVer") or {}
+    return parse_api_version(
+        f"{api.get('major')}.{api.get('minor')}.{api.get('patch')}"
+    )
+
+
+def _merge_nvda_api_version_entries(bundled, live):
+    """Merge cumulative history, with live metadata winning per API version."""
+    merged = {}
+    for entry in [*bundled, *live]:
+        ver = _api_version_from_entry(entry)
+        if ver is not None:
+            merged[ver] = entry
+    return list(merged.values())
+
+
+def nvda_api_versions_from_entries(data):
+    """Map "year.major.minor" to BACK_COMPAT_TO for API metadata entries."""
     result = {}
     for entry in data:
-        api = entry.get("apiVer") or {}
+        if not isinstance(entry, dict):
+            continue
         back = entry.get("backCompatTo") or {}
-        ver = parse_api_version(
-            f"{api.get('major')}.{api.get('minor')}.{api.get('patch')}"
-        )
+        ver = _api_version_from_entry(entry)
         if ver is None:
             continue
         result[f"{ver[0]}.{ver[1]}.{ver[2]}"] = _ver_tuple(back)
     return result
+
+
+def load_nvda_api_versions(path=NVDA_API_VERSIONS_PATH, refresh=False):
+    """Load the per-release BACK_COMPAT_TO map. Never raises."""
+    return nvda_api_versions_from_entries(
+        load_nvda_api_version_entries(path=path, refresh=refresh)
+    )
+
+
+def published_nvda_api_versions(data):
+    """Select every Add-on Store-era API version for publication."""
+    released = set()
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        ver = _api_version_from_entry(entry)
+        if ver is not None and ver >= ADDON_STORE_FIRST_API_VERSION:
+            released.add(ver)
+    return [
+        f"{ver[0]}.{ver[1]}.{ver[2]}"
+        for ver in sorted(released, reverse=True)
+    ]
 
 
 def _ver_tuple(d):
@@ -2468,10 +2515,12 @@ def main():
     global TRANSLATIONS
     TRANSLATIONS = load_translations()
 
-    api_versions = list(CURATED_API_VERSIONS) + ["latest"]
+    nvda_api_entries = load_nvda_api_version_entries(refresh=True)
+    nvda_api_versions = nvda_api_versions_from_entries(nvda_api_entries)
     if args.api_versions:
         api_versions = args.api_versions.split(",")
     else:
+        api_versions = published_nvda_api_versions(nvda_api_entries) + ["latest"]
         current = current_nvda_api_version()
         if current and current not in api_versions:
             api_versions.insert(0, current)
@@ -2716,10 +2765,10 @@ def main():
     # the full catalog and backs the "include incompatible add-ons" toggle.
     #
     # BACK_COMPAT_TO is per-version: it rose over time, so a single master value
-    # would shrink older releases' compatible lists. The bundled
-    # nvdaAPIVersions.json supplies each released version's value; the master
-    # fetch is the fallback for versions not listed (e.g. the current dev build).
-    nvda_api_versions = load_nvda_api_versions()
+    # would shrink older releases' compatible lists. Live addon-datastore data,
+    # with the bundled nvdaAPIVersions.json as an offline fallback, supplies each
+    # released version's value. NVDA master is the fallback for an unlisted dev
+    # build.
     master_back_compat_to = back_compat_to_version()
     compatible_bytes = {}
     back_compat_by_ver = {}
