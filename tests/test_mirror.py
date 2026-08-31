@@ -260,6 +260,30 @@ class DedupeTests(unittest.TestCase):
         self.assertEqual("1.1", mirror.dedupe([official, author])[0]["version"])
 
 
+class TransformTests(unittest.TestCase):
+    def test_store_source_is_exposed_with_a_human_readable_name(self):
+        entry = {
+            "name": "exampleAddon",
+            "summary": "Example",
+            "description": "An example add-on.",
+            "author": "Example Author",
+            "version": "1.0",
+            "channel": "stable",
+            "download_url": "https://example.invalid/example.nvda-addon",
+            "source": "ru",
+        }
+
+        result = mirror.transform(entry, "a" * 64)
+
+        self.assertEqual("NVDA Add-ons RU", result["storeSource"])
+
+    def test_every_configured_source_has_a_display_name(self):
+        self.assertEqual(
+            {"official", "pinned", "github_owner", "ru", "bestmidi", "es"},
+            set(mirror.STORE_SOURCE_LABELS),
+        )
+
+
 class SpanishCatalogTests(unittest.TestCase):
     def test_aliases_are_not_mistaken_for_original_addons(self):
         official = {"name": "ifInterpreters", "source": "official"}

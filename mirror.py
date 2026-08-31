@@ -132,6 +132,18 @@ NVDA_API_VERSIONS_URL = (
     "https://raw.githubusercontent.com/nvaccess/addon-datastore/"
     "master/transform/nvdaAPIVersions.json"
 )
+
+# Human-readable upstream names carried into the combined catalog. NVDA ignores
+# unknown JSON fields, while the helper add-on uses ``storeSource`` to expose
+# this provenance in the Add-on Store list.
+STORE_SOURCE_LABELS = {
+    "official": "NV Access Add-on Store",
+    "pinned": "Pinned GitHub release",
+    "github_owner": "GitHub author release",
+    "ru": "NVDA Add-ons RU",
+    "bestmidi": "BestMidi",
+    "es": "NVDA.es",
+}
 GITHUB_API = "https://api.github.com"
 GITHUB_OWNER_REJECTIONS = []
 
@@ -2056,6 +2068,10 @@ def transform(entry, sha256):
         },
         "submissionTime": entry.get("submission_ms") or 0,
         "legacy": False,
+        "storeSource": STORE_SOURCE_LABELS.get(
+            entry.get("source"),
+            entry.get("source") or "Unknown",
+        ),
     }
 
     # Optional keys are present-or-absent, never null (see docstring).

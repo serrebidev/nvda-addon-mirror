@@ -74,13 +74,14 @@ https://serrebidev.github.io/nvda-addon-mirror
 Two ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [dist/addonStoreMirror-1.1.1.nvda-addon](dist/addonStoreMirror-1.1.1.nvda-addon)
-   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.1.1.nvda-addon).
+   [dist/addonStoreMirror-1.2.0.nvda-addon](dist/addonStoreMirror-1.2.0.nvda-addon)
+   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.2.0.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
-   Use 1.1.1 or later. Version 1.1.1 fixes a crash caused by replacing NVDA's
-   live Add-on Store data manager; 1.0.0 had a trailing-slash URL bug.
+   Version 1.2.0 adds source visibility and source-aware search. Version 1.1.1
+   fixes a crash caused by replacing NVDA's live Add-on Store data manager;
+   1.0.0 had a trailing-slash URL bug.
 2. **Edit `nvda.ini`** manually:
    ```ini
    [addonStore]
