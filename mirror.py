@@ -127,6 +127,12 @@ PINNED_CONFIG_PATH = "pinned.json"
 GITHUB_OWNERS_PATH = "githubOwners.json"
 GITHUB_OWNER_CACHE_PATH = "githubOwnerCache.json"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
+
+# Newly discovered repositories cost one uncached request each, while repeat
+# checks are conditional and free. Adding an author with hundreds of repos would
+# otherwise spend the whole hourly budget in a single run, so first-time checks
+# are rationed and the remainder is carried in the cache for the next run.
+GITHUB_NEW_REPOSITORY_BUDGET = 120
 NVDA_API_VERSIONS_PATH = "nvdaAPIVersions.json"
 NVDA_API_VERSIONS_URL = (
     "https://raw.githubusercontent.com/nvaccess/addon-datastore/"
@@ -1520,6 +1526,10 @@ def fetch_github_owners(
         if isinstance(repo, str) and "/" in repo
     }
     scanned_folded = {repo.casefold() for repo in scanned_repositories}
+    pending_repositories = {
+        repo for repo in discovery.get("pending_repositories", [])
+        if isinstance(repo, str) and "/" in repo
+    }
     if scanned_repositories:
         addon_repositories = {
             repo for repo in addon_repositories
@@ -1598,7 +1608,13 @@ def fetch_github_owners(
                     if repo.casefold() in discovered_folded
                 }
                 repositories = set(addon_repositories)
-                repositories.update(discovered_repositories - scanned_repositories)
+                pending_repositories.update(
+                    discovered_repositories - scanned_repositories
+                )
+                pending_repositories = {
+                    repo for repo in pending_repositories
+                    if repo.casefold() in discovered_folded
+                }
                 scanned_repositories = discovered_repositories
                 fork_parents = discovered_fork_parents
                 last_owner_scan = int(time.time())
@@ -1613,6 +1629,15 @@ def fetch_github_owners(
             repositories.update(owner_repositories)
             fork_parents.update(owner_fork_parents)
         candidates = []
+    if pending_repositories:
+        batch = sorted(pending_repositories, key=str.casefold)
+        batch = batch[:GITHUB_NEW_REPOSITORY_BUDGET]
+        repositories.update(batch)
+        pending_repositories.difference_update(batch)
+        log(
+            f"GitHub owners: checking {len(batch)} repositories for the first "
+            f"time; {len(pending_repositories)} queued for later runs"
+        )
     configured_repositories = {
         f"{spec['login']}/{name.strip()}".casefold()
         for spec in owners
@@ -1646,6 +1671,16 @@ def fetch_github_owners(
                 else:
                     candidates.extend(result)
             except Exception as exc:  # noqa: BLE001 - aggregate source failures
+                if (
+                    source_kind == "release"
+                    and isinstance(exc, HTTPError)
+                    and exc.code in (403, 429)
+                    and source_name.casefold() not in release_state
+                    and source_name.casefold() not in configured_repositories
+                ):
+                    # Never published, so nothing disappears by waiting.
+                    pending_repositories.add(source_name)
+                    continue
                 if (
                     source_kind == "release"
                     and isinstance(exc, HTTPError)
@@ -1689,6 +1724,10 @@ def fetch_github_owners(
             repo: parent for repo, parent in fork_parents.items()
             if repo not in vanished_folded
         }
+        pending_repositories = {
+            repo for repo in pending_repositories
+            if repo.casefold() not in vanished_folded
+        }
 
     addon_repositories.update(
         item["repo"] for item in candidates if item.get("repo")
@@ -1705,6 +1744,7 @@ def fetch_github_owners(
         "configured_owners": configured_owners,
         "fork_policy": "newer-release-only-v1",
         "scanned_repositories": sorted(scanned_repositories, key=str.casefold),
+        "pending_repositories": sorted(pending_repositories, key=str.casefold),
         "addon_repositories": sorted(addon_repositories, key=str.casefold),
         "release_state": new_release_state,
         "fork_parents": fork_parents,

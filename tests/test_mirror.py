@@ -503,6 +503,112 @@ class GitHubOwnerTests(unittest.TestCase):
                 ):
                     mirror.fetch_github_owners(config_path, cache_path)
 
+    def test_first_time_repository_checks_are_rationed_across_runs(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": [],
+                "scanned_repositories": ["example/a", "example/b", "example/c"],
+                "pending_repositories": ["example/a", "example/b", "example/c"],
+            }
+        }
+        checked = []
+
+        def release_state(repo, previous_state=None):
+            checked.append(repo)
+            return [], {"etag": None, "candidates": [], "latest_version": None}
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"logins": ["example"]}, config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(mirror, "GITHUB_NEW_REPOSITORY_BUDGET", 2),                 mock.patch.object(
+                    mirror, "_github_owner_repositories", return_value=([], {})
+                ),                 mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ):
+                mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        self.assertEqual(["example/a", "example/b"], sorted(checked))
+        self.assertEqual(
+            ["example/c"], written["__discovery__"]["pending_repositories"]
+        )
+
+    def test_rate_limited_first_time_check_waits_for_the_next_run(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": [],
+                "scanned_repositories": ["example/new"],
+                "pending_repositories": ["example/new"],
+            }
+        }
+
+        def release_state(repo, previous_state=None):
+            raise HTTPError(
+                "https://api.github.invalid", 403, "rate limit", None, None
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"logins": ["example"]}, config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(
+                    mirror, "_github_owner_repositories", return_value=([], {})
+                ),                 mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ):
+                mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        self.assertEqual(
+            ["example/new"], written["__discovery__"]["pending_repositories"]
+        )
+
+    def test_rate_limited_published_repository_still_stops_publication(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": ["example/published"],
+                "scanned_repositories": ["example/published"],
+                "release_state": {"example/published": {"etag": '"e"'}},
+            }
+        }
+
+        def release_state(repo, previous_state=None):
+            raise HTTPError(
+                "https://api.github.invalid", 403, "rate limit", None, None
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"logins": ["example"]}, config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(
+                    mirror, "_github_owner_repositories", return_value=([], {})
+                ),                 mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "refusing to publish incomplete GitHub author discovery",
+                ):
+                    mirror.fetch_github_owners(config_path, cache_path)
+
     def test_telegram_configuration_selects_original_owner(self):
         owners = mirror._load_github_owners()
         by_login = {spec["login"].casefold(): spec for spec in owners}
