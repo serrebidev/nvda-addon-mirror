@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import zipfile
 from unittest import mock
+from urllib.error import HTTPError
 
 import mirror
 
@@ -393,6 +394,114 @@ class GitHubOwnerTests(unittest.TestCase):
 
         self.assertEqual({"example/original"}, repositories)
         self.assertEqual({}, fork_parents)
+
+    def test_deleted_owner_account_is_skipped(self):
+        response = {
+            "owner0": None,
+            "owner1": {
+                "repositories": {
+                    "nodes": [{"nameWithOwner": "present/addon", "isFork": False}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            },
+        }
+        with mock.patch.object(mirror, "_github_graphql", return_value=response):
+            repositories, fork_parents = mirror._github_owner_repository_names(
+                [{"login": "deleted"}, {"login": "present"}]
+            )
+
+        self.assertEqual({"present/addon"}, repositories)
+        self.assertEqual({}, fork_parents)
+
+    def test_every_owner_missing_stops_publication(self):
+        with mock.patch.object(
+            mirror, "_github_graphql", return_value={"owner0": None}
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "no configured GitHub account resolved",
+            ):
+                mirror._github_owner_repository_names([{"login": "deleted"}])
+
+    def test_deleted_repository_is_dropped_instead_of_failing_the_build(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": ["example/gone", "example/live"],
+                "scanned_repositories": ["example/gone", "example/live"],
+                "release_state": {"example/gone": {}, "example/live": {}},
+            }
+        }
+        state = ([], {"etag": None, "candidates": [], "latest_version": None})
+
+        def release_state(repo, previous_state=None):
+            if repo == "example/gone":
+                raise HTTPError(
+                    "https://api.github.invalid", 404, "Not Found", None, None
+                )
+            return state
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"logins": ["example"]}, config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(
+                    mirror,
+                    "_github_owner_repositories",
+                    return_value=(["example/live"], {}),
+                ),                 mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ):
+                entries = mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        self.assertEqual([], entries)
+        discovery = written["__discovery__"]
+        self.assertEqual(["example/live"], discovery["addon_repositories"])
+        self.assertEqual(["example/live"], discovery["scanned_repositories"])
+        self.assertNotIn("example/gone", discovery["release_state"])
+
+    def test_missing_configured_repository_still_stops_publication(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": ["example/gone"],
+                "scanned_repositories": ["example/gone"],
+            }
+        }
+
+        def release_state(repo, previous_state=None):
+            raise HTTPError(
+                "https://api.github.invalid", 404, "Not Found", None, None
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump(
+                    {"owners": [{"login": "example", "repositories": ["gone"]}]},
+                    config_file,
+                )
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(
+                    mirror,
+                    "_github_owner_repositories",
+                    return_value=(["example/gone"], {}),
+                ),                 mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "refusing to publish incomplete GitHub author discovery",
+                ):
+                    mirror.fetch_github_owners(config_path, cache_path)
 
     def test_telegram_configuration_selects_original_owner(self):
         owners = mirror._load_github_owners()

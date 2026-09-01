@@ -901,9 +901,15 @@ def _github_owner_repositories(spec):
         log(f"GitHub owner {login}: no token; checking {len(known)} configured repositories")
 
     encoded_login = quote(login, safe="")
-    repos = _github_json(
-        f"{GITHUB_API}/users/{encoded_login}/repos?per_page=100&type=owner"
-    )
+    try:
+        repos = _github_json(
+            f"{GITHUB_API}/users/{encoded_login}/repos?per_page=100&type=owner"
+        )
+    except HTTPError as exc:
+        if exc.code != 404 or known:
+            raise
+        log(f"GitHub owner {login}: account no longer exists; skipping")
+        return [], {}
     discovered = {
         repo["full_name"]
         for repo in repos
@@ -1199,6 +1205,7 @@ def _github_owner_repository_names(owner_specs, batch_size=8):
     }
     repositories = set()
     fork_parents = {}
+    missing_logins = set()
     cursors = {login: None for login in specs_by_login}
     pending = list(specs_by_login)
     while pending:
@@ -1231,10 +1238,10 @@ def _github_owner_repository_names(owner_specs, batch_size=8):
             for alias, login in aliases.items():
                 owner = data.get(alias)
                 if owner is None:
-                    raise RuntimeError(
-                        f"configured GitHub account does not exist: "
-                        f"{specs_by_login[login]['login']}"
-                    )
+                    # Accounts are deleted or renamed without warning. Drop the
+                    # one account rather than halting every other author.
+                    missing_logins.add(specs_by_login[login]["login"])
+                    continue
                 result = owner.get("repositories") or {}
                 excluded = {
                     name.strip().casefold()
@@ -1261,6 +1268,17 @@ def _github_owner_repository_names(owner_specs, batch_size=8):
                     cursors[login] = page_info.get("endCursor")
                     next_pending.append(login)
         pending = next_pending
+    if missing_logins:
+        if len(missing_logins) == len(specs_by_login):
+            raise RuntimeError(
+                "no configured GitHub account resolved, which points at an API "
+                "problem rather than deleted accounts: "
+                + ", ".join(sorted(missing_logins))
+            )
+        log(
+            "GitHub owners no longer exist and were skipped: "
+            + ", ".join(sorted(missing_logins))
+        )
     return repositories, fork_parents
 
 
@@ -1595,7 +1613,15 @@ def fetch_github_owners(
             repositories.update(owner_repositories)
             fork_parents.update(owner_fork_parents)
         candidates = []
+    configured_repositories = {
+        f"{spec['login']}/{name.strip()}".casefold()
+        for spec in owners
+        if isinstance(spec, dict) and spec.get("login")
+        for name in spec.get("repositories", [])
+        if isinstance(name, str) and name.strip()
+    }
     failures = []
+    vanished = set()
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         futures = {
             pool.submit(
@@ -1620,12 +1646,49 @@ def fetch_github_owners(
                 else:
                     candidates.extend(result)
             except Exception as exc:  # noqa: BLE001 - aggregate source failures
+                if (
+                    source_kind == "release"
+                    and isinstance(exc, HTTPError)
+                    and exc.code == 404
+                    and source_name.casefold() not in configured_repositories
+                ):
+                    # A discovered repository was deleted, renamed or made
+                    # private since the last scan. Forget it instead of
+                    # blocking every other add-on until the next owner scan.
+                    vanished.add(source_name)
+                    continue
                 failures.append(f"{source_name}: {exc}")
     if failures:
         raise RuntimeError(
             "refusing to publish incomplete GitHub author discovery: "
             + "; ".join(failures)
         )
+    if vanished:
+        log(
+            "GitHub repositories no longer exist and were dropped: "
+            + ", ".join(sorted(vanished, key=str.casefold))
+        )
+        vanished_folded = {repo.casefold() for repo in vanished}
+        repositories = {
+            repo for repo in repositories
+            if repo.casefold() not in vanished_folded
+        }
+        addon_repositories = {
+            repo for repo in addon_repositories
+            if repo.casefold() not in vanished_folded
+        }
+        scanned_repositories = {
+            repo for repo in scanned_repositories
+            if repo.casefold() not in vanished_folded
+        }
+        new_release_state = {
+            repo: state for repo, state in new_release_state.items()
+            if repo.casefold() not in vanished_folded
+        }
+        fork_parents = {
+            repo: parent for repo, parent in fork_parents.items()
+            if repo not in vanished_folded
+        }
 
     addon_repositories.update(
         item["repo"] for item in candidates if item.get("repo")
