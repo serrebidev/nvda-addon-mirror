@@ -97,6 +97,15 @@ class ClassifyTests(unittest.TestCase):
             )
         )
 
+    def test_a_bare_host_name_does_not_supply_the_signal(self):
+        # "le-dictionnaire.com" is a domain, not two French words.
+        self.assertIsNone(
+            audit_translations.classify(
+                "Allows you to search for the definition of a word in the free "
+                "online French dictionary le-dictionnaire.com."
+            )
+        )
+
     def test_short_foreign_name_is_flagged_on_one_function_word(self):
         self.assertIsNotNone(
             audit_translations.classify("TDK ve Sözlükler", short_name=True)

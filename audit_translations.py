@@ -76,7 +76,7 @@ _LATIN_FUNCTION_WORDS = (
     "onde|meus|minhas|não|"
     # French
     "le|les|des|une|pour|avec|dans|vous|votre|cette|cet|ces|permet|lorsque|"
-    "leur|offre|meilleure|logiciel|rendre|dictionnaire|"
+    "leur|offre|meilleure|logiciel|rendre|"
     # German
     "und|ein|eine|einen|mit|auf|den|dem|nicht|der|das|oder|wird|"
     "werden|beim|durch|kann|auch|sagt|"
@@ -112,7 +112,15 @@ _ACCENTED_ALLOWED = re.compile(
     "protypé)\\b"
 )
 
-_URL_RE = re.compile(r"(?i)\b(?:https?://|www\.)\S+|\S+@\S+\.\S+")
+#: URLs, bare host names and mail addresses. All three carry foreign-looking
+#: letter runs and foreign words: "...in the free online French dictionary
+#: le-dictionnaire.com" is an English sentence that reads as French to a word
+#: list unless the host name is taken out of it first.
+_URL_RE = re.compile(
+    r"(?i)\b(?:https?://|www\.)\S+"
+    r"|\S+@\S+\.\S+"
+    r"|\b[\w-]+(?:\.[\w-]+)*\.(?:com|org|net|edu|gov|info|io|dev|app|[a-z]{2})\b"
+)
 
 try:  # Optional: sharpens the audit, never required to run it.
     from langdetect import DetectorFactory, detect_langs
@@ -142,7 +150,6 @@ def classify(text, short_name=False):
     if mirror._NON_LATIN_SCRIPT_RE.search(text):
         return "non-Latin script"
 
-    # URLs and mail addresses carry foreign-looking letter runs of their own.
     stripped = _URL_RE.sub(" ", text)
 
     allowed = _ACCENTED_ALLOWED.sub(" ", stripped)
