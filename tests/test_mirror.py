@@ -616,6 +616,29 @@ class GitHubOwnerTests(unittest.TestCase):
         self.assertIn("keyang556", by_login)
         self.assertEqual("exclude", by_login["serrebidev"]["fork_policy"])
 
+    def test_requested_authors_stay_configured(self):
+        # Requested by name. accessolutions is an organization rather than a
+        # user, which repository discovery handles through its own GraphQL
+        # branch, so it is worth pinning down alongside the two accounts.
+        by_login = {
+            spec["login"].casefold(): spec
+            for spec in mirror._load_github_owners()
+        }
+        for login in ("javidominguez", "mltony", "accessolutions"):
+            with self.subTest(login=login):
+                self.assertIn(login, by_login)
+
+    def test_every_author_requires_forks_to_be_newer_by_default(self):
+        # "No forks unless the fork is newer" is the rule for every GitHub
+        # source. Only serrebidev opts out, and it opts out the stricter way,
+        # by dropping forks entirely.
+        for spec in mirror._load_github_owners():
+            with self.subTest(login=spec["login"]):
+                self.assertIn(
+                    spec.get("fork_policy", "newer-release-only"),
+                    ("newer-release-only", "exclude"),
+                )
+
     def test_owner_can_exclude_all_forks(self):
         response = {
             "owner0": {
