@@ -99,11 +99,38 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 ## Repo layout
 
 - `mirror.py` — the whole pipeline (stdlib only, Python 3.11+).
+- `audit_translations.py` — reports add-ons still published in a language
+  other than English (see below).
 - `.github/workflows/update.yml` — ten-minute cron plus a self-dispatching
   ten-minute keep-alive, because GitHub may delay or drop scheduled events.
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
   packs it into `dist/`.
 - `public/` — generated site (published to GitHub Pages by Actions).
+
+## Keeping the English overlay complete
+
+Many add-ons ship only Spanish, Russian, Turkish, French, Portuguese, German or
+Chinese metadata. `translations.json` overlays English `summary`, `description`,
+`author` and `changelog` text onto them, keyed by add-on id. The catalogs keep
+growing, so the overlay decays unless somebody notices the new arrivals.
+
+`audit_translations.py` finds them. It reads the **published** `addons.json`
+rather than the overlay, because a non-English field that survives into the
+output is a real gap no matter what the overlay claims — a key whose spelling
+drifted from the add-on id looks present and does nothing:
+
+```sh
+python audit_translations.py                        # audit the live mirror
+python audit_translations.py --addons public/addons.json --json gaps.json
+```
+
+It exits `0` when nothing needs translating and `1` when it found candidates,
+so a scheduled job can branch on it. Detection combines a Unicode-script test
+(reusing `mirror`'s own), per-language function words, lowercase accented words,
+and — when `langdetect` happens to be installed — a statistical check on longer
+text. It is biased towards precision: a very short Latin-script product name
+carries too little signal to separate from English, so a few of those are
+missed, but every description long enough to read as prose is caught.
 
 ## Running locally
 

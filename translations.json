@@ -1400,8 +1400,9 @@
    "description": "AddonsHistory is an add-on for NVDA that tracks the history of changes to installed add-ons.\nMain functions:\nAutomatically maintains the history of installation and removal of add-ons.\nData retention even after add-ons are removed.\nFlexible display settings.\nKeyboard shortcut:\nNVDA+control+shift+f12 to open the history window.\nYou can change the keyboard shortcut in input gestures, in the “Add-ons history” category."
   },
   "Calendar": {
-   "summary": "Calendar (Calendar for NVDA)",
-   "description": "The Calendar add-on is designed to quickly obtain information about any day of any year, copying it to the clipboard for later use.\nTo open and close the virtual calendar layer, use the key combination NVDA+` (back apostrophe), also known as the letter (е) in the Russian keyboard.\nYou can change the keyboard shortcut in the Input Gestures settings, in the Calendar category, for the shortcut Turn on or off the calendar layer.\nCommands available in the virtual calendar layer:\nUp Arrow or Down Arrow: Increases or decreases the current date by one day.\nLeft Arrow or Right Arrow: Increases or decreases the current date by one week.\nPage up or Page down: Increases or decreases the current date by one month.\nHome or End: Increase or decrease the current date by 1 year.\nC: Copy the selected date to the clipboard.\nT: Return to current date."
+   "summary": "Calendar for NVDA",
+   "description": "Calendar provides quick information about any date in any year and can copy the selected date to the clipboard. Press NVDA+grave accent to open or close its virtual calendar layer. Use the arrow keys to move by day or week, Page Up and Page Down to move by month, Home and End to move by year, C to copy the selected date, and T to return to today's date. The opening gesture can be changed under Input Gestures, in the Calendar category.",
+   "changelog": "Release notes are not available in English."
   },
   "AddonsCommands": {
    "summary": "AddonsCommands",
@@ -4459,7 +4460,8 @@
    "summary": "Main Landmark Navigator"
   },
   "mandateOfHeavenSubtitles": {
-   "summary": "Mandate of Heaven Subtitles"
+   "summary": "Mandate of Heaven Subtitles",
+   "description": "Automatically reads subtitles in Mandate of Heaven using NVDA's accessibility tree. No arrow keys are needed. Built for blind gamers."
   },
   "markdownToHtmlConverter": {
    "summary": "Markdown to HTML Converter"
@@ -4737,7 +4739,8 @@
    "description": "The Vnspeak reader for NVDA, created by Lê Anh Tuấn together with the Nhật Hồng Blind Support Center with sponsorship from CBM. The copyright and intellectual property of the reader belong to the author Lê Anh Tuấn."
   },
   "zhcnViDict": {
-   "description": "A specialized Chinese-Vietnamese dictionary add-on for visually impaired gamers to experience Chinese game titles through NVDA.\nThe dictionary data was developed by the Convert Chinese-Vietnamese stories community and converted to an NVDA-compatible format by Lê Trọng Tấn."
+   "description": "A specialized Chinese-Vietnamese dictionary add-on for visually impaired gamers to experience Chinese game titles through NVDA.\nThe dictionary data was developed by the Convert Chinese-Vietnamese stories community and converted to an NVDA-compatible format by Lê Trọng Tấn.",
+   "summary": "Chinese-Vietnamese Dictionary"
   },
   "blindGame": {
    "description": "Your games hub in NVDA. Activate the add-on with the NVDA+Shift+J shortcut, choose your favorite game and have fun.\nPause and resume the soundtrack with the NVDA+Shift+P shortcut."
@@ -4767,11 +4770,6 @@
    "summary": "Edge Reader",
    "description": "Edge Reader automatically saves any text read by the screen reader as high-quality MP3 files, making it convenient to listen to your documents at any time."
   },
-  "Calendar": {
-   "summary": "Calendar for NVDA",
-   "description": "Calendar provides quick information about any date in any year and can copy the selected date to the clipboard. Press NVDA+grave accent to open or close its virtual calendar layer. Use the arrow keys to move by day or week, Page Up and Page Down to move by month, Home and End to move by year, C to copy the selected date, and T to return to today's date. The opening gesture can be changed under Input Gestures, in the Calendar category.",
-   "changelog": "Release notes are not available in English."
-  },
   "NeuralVoicesUA": {
    "summary": "Neural Voices",
    "description": "NeuralVoices is an NVDA driver for Microsoft's natural neural voices. It can switch voices automatically according to the language of the text and lets you configure the rate, pitch, and volume for each voice. Enable Unicode-script language detection in NVDA's speech settings, then choose preferred voices under NVDA Settings, Neural Voices. Install one or more neural voices after installing the driver; MultiLang can be used to combine this synthesizer with other synthesizers.",
@@ -4788,8 +4786,68 @@
   "lineDesktop": {
    "summary": "LINE Desktop Accessibility Support"
   },
-  "mandateOfHeavenSubtitles": {
-   "description": "Automatically reads subtitles in Mandate of Heaven using NVDA's accessibility tree. No arrow keys are needed. Built for blind gamers."
+  "Text_Fixer": {
+   "summary": "NVDA Text Fixer",
+   "description": "NVDA Text Fixer quickly tidies up selected text: it fixes capitalization at the start of sentences and lines, and removes redundant spaces as well as spaces before punctuation marks. It can also convert selected text between the keyboard layouts installed on the system."
+  },
+  "instantTranslate": {
+   "summary": "InstantTranslate",
+   "description": "The Instant Translate add-on translates selected text or the contents of the clipboard from one language into another using Google Translate or DeepL.\nTranslation can be performed in four ways:\nSelect text and press the corresponding key to translate it.\nTranslate the text on the clipboard.\nTranslate the phrase NVDA spoke last.\nTurn on automatic translation so that every spoken phrase is translated.\nIn the add-on settings you can choose the source and target languages as well as your preferred translation service.\nThe N command in the add-on layer switches between Google Translate and DeepL without opening the settings dialog.\nAutomatic detection of the source language is available.\nThe automatic language swap feature exchanges the source and target languages.\nWhen it is enabled, the add-on detects the language of the text and changes the settings if required.\nLanguage pairs are provided for frequently used combinations.\nUp to ten pairs of source and target languages can be saved.\nEach pair is bound to a key from 1 to 0 in the Instant Translate layer.\nPressing the corresponding key immediately switches to that pair and starts the translation.\nThe result of a translation can be copied to the clipboard automatically.\nThe settings can disable the notification that a translation has started, as well as the sounds played while it runs.\nEnabling automatic language switching in NVDA's speech settings is recommended.\nWith a multilingual synthesizer the translation is then spoken in the voice of the target language.\nThe add-on is driven through a command layer entered with NVDA+Shift+T.\nCommands are available for translating selected text and clipboard text.\nYou can swap the languages, switch between language pairs and have the current settings announced.\nThe add-on can stop a translation in progress and clear the cache of recent translations.\nIt detects the language of the selected text and translates the last spoken phrase.\nAutomatic translation of all of NVDA's speech output is supported.\nEvery feature of the add-on is described in detail in its user guide."
+  },
+  "ribbonMenu": {
+   "summary": "RibbonMenu",
+   "description": "The RibbonMenu add-on for NVDA lets you operate the Microsoft Office ribbon as though it were a classic menu.\nNavigation uses the arrow keys, Enter and Escape, exactly as in the menus of older Office versions.\nNo additional software and no changes to the Office configuration are required.\nThe add-on works with Word, Excel, PowerPoint and classic Outlook.\nContextual tabs, add-in tabs and the overflow menu of the simplified ribbon are all supported.\nThe add-on reads the ribbon as it is, so customized elements are handled correctly.\nTo get started, open an Office application and press Alt to enter the ribbon.\nLeft and Right Arrow move between tabs.\nDown Arrow or Enter opens the selected tab.\nUp and Down Arrow move through the items of the open tab or submenu.\nRight Arrow enters a group or expands a control.\nLeft Arrow returns to the level above.\nEnter activates the current item or expands a submenu.\nAlt with the arrow keys expands and collapses controls.\nEscape moves up one level at a time, and leaves the ribbon when pressed on the tab bar.\nPressing NVDA+Space inside the ribbon temporarily disables the add-on.\nPressing NVDA+Space inside the ribbon again re-enables it.\nThe latest version adds an experimental virtual ribbon engine.\nIt announces your position instantly and makes navigation more reliable.\nAll commands are carried out by real clicks on the actual controls.\nThe engine warms the ribbon up in the background and remembers its layout.\nRibbon Menu is a fork of RibbonExplorer, which is no longer maintained.\nIf you have the old RibbonExplorer installed, remove it before installing this add-on.\nEvery feature of the add-on is described in its user guide."
+  },
+  "tts_converter": {
+   "summary": "TTSConverter (Text to Speech Converter)",
+   "description": "The TTSConverter add-on for NVDA speaks text using two popular speech synthesis providers: Gemini and ElevenLabs.\nYou can switch between the providers at the top of the window, and the interface adapts itself to the service you choose.\nGemini offers both ordinary narration and a podcast mode with two speakers.\nYou can pick a voice from a drop-down list and filter the voices by gender.\nEmotional tags can be inserted directly into the text for more expressive speech.\nIn podcast mode you set two voices and names for the speakers, then build the dialogue step by step.\nOnce the script is written you can generate the audio, play it back, save it to disk or open the folder containing the file.\nIn the Gemini settings you enter your API key and choose one of three speech models.\nElevenLabs offers broader capabilities for working with voices.\nFor narration you can choose from your personal voice library, filtered by gender.\nIn podcast mode the screen is split into two halves, one per speaker.\nYou can add lines in turn or paste a finished script in \"Name: text\" format.\nThe add-on then finds every speaker and lets you assign each one a unique voice.\nElevenLabs also supports voice cloning, and you can check the remaining credits on your account.\nThe chosen provider and all settings are kept between sessions.\nUse Ctrl+Tab and Ctrl+Shift+Tab to switch quickly between providers.\nYou can assign your own hotkey for opening the add-on through NVDA's Input Gestures menu.\nYour own API keys for the services listed above are required.\nEvery feature of the add-on is described in its user guide."
+  },
+  "grtts": {
+   "summary": "Guangrong TTS",
+   "description": "Guangrong TTS, a speech synthesizer add-on for NVDA."
+  },
+  "PVPCChecker": {
+   "description": "Lets you quickly check the cost of electricity in Spain using the information published at https://tarifaluzhora.es."
+  },
+  "dextop_whatsapp_voice_dual": {
+   "description": "Improves voice recording in WhatsApp Desktop and WhatsApp Beta. Internal dual mode: press NVDA+Control+Shift+W twice to close and reopen both copies of WhatsApp on separate ports."
+  },
+  "gestorDePomodoros": {
+   "summary": "Pomodoro Manager",
+   "description": "An add-on for managing Pomodoro cycles.\nUseful for students or workers who need help getting distracted less often and paying more attention to their tasks."
+  },
+  "gestor de enlaces": {
+   "summary": "Link Manager"
+  },
+  "NVDA Yourls": {
+   "description": "This add-on shortens a link using the YOURLS API."
+  },
+  "utilidadesChrome": {
+   "summary": "Chrome Utilities",
+   "description": "Utilities for Chrome."
+  },
+  "diario": {
+   "summary": "Diary"
+  },
+  "agenda": {
+   "summary": "Add-on for the Agenda program",
+   "description": "This add-on makes the Agenda program more accessible with NVDA."
+  },
+  "leDictionnaire": {
+   "summary": "Le Dictionnaire (French Dictionary)"
+  },
+  "protonVPNAccessibility": {
+   "summary": "ProtonVPN Accessibility"
+  },
+  "Progress Reader": {
+   "description": "Announces the state of a progress bar at the press of a key."
+  },
+  "mikrofon_sabitleyici": {
+   "summary": "Microphone Stabilizer",
+   "description": "Prevents applications from automatically lowering the microphone volume during calls or while recording voice messages."
+  },
+  "tdkSozluk": {
+   "summary": "TDK and Dictionaries"
   }
  }
 }
