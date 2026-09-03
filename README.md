@@ -45,7 +45,13 @@ Sources:
    - a version string with no parseable numeric parts.
 3. Merges sources case-insensitively by add-on id and channel. Explicitly pinned
    releases win, followed by direct author releases, the official store,
-   nvda-addons.ru, bestmidi, and Spanish-catalog originals.
+   nvda-addons.ru, bestmidi, and Spanish-catalog originals. A dev or beta entry
+   whose version is the release the stable channel already carries is then
+   dropped, so one add-on is listed once. nvda-addons.ru labels most of its
+   links "Dev" regardless of what upstream published, which otherwise put the
+   same version of ~370 add-ons in the store twice. Versions are compared as
+   the numbers NVDA itself compares, so `2026.05.03` and `2026.5.3` count as
+   one release.
 4. Downloads each remaining `.nvda-addon`, computes its SHA-256 (NVDA enforces
    this checksum on install), and emits the NVDA store schema.
 5. Writes `cacheHash.json`, `addons.json`, and
@@ -71,23 +77,32 @@ Point NVDA's Add-on Store at the live mirror:
 https://serrebidev.github.io/nvda-addon-mirror
 ```
 
-Two ways to do this:
+Three ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [dist/addonStoreMirror-1.2.0.nvda-addon](dist/addonStoreMirror-1.2.0.nvda-addon)
-   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.2.0.nvda-addon).
+   [dist/addonStoreMirror-1.2.1.nvda-addon](dist/addonStoreMirror-1.2.1.nvda-addon)
+   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.2.1.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
-   Version 1.2.0 adds source visibility and source-aware search. Version 1.1.1
-   fixes a crash caused by replacing NVDA's live Add-on Store data manager;
-   1.0.0 had a trailing-slash URL bug.
+   Version 1.2.1 corrects the minimum NVDA version to 2025.1 (see below) and
+   stops a failure there from leaving the Add-on Store list modified. 1.2.0
+   added source visibility and source-aware search; 1.1.1 fixed a crash caused
+   by replacing NVDA's live Add-on Store data manager; 1.0.0 had a
+   trailing-slash URL bug.
 2. **Edit `nvda.ini`** manually:
    ```ini
    [addonStore]
    baseServerURL = https://serrebidev.github.io/nvda-addon-mirror
    ```
    then restart NVDA.
+3. **Use NVDA's built-in mirror setting** — NVDA menu > Preferences > Settings >
+   Add-on Store > Mirror server > Change..., paste
+   `https://serrebidev.github.io/nvda-addon-mirror`, then OK. Available since
+   NVDA 2025.1; it writes the same `[addonStore] baseServerURL` key as the two
+   options above, so it works exactly as well as they do — it just won't
+   restore the official URL for you when you want to stop using the mirror,
+   and it doesn't add the helper add-on's Source column / source-aware search.
 
 ## Browsing what was rejected
 
@@ -150,15 +165,22 @@ artifacts that contain symlinks.
   add-on API version (e.g. `2026.2.0`), so the mirror must emit a file for
   every released NVDA version still in use or those users get a 404 and an
   empty "compatible" list.
-  - **Old NVDA support has a hard floor of NVDA 2024.1**: the Add-on Store
-    client itself only shipped in NVDA 2024.1. NVDA 2018–2023.3 have no code
-    that fetches `{version}.json` at all, so no mirror of this kind can serve
-    them — "back to 2018" is structurally impossible, not just a size problem.
+  - **Old NVDA support has a hard floor of NVDA 2025.1.** The Add-on Store
+    client shipped earlier, in NVDA 2023.2, and 2023.2–2024.4 do fetch
+    `{lang}/{channel}/{version}.json` — but from a hardcoded address:
+    `addonStore.network.BASE_URL = "https://nvaccess.org/addonStore"`, with no
+    setting to change it. The `[addonStore] baseServerURL` key this mirror
+    depends on was added in **2025.1**, where `_getBaseURL()` first consults it.
+    So no mirror of this kind can serve any NVDA older than 2025.1, and NVDA
+    2018–2022 has no Add-on Store at all. The mirror publishes no endpoint
+    below `2025.1.0`: files for older API versions could never be requested by
+    any NVDA ever released, and they were about a third of the deployed site.
   - GitHub Pages forbids symlinks in Actions artifacts (and dereferences them
     on upload anyway), so the mirror writes **real copies** for every locale.
     Every build reads NV Access's live `addon-datastore` metadata and publishes
-    every API version from NVDA 2024.1 onward, including experimental versions.
-    Existing endpoints are never pruned when a newer version appears. The
+    every API version from NVDA 2025.1 onward, including experimental versions.
+    Endpoints at or above that floor are never pruned when a newer version
+    appears. The
     bundled `nvdaAPIVersions.json` is the offline fallback, and also supplies
     each version's `BACK_COMPAT_TO`. Users on a version whose file is absent
     still get the `latest` (incompatible) view.
