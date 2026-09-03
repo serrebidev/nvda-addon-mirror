@@ -275,6 +275,72 @@ class DedupeTests(unittest.TestCase):
 
         self.assertEqual("1.1", mirror.dedupe([official, author])[0]["version"])
 
+    def test_official_scan_results_kept_when_identical_file_wins_via_author(self):
+        shared = {
+            "name": "exampleAddon",
+            "channel": "stable",
+            "download_url": "https://example.invalid/example.nvda-addon",
+            "summary": "Example",
+            "description": "",
+            "sha256": "a" * 64,
+        }
+        scan = {
+            "virusTotal": [
+                {"last_analysis_stats": {"malicious": 0, "undetected": 64}}
+            ],
+            "vtScanUrl": "https://www.virustotal.com/gui/file/example",
+        }
+        official = dict(shared, source="official", version="1.0", scan_results=scan)
+        author = dict(shared, source="github_owner", version="1.1")
+
+        winner = mirror.dedupe([official, author])[0]
+        self.assertEqual("github_owner", winner["source"])
+        self.assertEqual(scan, winner["scan_results"])
+
+    def test_scan_results_not_carried_across_different_files(self):
+        shared = {
+            "name": "exampleAddon",
+            "channel": "stable",
+            "download_url": "https://example.invalid/example.nvda-addon",
+            "summary": "Example",
+            "description": "",
+        }
+        scan = {
+            "virusTotal": [{"last_analysis_stats": {}}],
+            "vtScanUrl": "https://www.virustotal.com/gui/file/1",
+        }
+        official = dict(
+            shared,
+            source="official",
+            version="1.0",
+            sha256="a" * 64,
+            scan_results=scan,
+        )
+        author = dict(shared, source="github_owner", version="1.1", sha256="b" * 64)
+
+        winner = mirror.dedupe([official, author])[0]
+        self.assertNotIn("scan_results", winner)
+
+    def test_official_winner_keeps_its_own_scan_results(self):
+        shared = {
+            "name": "exampleAddon",
+            "channel": "stable",
+            "download_url": "https://example.invalid/example.nvda-addon",
+            "summary": "Example",
+            "description": "",
+            "sha256": "a" * 64,
+        }
+        scan = {
+            "virusTotal": [{"last_analysis_stats": {}}],
+            "vtScanUrl": "https://www.virustotal.com/gui/file/1",
+        }
+        official = dict(shared, source="official", version="2.0", scan_results=scan)
+        community = dict(shared, source="ru", version="1.0")
+
+        winner = mirror.dedupe([community, official])[0]
+        self.assertEqual("official", winner["source"])
+        self.assertEqual(scan, winner["scan_results"])
+
 
 class TransformTests(unittest.TestCase):
     def test_store_source_is_exposed_with_a_human_readable_name(self):

@@ -20,6 +20,7 @@ Stdlib only (Python 3.11+).
 import argparse
 import concurrent.futures
 import fnmatch
+import glob
 import hashlib
 import io
 import json
@@ -2135,6 +2136,13 @@ def dedupe(entries):
     changelog are adopted from a non-Cyrillic sibling (official first, then
     bestmidi), so the store shows English wherever an English source exists
     while keeping the winner's reliable download URL and hash.
+
+    VirusTotal scan results describe a specific file, and the official store is
+    the only source that scans bundles. When a non-official entry wins (e.g. a
+    direct author release) but an official sibling served the identical file
+    (same sha256), the winner keeps that sibling's scan results instead of
+    dropping them; a differing hash means a different file, and its scan data
+    is never carried over.
     """
     priority = SOURCE_PRIORITY
     by_key = {}
@@ -2165,6 +2173,19 @@ def dedupe(entries):
                     if cand.get(field):
                         winner[field] = cand[field]
                 break
+        if not winner.get("scan_results"):
+            winner_sha = (winner.get("sha256") or "").strip().lower()
+            if winner_sha:
+                for cand in sorted(
+                    group,
+                    key=lambda e: priority.get(e["source"], 0),
+                    reverse=True,
+                ):
+                    scan = cand.get("scan_results")
+                    cand_sha = (cand.get("sha256") or "").strip().lower()
+                    if scan and cand_sha == winner_sha:
+                        winner["scan_results"] = scan
+                        break
         result.append(winner)
     return result
 
@@ -2552,6 +2573,109 @@ def emit(
                 if ver == "latest":
                     continue
                 write_bytes(f"{lang}/{channel}/{ver}.json", compatible_bytes[ver])
+
+
+_AUDIT_REQUIRED_KEYS = (
+    "addonId", "displayName", "description", "publisher", "channel",
+    "addonVersionName", "addonVersionNumber", "license", "sourceURL", "URL",
+    "sha256", "minNVDAVersion", "lastTestedVersion",
+)
+_AUDIT_CHANNELS = {"stable", "beta", "dev"}
+
+
+def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
+    """Return a list of problems found in a built mirror output.
+
+    Every numbered ``{lang}/all/{apiVersion}.json`` is the "compatible" view
+    NVDA serves to the release running that API version, and NVDA trusts the
+    server's filter rather than re-checking it. A regression here would
+    silently empty or pollute a release's compatible list, so each file must
+    contain only add-ons where ``minimumNVDAVersion <= apiVersion`` and
+    ``lastTestedNVDAVersion >= that release's BACK_COMPAT_TO``, must have no
+    duplicate ``(addonId, channel)`` rows, and every entry must carry the keys
+    the oldest supported client (NVDA 2025.1) requires. ``latest.json`` is the
+    unfiltered "show all" view and is not audited.
+
+    BACK_COMPAT_TO values come from the build's own ``stats.json`` (recorded
+    from the live addon-datastore metadata, with the bundled
+    ``nvdaAPIVersions.json`` as fallback), so the check needs no network and
+    cannot drift from what the build actually used.
+    """
+    problems = []
+    stats_path = os.path.join(out_dir, "stats.json")
+    if not os.path.exists(stats_path):
+        return [f"{stats_path} missing; cannot audit"]
+    with open(stats_path, "r", encoding="utf-8") as f:
+        stats = json.load(f)
+    floors = {
+        str(ver): tuple(int(part) for part in back)
+        for ver, back in (stats.get("back_compat_to") or {}).items()
+    }
+    bundled_floors = load_nvda_api_versions(api_version_path)
+    counts = stats.get("compatible_counts") or {}
+
+    for path in sorted(glob.glob(os.path.join(out_dir, "*", "all", "*.json"))):
+        ver_name = os.path.splitext(os.path.basename(path))[0]
+        if ver_name == "latest":
+            continue
+        ver_tuple = parse_api_version(ver_name)
+        if ver_tuple is None:
+            problems.append(f"{path}: {ver_name!r} is not a valid API version file name")
+            continue
+        floor = floors.get(ver_name) or bundled_floors.get(ver_name)
+        if floor is None:
+            problems.append(f"{path}: no BACK_COMPAT_TO recorded for {ver_name}")
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                entries = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            problems.append(f"{path}: unreadable: {exc}")
+            continue
+        if not isinstance(entries, list):
+            problems.append(
+                f"{path}: expected a JSON list, got {type(entries).__name__}"
+            )
+            continue
+        seen = set()
+        for index, addon in enumerate(entries):
+            label = f"{path}[{index}]:"
+            for key in _AUDIT_REQUIRED_KEYS:
+                if key not in addon:
+                    problems.append(f"{label} missing required key {key!r}")
+            channel = addon.get("channel")
+            if channel not in _AUDIT_CHANNELS:
+                problems.append(f"{label} unexpected channel {channel!r}")
+            for key in ("minNVDAVersion", "lastTestedVersion", "addonVersionNumber"):
+                version_dict = addon.get(key)
+                try:
+                    parsed = (
+                        int(version_dict["major"]),
+                        int(version_dict["minor"]),
+                        int(version_dict["patch"]),
+                    )
+                except (KeyError, TypeError, ValueError):
+                    problems.append(f"{label} {key} is not a major/minor/patch dict")
+                    continue
+                if key == "minNVDAVersion" and parsed > ver_tuple:
+                    problems.append(
+                        f"{label} minimumNVDAVersion {parsed} is newer than {ver_name}"
+                    )
+                if key == "lastTestedVersion" and parsed < floor:
+                    problems.append(
+                        f"{label} lastTestedVersion {parsed} is below "
+                        f"{ver_name}'s BACK_COMPAT_TO {floor}"
+                    )
+            row = (str(addon.get("addonId", "")).casefold(), channel)
+            if row in seen:
+                problems.append(f"{label} duplicate (addonId, channel) row {row!r}")
+            seen.add(row)
+        expected = counts.get(ver_name)
+        if expected is not None and len(entries) != expected:
+            problems.append(
+                f"{path}: {len(entries)} entries, stats.json records {expected}"
+            )
+    return problems
 
 
 # ---------------------------------------------------------------------------

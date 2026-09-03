@@ -68,6 +68,9 @@ with an auditable reason.
 
 - `python -m py_compile mirror.py build_helper.py`
 - `python -m unittest discover -s tests -v`
+- Audit every published `{lang}/all/{apiVersion}.json` against that release's
+  real BACK_COMPAT_TO and required keys (`audit_catalog`), run in CI after the
+  build so an incompatible entry or broken numbered file fails the deployment.
 - Validate `githubOwners.json` and `translations.json` with `json.tool`.
 - Run a full-source English smoke build and parse every generated JSON file.
 - Confirm a second GitHub-owner scan uses conditional 304 responses and does
