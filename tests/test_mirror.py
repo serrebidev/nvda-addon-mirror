@@ -10,6 +10,18 @@ from urllib.error import HTTPError
 import mirror
 
 
+def httpError(url, code, message):
+    """Build an HTTPError without leaking its response body.
+
+    urllib gives an HTTPError a file-like body even when none is supplied, and
+    that body warns (ResourceWarning) when it is garbage collected unclosed.
+    The mirror only ever reads .code, so close it up front.
+    """
+    error = HTTPError(url, code, message, None, None)
+    error.close()
+    return error
+
+
 class PinnedVersionTests(unittest.TestCase):
     def test_newer_asset_version_wins_over_stale_manifest(self):
         self.assertEqual(
@@ -116,7 +128,10 @@ class NvdaReleaseMetadataTests(unittest.TestCase):
 
     def test_new_versions_are_added_without_pruning_experimental(self):
         entries = [
+            # No NVDA before 2025.1 can be pointed at a mirror: 2023.2 through
+            # 2024.4 hardcode the store address.
             self._entry((2023, 3, 0)),
+            self._entry((2024, 4, 2)),
             self._entry((2025, 3, 3)),
             self._entry((2026, 1, 1)),
             self._entry((2026, 2, 0)),
@@ -435,8 +450,8 @@ class GitHubOwnerTests(unittest.TestCase):
 
         def release_state(repo, previous_state=None):
             if repo == "example/gone":
-                raise HTTPError(
-                    "https://api.github.invalid", 404, "Not Found", None, None
+                raise httpError(
+                    "https://api.github.invalid", 404, "Not Found"
                 )
             return state
 
@@ -475,8 +490,8 @@ class GitHubOwnerTests(unittest.TestCase):
         }
 
         def release_state(repo, previous_state=None):
-            raise HTTPError(
-                "https://api.github.invalid", 404, "Not Found", None, None
+            raise httpError(
+                "https://api.github.invalid", 404, "Not Found"
             )
 
         with tempfile.TemporaryDirectory() as directory:
@@ -550,8 +565,8 @@ class GitHubOwnerTests(unittest.TestCase):
         }
 
         def release_state(repo, previous_state=None):
-            raise HTTPError(
-                "https://api.github.invalid", 403, "rate limit", None, None
+            raise httpError(
+                "https://api.github.invalid", 403, "rate limit"
             )
 
         with tempfile.TemporaryDirectory() as directory:
@@ -586,8 +601,8 @@ class GitHubOwnerTests(unittest.TestCase):
         }
 
         def release_state(repo, previous_state=None):
-            raise HTTPError(
-                "https://api.github.invalid", 403, "rate limit", None, None
+            raise httpError(
+                "https://api.github.invalid", 403, "rate limit"
             )
 
         with tempfile.TemporaryDirectory() as directory:
@@ -819,6 +834,228 @@ class TranslationTests(unittest.TestCase):
             "Release notes are not available in English.",
             entry["changelog"],
         )
+
+
+    def test_english_release_notes_survive(self):
+        """English notes were wiped by "version" and "correct" matching Spanish.
+
+        ``versi[oo]n`` matched plain "Version" and ``corre[cc][a-z]*`` matched
+        "corrected", so hundreds of add-ons that did publish English release
+        notes reached the store claiming they had none.
+        """
+        old_translations = mirror.TRANSLATIONS
+        mirror.TRANSLATIONS = {}
+        try:
+            for changelog in (
+                "Version 1.2: added a browse mode command.",
+                "Corrected a crash when the list was empty.",
+                "Bug corrections and a new setting.",
+                "This corrects the reading order of tables.",
+                "Added support for newer versions of NVDA.",
+            ):
+                entry = {"name": "exampleAddon", "changelog": changelog}
+                mirror._translate_entry(entry)
+                self.assertEqual(changelog, entry["changelog"])
+        finally:
+            mirror.TRANSLATIONS = old_translations
+
+    def test_non_english_release_notes_are_still_detected(self):
+        old_translations = mirror.TRANSLATIONS
+        mirror.TRANSLATIONS = {}
+        try:
+            for changelog in (
+                "Versi\u00f3n 1.2 publicada.",
+                "Correcci\u00f3n de errores.",
+                "Corre\u00e7\u00e3o de bugs e melhorias.",
+                "A\u00f1adido soporte para tablas.",
+                "Yeni s\u00fcr\u00fcm eklendi.",
+                "Perbaikan bug.",
+            ):
+                entry = {"name": "exampleAddon", "changelog": changelog}
+                mirror._translate_entry(entry)
+                self.assertEqual(
+                    mirror.CHANGELOG_UNAVAILABLE,
+                    entry["changelog"],
+                    changelog,
+                )
+        finally:
+            mirror.TRANSLATIONS = old_translations
+
+    def test_english_notes_are_borrowed_from_another_source(self):
+        """The same add-on reaches the mirror twice, in two languages.
+
+        nvda-addons.ru republishes hundreds of official add-ons in its own
+        "Dev" channel with Russian notes. dedupe keys on (addonId, channel),
+        so the two never meet and the Russian entry used to be published as
+        having no English release notes at all.
+        """
+        entries = [
+            {
+                "name": "exampleAddon",
+                "source": "official",
+                "channel": "stable",
+                "changelog": "Added a browse mode command.",
+            },
+            {
+                "name": "exampleAddon",
+                "source": "ru",
+                "channel": "dev",
+                "changelog": "\u0418\u0441\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430 \u043e\u0448\u0438\u0431\u043a\u0430.",
+            },
+        ]
+        old_translations = mirror.TRANSLATIONS
+        old_index = mirror.ENGLISH_CHANGELOGS
+        mirror.TRANSLATIONS = {}
+        mirror.ENGLISH_CHANGELOGS = mirror.english_changelogs(entries)
+        try:
+            russian = dict(entries[1])
+            mirror._translate_entry(russian)
+            self.assertEqual("Added a browse mode command.", russian["changelog"])
+        finally:
+            mirror.TRANSLATIONS = old_translations
+            mirror.ENGLISH_CHANGELOGS = old_index
+
+    def test_borrowed_notes_prefer_the_more_trusted_source(self):
+        entries = [
+            {
+                "name": "exampleAddon",
+                "source": "bestmidi",
+                "channel": "stable",
+                "changelog": "Repository description.",
+            },
+            {
+                "name": "exampleAddon",
+                "source": "official",
+                "channel": "stable",
+                "changelog": "Reviewed release notes.",
+            },
+        ]
+        self.assertEqual(
+            {"exampleAddon": "Reviewed release notes."},
+            mirror.english_changelogs(entries),
+        )
+
+    def test_borrowing_never_offers_non_english_notes(self):
+        entries = [
+            {
+                "name": "exampleAddon",
+                "source": "official",
+                "channel": "stable",
+                "changelog": "Correcci\u00f3n de errores.",
+            },
+        ]
+        self.assertEqual({}, mirror.english_changelogs(entries))
+
+
+class UnparseableOfficialVersionTests(unittest.TestCase):
+    def test_official_entry_without_a_numeric_version_does_not_abort_the_build(self):
+        """reject_reason trusts official versions without parsing them.
+
+        transform() then indexed sanitize_version() unconditionally, so a
+        single malformed official version would have raised TypeError and
+        taken the whole publication with it.
+        """
+        entry = {
+            "name": "exampleAddon",
+            "summary": "Example",
+            "description": "",
+            "author": "Example",
+            "version": "beta",
+            "channel": "stable",
+            "source": "official",
+            "download_url": "https://example.invalid/example.nvda-addon",
+        }
+        obj = mirror.transform(entry, "0" * 64)
+
+        self.assertEqual("beta", obj["addonVersionName"])
+        self.assertEqual(
+            {"major": 0, "minor": 0, "patch": 0},
+            obj["addonVersionNumber"],
+        )
+
+
+class ChannelDuplicateTests(unittest.TestCase):
+    def _entry(self, channel, version, source="ru"):
+        return {
+            "name": "exampleAddon",
+            "channel": channel,
+            "version": version,
+            "source": source,
+        }
+
+    def test_dev_row_with_the_stable_version_is_dropped(self):
+        entries = [
+            self._entry("stable", "1.8", source="github_owner"),
+            self._entry("dev", "1.8"),
+        ]
+        kept, rejected = mirror.drop_redundant_channel_duplicates(entries)
+
+        self.assertEqual(["stable"], [entry["channel"] for entry in kept])
+        self.assertEqual(1, len(rejected))
+        self.assertEqual("exampleAddon", rejected[0]["addonId"])
+        self.assertIn("stable channel", rejected[0]["reason"])
+        self.assertIn("dev", rejected[0]["reason"])
+
+    def test_a_genuinely_newer_dev_row_is_kept(self):
+        entries = [
+            self._entry("stable", "1.8", source="github_owner"),
+            self._entry("dev", "1.9"),
+        ]
+        kept, rejected = mirror.drop_redundant_channel_duplicates(entries)
+
+        self.assertEqual(["stable", "dev"], [entry["channel"] for entry in kept])
+        self.assertEqual([], rejected)
+
+    def test_the_same_release_spelled_differently_still_collapses(self):
+        """NVDA compares the numbers, so the mirror must too.
+
+        The official store publishes "2026.05.03" where nvda-addons.ru
+        republishes the identical release as "2026.5.3".
+        """
+        entries = [
+            self._entry("stable", "2026.05.03", source="official"),
+            self._entry("dev", "2026.5.3"),
+        ]
+        kept, _rejected = mirror.drop_redundant_channel_duplicates(entries)
+
+        self.assertEqual(["stable"], [entry["channel"] for entry in kept])
+
+    def test_beta_matching_stable_collapses_too(self):
+        entries = [
+            self._entry("stable", "3.0", source="official"),
+            self._entry("beta", "3.0", source="official"),
+        ]
+        kept, rejected = mirror.drop_redundant_channel_duplicates(entries)
+
+        self.assertEqual(["stable"], [entry["channel"] for entry in kept])
+        self.assertIn("beta", rejected[0]["reason"])
+
+    def test_a_dev_only_add_on_survives(self):
+        entries = [self._entry("dev", "0.4")]
+        kept, rejected = mirror.drop_redundant_channel_duplicates(entries)
+
+        self.assertEqual(entries, kept)
+        self.assertEqual([], rejected)
+
+    def test_other_add_ons_do_not_suppress_each_other(self):
+        entries = [
+            {"name": "one", "channel": "stable", "version": "2.0", "source": "official"},
+            {"name": "two", "channel": "dev", "version": "2.0", "source": "ru"},
+        ]
+        kept, rejected = mirror.drop_redundant_channel_duplicates(entries)
+
+        self.assertEqual(entries, kept)
+        self.assertEqual([], rejected)
+
+    def test_matching_is_case_insensitive_like_dedupe(self):
+        entries = [
+            {"name": "ExampleAddon", "channel": "stable", "version": "1.0", "source": "official"},
+            {"name": "exampleaddon", "channel": "dev", "version": "1.0", "source": "ru"},
+        ]
+        kept, rejected = mirror.drop_redundant_channel_duplicates(entries)
+
+        self.assertEqual(["ExampleAddon"], [entry["name"] for entry in kept])
+        self.assertEqual(1, len(rejected))
 
 
 class HelperSafetyTests(unittest.TestCase):

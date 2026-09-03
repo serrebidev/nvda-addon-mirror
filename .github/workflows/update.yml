@@ -23,6 +23,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The whole workflow shares the "pages" concurrency group, so a hung build
+    # would hold every later refresh behind it for GitHub's 6-hour default. A
+    # full run takes minutes; give it room and then let the next cron retry.
+    timeout-minutes: 60
     steps:
       - name: Configure Git defaults
         run: git config --global init.defaultBranch main
@@ -69,6 +73,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

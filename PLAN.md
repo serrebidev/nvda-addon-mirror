@@ -40,12 +40,18 @@ release scan.
 2. Reject structurally invalid candidates before cross-source suppression.
 3. Retain Spanish originals only when the same add-on/channel is not covered by
    a valid stronger source.
-4. Deduplicate by case-insensitive add-on ID and channel.
+4. Deduplicate by case-insensitive add-on ID and channel, then drop a dev or
+   beta entry whose numeric version equals the stable entry's, so an add-on
+   whose channels carry one release is listed once.
 5. Use upstream hashes where trusted; otherwise stream the package and compute
    SHA-256. Cache version, size, ETag, and Last-Modified so same-URL and
    same-size replacements are detected.
-6. Overlay maintained English metadata. Non-English release notes without an
-   English source receive a clear English unavailable message.
+6. Overlay maintained English metadata. Release notes that are not English
+   are replaced by the English notes another source published for the same
+   add-on id, and only fall back to a clear English unavailable message when
+   no source has any. The language test must never fire on English prose:
+   "version" and the "correct" family are ordinary English words and are
+   deliberately not treated as Spanish or Portuguese.
 7. Emit `addons.json`, `cacheHash.json`, rejection reports, compatibility-filtered
    API-version files, and `latest.json` for every supported locale.
 8. Deploy the generated static site through GitHub Pages.
@@ -68,3 +74,11 @@ with an auditable reason.
   not materially consume the hourly API quota.
 - Inspect the helper archive to ensure it contains only `manifest.ini` and the
   global plugin source and never calls `dataManager.initialize()`.
+
+## NVDA version floor
+
+`[addonStore] baseServerURL` was added in NVDA 2025.1. NVDA 2023.2 through
+2024.4 have an Add-on Store but hardcode `addonStore.network.BASE_URL`, so
+nothing can point them at a mirror; the helper add-on requires 2025.1 and says
+so rather than failing at startup, and no `{apiVersion}.json` below `2025.1.0`
+is published because nothing could ever request it.

@@ -82,10 +82,16 @@ CHANNELS = ["all"]
 # selected from NV Access's live addon-datastore metadata at build time. The
 # current dev version is also prepended from NVDA master when needed.
 #
-# The Add-on Store client only shipped in NVDA 2024.1, so older API versions
-# cannot consume this mirror. All 2024.1+ versions remain published permanently
-# as new versions are appended.
-ADDON_STORE_FIRST_API_VERSION = (2024, 1, 0)
+# NVDA 2025.1 is the floor. The Add-on Store client shipped earlier -- in
+# 2023.2 -- and 2023.2 through 2024.4 do request
+# {lang}/{channel}/{apiVersion}.json, but from a hardcoded address:
+# addonStore.network.BASE_URL = "https://nvaccess.org/addonStore", with no
+# setting to change it. The [addonStore] baseServerURL key this mirror needs
+# was added in 2025.1, where _getBaseURL() first consults it. Files for older
+# API versions are therefore unreachable by every NVDA ever released, and
+# publishing them cost roughly a third of the deployed site. All 2025.1+
+# versions remain published permanently as new versions are appended.
+ADDON_STORE_FIRST_API_VERSION = (2025, 1, 0)
 
 # API version regex mirrors NVDA source/addonAPIVersion.py: year.major(.minor)
 _API_VERSION_RE = re.compile(r"^(0|\d{4})\.(\d)(?:\.(\d))?$")
@@ -99,9 +105,17 @@ _NON_LATIN_SCRIPT_RE = re.compile(
     r"[\u0370-\u06ff\u0900-\u0e7f\u10a0-\u10ff"
     r"\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]"
 )
+#: Words that mark a changelog as written in a language other than English.
+#: Every alternative must be a word English prose never uses. Unaccented
+#: "version" and the "correc..." family are deliberately absent: they matched
+#: ordinary English release notes ("Version 1.2", "corrected a crash") and
+#: replaced them with the not-available placeholder, hiding the real notes of
+#: hundreds of add-ons that already published them in English.
 _NON_ENGLISH_LATIN_CHANGELOG_RE = re.compile(
-    r"(?i)\b(?:versi[oó]n|a[ñn]adid[ao]|novedades|corre[cç][a-z]*|"
-    r"melhorias|vers[aã]o|adicionad[ao]|mudan[cç]as|am[eé]lior[a-z]*|"
+    r"(?i)\b(?:versión(?:es)?|a[ñn]adid[ao]s?|novedades|"
+    r"correcci[oó]n(?:es)?|corregid[ao]s?|corre[çc]{1,2}[aã]o|corre[çc]{1,2}[oõ]es|"
+    r"melhorias|vers[aã]o|adicionad[ao]|mudan[cç]as|"
+    r"am[ée]lioration(?:s)?|am[ée]lior[ée]e?s?|"
     r"ajout[eé]e?s?|s[uü]r[uü]m|eklendi|d[uü]zeltildi|ditambahkan|"
     r"perbaikan)\b"
 )
@@ -123,6 +137,18 @@ USER_AGENT = (
 )
 
 ALL_SOURCES = ("official", "bestmidi", "ru", "es", "github_owner", "pinned")
+
+#: How much each source is trusted when two of them describe the same add-on.
+#: Used both to pick the winning entry (see dedupe) and to pick which source's
+#: English release notes to borrow (see english_changelogs).
+SOURCE_PRIORITY = {
+    "pinned": 5,
+    "github_owner": 4,
+    "official": 3,
+    "ru": 2,
+    "bestmidi": 1,
+    "es": 0,
+}
 PINNED_CONFIG_PATH = "pinned.json"
 GITHUB_OWNERS_PATH = "githubOwners.json"
 GITHUB_OWNER_CACHE_PATH = "githubOwnerCache.json"
@@ -450,39 +476,6 @@ def _sanitize_scan(scan, addon):
 # original. See pinned.json.
 # ---------------------------------------------------------------------------
 
-_MANIFEST_KEYS_ORDER = [
-    "name", "summary", "description", "author", "url", "version",
-    "changelog", "docFileName", "minimumNVDAVersion", "lastTestedNVDAVersion",
-    "updateChannel",
-]
-
-
-def _parse_manifest(text):
-    """Minimal manifest.ini reader (no configparser: values span raw lines)."""
-    values = {}
-    current = None
-    buf = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            continue
-        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$", stripped)
-        if m and not current:
-            current = m.group(1)
-            buf = [m.group(2)]
-            continue
-        if current:
-            buf.append(stripped)
-            # A line ending the multi-line value: next key or blank at top level
-            if stripped and not stripped.startswith(("\"", "'")) and "=" in stripped \
-                    and re.match(r"^[A-Za-z_]", stripped):
-                # looks like a new key got swallowed; treat conservatively
-                pass
-    if current:
-        values[current] = "\n".join(buf).strip()
-    return values
-
-
 def _load_pinned_config(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -572,7 +565,6 @@ def _fetch_one_pinned(spec, repo, addon_id):
     })
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         manifest_text = zf.read("manifest.ini").decode("utf-8")
-        names = zf.namelist()
 
     original_name = _manifest_name(manifest_text)
     if original_name == addon_id:
@@ -595,8 +587,7 @@ def _fetch_one_pinned(spec, repo, addon_id):
 
     # Rewrite manifest name -> addon_id, keep everything else.
     new_manifest = _rename_manifest_name(manifest_text, addon_id)
-    patched = _repack_addon(zf_bytes=None, raw=raw, names=names,
-                            new_manifest=new_manifest.encode("utf-8"))
+    patched = _repack_addon(raw, new_manifest.encode("utf-8"))
 
     digest = hashlib.sha256(patched).hexdigest()
 
@@ -712,7 +703,7 @@ def _rename_manifest_name(manifest_text, new_name):
                   count=1, flags=re.MULTILINE)
 
 
-def _repack_addon(zf_bytes, raw, names, new_manifest):
+def _repack_addon(raw, new_manifest):
     """Rebuild the .nvda-addon zip with a replaced manifest.ini.
 
     Passes the original ZipInfo through to writestr (rather than the bare
@@ -965,12 +956,6 @@ def _asset_family(filename):
     return (family or stem).casefold()
 
 
-def _github_release_asset_candidates(repo):
-    """Select the newest stable and prerelease asset for every filename family."""
-    candidates, _state = _github_release_asset_state(repo)
-    return candidates
-
-
 def _github_release_asset_state(repo, previous_state=None):
     """Return current candidates and conditional-request state for one repo."""
     owner, name = repo.split("/", 1)
@@ -1085,121 +1070,6 @@ def _release_asset_candidates_from_records(repo, releases):
         if beta_version is not None and stable_version is not None and beta_version <= stable_version:
             del selected[("beta", family)]
     return list(selected.values())
-
-
-def _github_owner_asset_candidates(owner_specs, batch_size=4):
-    """Discover release assets for many users/organizations in batched queries."""
-    specs_by_login = {
-        spec["login"].casefold(): spec
-        for spec in owner_specs
-        if isinstance(spec, dict) and spec.get("login")
-    }
-    repos_by_login = {login: [] for login in specs_by_login}
-    cursors = {login: None for login in specs_by_login}
-    pending = list(specs_by_login)
-
-    selection = """
-repositories(first:100%s) {
-  nodes {
-    nameWithOwner
-    isFork
-    releases(first:20, orderBy:{field:CREATED_AT,direction:DESC}) {
-      nodes {
-        isDraft
-        isPrerelease
-        tagName
-        publishedAt
-        description
-        releaseAssets(first:20) { nodes { name downloadUrl size updatedAt } }
-      }
-    }
-  }
-  pageInfo { hasNextPage endCursor }
-}
-"""
-
-    while pending:
-        next_pending = []
-        for offset in range(0, len(pending), batch_size):
-            batch = pending[offset:offset + batch_size]
-            fields = []
-            alias_to_login = {}
-            for index, login in enumerate(batch):
-                alias = f"owner{index}"
-                alias_to_login[alias] = login
-                cursor = cursors[login]
-                after = f",after:{json.dumps(cursor)}" if cursor else ""
-                user_selection = selection % (f",ownerAffiliations:OWNER{after}")
-                org_selection = selection % after
-                fields.append(
-                    f"{alias}:repositoryOwner(login:{json.dumps(specs_by_login[login]['login'])})"
-                    " { ... on User { " + user_selection
-                    + " } ... on Organization { " + org_selection + " } }"
-                )
-            data = _github_graphql("query {" + "\n".join(fields) + "}")
-            for alias, login in alias_to_login.items():
-                owner = data.get(alias)
-                if owner is None:
-                    raise RuntimeError(
-                        f"configured GitHub account does not exist: {specs_by_login[login]['login']}"
-                    )
-                repositories = owner.get("repositories") or {}
-                repos_by_login[login].extend(repositories.get("nodes") or [])
-                page_info = repositories.get("pageInfo") or {}
-                if page_info.get("hasNextPage"):
-                    cursors[login] = page_info.get("endCursor")
-                    next_pending.append(login)
-        pending = next_pending
-
-    candidates = []
-    for login, repositories in repos_by_login.items():
-        spec = specs_by_login[login]
-        excluded = {
-            name.strip().casefold()
-            for name in spec.get("exclude_repositories", [])
-            if isinstance(name, str) and name.strip()
-        }
-        exclude_forks = spec.get("fork_policy") == "exclude"
-        repositories = [
-            repo for repo in repositories
-            if (
-                repo.get("nameWithOwner", "").split("/", 1)[-1].casefold()
-                not in excluded
-                and not (exclude_forks and repo.get("isFork"))
-            )
-        ]
-        discovered = {
-            repo.get("nameWithOwner")
-            for repo in repositories
-            if repo.get("nameWithOwner")
-        }
-        known = {
-            f"{spec['login']}/{name.strip()}"
-            for name in spec.get("repositories", [])
-            if isinstance(name, str) and name.strip()
-        }
-        missing = {name.casefold() for name in known} - {
-            name.casefold() for name in discovered
-        }
-        if missing:
-            raise RuntimeError(
-                f"GitHub owner {spec['login']} is missing configured repositories: "
-                + ", ".join(sorted(missing))
-            )
-        owner_count = 0
-        for repo in repositories:
-            repo_name = repo.get("nameWithOwner")
-            if not repo_name:
-                continue
-            releases = (repo.get("releases") or {}).get("nodes") or []
-            selected = _release_asset_candidates_from_records(repo_name, releases)
-            candidates.extend(selected)
-            owner_count += len(selected)
-        log(
-            f"GitHub owner {spec['login']}: {len(repositories)} repositories, "
-            f"{owner_count} NVDA release asset candidates"
-        )
-    return candidates
 
 
 def _github_owner_repository_names(owner_specs, batch_size=8):
@@ -2096,6 +1966,47 @@ def load_translations(path=TRANSLATIONS_PATH):
     return {}
 
 
+#: addonId -> the best English changelog any source published for it, filled in
+#: by main() before transform() runs. See english_changelogs.
+ENGLISH_CHANGELOGS = {}
+
+CHANGELOG_UNAVAILABLE = "Release notes are not available in English."
+
+
+def _is_non_english_changelog(changelog, addon_id):
+    """True when release notes cannot be read by an English-speaking user."""
+    return bool(
+        _NON_LATIN_SCRIPT_RE.search(changelog)
+        or _NON_ENGLISH_LATIN_CHANGELOG_RE.search(changelog)
+        or addon_id in _KNOWN_NON_ENGLISH_CHANGELOG_IDS
+    )
+
+
+def english_changelogs(entries):
+    """Map addon id -> the best English changelog any source published for it.
+
+    Sources disagree about language, not only about versions: nvda-addons.ru
+    republishes hundreds of add-ons the official store also carries, in its own
+    "Dev" channel and with Russian release notes. dedupe keys on
+    (addonId, channel), so that Russian entry never meets its English sibling
+    and used to reach the store as "release notes not available in English"
+    even though NV Access published English notes for the very same add-on.
+    """
+    best = {}
+    for entry in entries:
+        addon_id = entry.get("name") or ""
+        changelog = clean_text(entry.get("changelog"))
+        if not addon_id or not changelog:
+            continue
+        if _is_non_english_changelog(changelog, addon_id):
+            continue
+        rank = SOURCE_PRIORITY.get(entry.get("source"), 0)
+        current = best.get(addon_id)
+        if current is None or rank > current[0]:
+            best[addon_id] = (rank, changelog)
+    return {addon_id: text for addon_id, (_rank, text) in best.items()}
+
+
 def _translate_entry(entry):
     """Overlay configured English metadata onto a catalog entry."""
     tr = TRANSLATIONS.get(entry["name"])
@@ -2105,12 +2016,12 @@ def _translate_entry(entry):
                 entry[field] = tr[field]
 
     changelog = entry.get("changelog") or ""
-    if (
-        _NON_LATIN_SCRIPT_RE.search(changelog)
-        or _NON_ENGLISH_LATIN_CHANGELOG_RE.search(changelog)
-        or entry["name"] in _KNOWN_NON_ENGLISH_CHANGELOG_IDS
-    ):
-        entry["changelog"] = "Release notes are not available in English."
+    if _is_non_english_changelog(changelog, entry["name"]):
+        # Borrow another source's English notes for the same add-on before
+        # falling back to saying there are none.
+        entry["changelog"] = (
+            ENGLISH_CHANGELOGS.get(entry["name"]) or CHANGELOG_UNAVAILABLE
+        )
 
 
 def transform(entry, sha256):
@@ -2130,6 +2041,13 @@ def transform(entry, sha256):
     _translate_entry(entry)
 
     addon_version = sanitize_version(version)
+    if addon_version is None:
+        # Only reachable for official entries, whose version strings
+        # reject_reason trusts without parsing. Publish the add-on rather
+        # than crash the whole build: addonVersionName still carries the
+        # real string, and only update comparisons use the number.
+        log(f"{name}: unparseable version {version!r}; publishing as 0.0.0")
+        addon_version = (0, 0, 0)
     min_nvda = entry.get("min_nvda") or (0, 0, 0)
     last_tested = entry.get("last_tested") or (0, 0, 0)
 
@@ -2218,14 +2136,7 @@ def dedupe(entries):
     bestmidi), so the store shows English wherever an English source exists
     while keeping the winner's reliable download URL and hash.
     """
-    priority = {
-        "pinned": 5,
-        "github_owner": 4,
-        "official": 3,
-        "ru": 2,
-        "bestmidi": 1,
-        "es": 0,
-    }
+    priority = SOURCE_PRIORITY
     by_key = {}
     for e in entries:
         key = (e["name"].casefold(), e.get("channel") or "stable")
@@ -2256,6 +2167,47 @@ def dedupe(entries):
                 break
         result.append(winner)
     return result
+
+
+def drop_redundant_channel_duplicates(entries):
+    """Collapse a pre-release row that carries the same release as stable.
+
+    dedupe() keys on (addonId, channel), which is right when the channels
+    really do hold different releases. Often they do not: nvda-addons.ru labels
+    most of its links "Dev" regardless of what upstream published, so the same
+    version of the same add-on reached the store twice, once as stable and once
+    as dev, and NVDA lists both. Versions are compared as the numbers NVDA
+    itself compares, so "2026.05.03" and "2026.5.3" are recognised as one
+    release despite the different spelling.
+
+    Returns (kept, rejected).
+    """
+    stable_versions = {}
+    for entry in entries:
+        if (entry.get("channel") or "stable") != "stable":
+            continue
+        version = sanitize_version(entry.get("version"))
+        if version is not None:
+            stable_versions.setdefault(entry["name"].casefold(), set()).add(version)
+
+    kept = []
+    rejected = []
+    for entry in entries:
+        channel = entry.get("channel") or "stable"
+        version = sanitize_version(entry.get("version"))
+        if (
+            channel != "stable"
+            and version is not None
+            and version in stable_versions.get(entry["name"].casefold(), ())
+        ):
+            rejected.append({
+                "addonId": entry.get("name"),
+                "source": entry.get("source"),
+                "reason": f"same release as the stable channel (listed as {channel})",
+            })
+            continue
+        kept.append(entry)
+    return kept, rejected
 
 
 def load_hashcache(path):
@@ -2689,6 +2641,9 @@ def main():
         log(f"pinned: {len(entries)} add-ons")
         all_entries.extend(entries)
 
+    global ENGLISH_CHANGELOGS
+    ENGLISH_CHANGELOGS = english_changelogs(all_entries)
+
     if args.limit:
         all_entries = all_entries[: args.limit]
 
@@ -2745,6 +2700,16 @@ def main():
     todo = dedupe(todo)
     log(f"After dedupe: {len(todo)} unique add-ons")
 
+    # 3b. One add-on, one row: drop a dev or beta entry whose version is the
+    # release the stable channel already carries.
+    todo, channel_duplicates = drop_redundant_channel_duplicates(todo)
+    if channel_duplicates:
+        rejected.extend(channel_duplicates)
+        log(
+            f"Dropped {len(channel_duplicates)} pre-release entries identical "
+            "to their stable release"
+        )
+
     # 4. Download + hash (with persistent, resumable cache).
     cache_lock = threading.Lock()
     completed_count = 0
@@ -2780,10 +2745,10 @@ def main():
             return e, e["sha256"], 0, None
 
         if args.skip_download:
-            digest = hashlib.sha256(url.encode()).hexdigest()
-            with cache_lock:
-                new_hashcache[url] = {"sha256": digest, "size": 0}
-            return e, digest, 0, None
+            # Testing only. Deliberately NOT written to the persistent
+            # cache: a local smoke run must not leave invented digests
+            # behind for the next real build to publish as verified.
+            return e, hashlib.sha256(url.encode()).hexdigest(), 0, None
 
         cached = hashcache.get(url)
         if cached and not args.no_head_check:

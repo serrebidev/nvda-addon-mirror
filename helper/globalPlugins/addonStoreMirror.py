@@ -2,6 +2,10 @@
 # Points NVDA's built-in Add-on Store at the SerrebiRadio mirror and displays
 # the winning upstream source for each catalog entry.
 # Adapted from nvdacn/NVDAUpdateMirror (GPL v2).
+#
+# NVDA 2025.1 is the floor. Earlier releases hardcode
+# addonStore.network.BASE_URL and have no [addonStore] baseServerURL setting,
+# so no add-on can redirect their Add-on Store anywhere.
 
 import importlib
 import threading
@@ -29,8 +33,20 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
 		self._sourceSupportPatches = []
-		self._enableSourceSupport()
-		currentURL = config.conf["addonStore"]["baseServerURL"]
+		self._originalURL = ""
+		self._urlApplied = False
+		try:
+			currentURL = config.conf["addonStore"]["baseServerURL"]
+		except KeyError:
+			# Only reachable when compatibility was overridden: the manifest
+			# requires 2025.1. Report it and change nothing, rather than patch
+			# the Add-on Store GUI of an NVDA that can never use the mirror.
+			log.error(
+				"This NVDA has no [addonStore] baseServerURL setting, so its "
+				"Add-on Store cannot be pointed at a mirror. NVDA 2025.1 or "
+				"later is required.",
+			)
+			return
 		savedURL = config.conf["serrebiStore"]["originalStoreURL"]
 		# NVDA persists baseServerURL. On the next startup it may already point at
 		# this mirror, so do not overwrite the remembered official/custom URL with
@@ -42,7 +58,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		else:
 			self._originalURL = "" if savedURL == MIRROR_STORE_URL else savedURL
 		config.conf["addonStore"]["baseServerURL"] = MIRROR_STORE_URL
+		self._urlApplied = True
 		log.info(f"Set the Add-on store mirror to: {MIRROR_STORE_URL}")
+		self._enableSourceSupport()
 		self._refreshStore()
 
 	def _rememberPatch(self, owner, name, replacement):
@@ -54,23 +72,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def _enableSourceSupport(self):
 		"""Preserve mirror provenance and add it to NVDA's Add-on Store list."""
 		try:
-			try:
-				modelModule = importlib.import_module("addonStore.models.addon")
-				listControlModule = importlib.import_module(
-					"gui.addonStoreGui.controls.addonList"
-				)
-				listViewModelModule = importlib.import_module(
-					"gui.addonStoreGui.viewModels.addonList"
-				)
-			except ImportError:
-				# NVDA 2023.2 and 2023.3 used private module names.
-				modelModule = importlib.import_module("_addonStore.models.addon")
-				listControlModule = importlib.import_module(
-					"gui._addonStoreGui.controls.addonList"
-				)
-				listViewModelModule = importlib.import_module(
-					"gui._addonStoreGui.viewModels.addonList"
-				)
+			modelModule = importlib.import_module("addonStore.models.addon")
+			listControlModule = importlib.import_module(
+				"gui.addonStoreGui.controls.addonList"
+			)
+			listViewModelModule = importlib.import_module(
+				"gui.addonStoreGui.viewModels.addonList"
+			)
 
 			for functionName in (
 				"_createStoreModelFromData",
@@ -151,7 +159,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 					property(getSearchableText, doc=searchableText.__doc__),
 				)
 			else:
-				# NVDA 2023.x performed filtering directly in this method.
+				# NVDA 2025.1 through 2025.3 have no searchableText property and
+				# filter inside _getFilteredSortedIds instead.
 				listViewModel = listViewModelModule.AddonListVM
 				originalFilteredIds = listViewModel._getFilteredSortedIds
 
@@ -196,11 +205,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def _refreshStore(self):
 		"""Refresh through NVDA's existing manager without replacing its singleton."""
 		try:
-			try:
-				from addonStore import dataManager
-			except ImportError:
-				# NVDA 2023.2 and 2023.3 used a private package name.
-				from _addonStore import dataManager
+			from addonStore import dataManager
+
 			manager = dataManager.addonDataManager
 			if manager is None:
 				return
@@ -209,16 +215,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				# Core starts an initial fetch before global plugins load. Let that
 				# finish, then fetch again using the newly configured mirror URL.
 				initial = getattr(manager, "_initialiseAvailableAddonsThread", None)
-				if initial is None:
-					# NVDA 2023.x did not retain the initial thread on the manager.
-					initial = next(
-						(
-							thread
-							for thread in threading.enumerate()
-							if thread.name == "initialiseAvailableAddons"
-						),
-						None,
-					)
 				if initial is not None and initial.is_alive():
 					initial.join()
 				if dataManager.addonDataManager is manager:
@@ -234,6 +230,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def terminate(self):
 		self._restoreSourceSupport()
+		if not self._urlApplied:
+			return
 		config.conf["addonStore"]["baseServerURL"] = self._originalURL
 		log.info(f"Restored the Add-on store URL to: {self._originalURL}")
 
