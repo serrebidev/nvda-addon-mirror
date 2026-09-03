@@ -36,6 +36,8 @@ Sources:
   and are published with unique IDs and display names so installing one cannot
   overwrite another.
 
+**Questions, bugs, or release news?** Join the [SerrebiProjects Telegram group](https://t.me/SerrebiProjects), the fastest place to get help.
+
 ## What it does
 
 1. Fetches every catalog (using nvda-addons.org only if nvda.es fails).
