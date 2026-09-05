@@ -209,7 +209,9 @@ artifacts that contain symlinks.
   repackaging also avoids downloading unchanged assets on each run.
   `githubOwnerCache.json` stores validated manifests, repository discovery, and
   conditional GitHub release ETags so unchanged ten-minute checks normally use
-  quota-free HTTP 304 responses.
+  quota-free HTTP 304 responses. A repository that still hits the API rate
+  limit reuses its last verified release state until the next run re-checks it;
+  only a rate-limited repository with no verified state yet blocks publication.
 - **No vetting**: neither source is audited. bestmidi's disclaimer applies
   ("not tested, not an official repository"); nvda-addons.ru carries the same
   caveat. The SHA-256 hash guarantees immutability of what is downloaded, not

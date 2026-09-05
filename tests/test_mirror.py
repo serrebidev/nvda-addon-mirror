@@ -690,6 +690,68 @@ class GitHubOwnerTests(unittest.TestCase):
                 ):
                     mirror.fetch_github_owners(config_path, cache_path)
 
+    def test_rate_limited_repository_reuses_verified_release_state(self):
+        cached_candidates = [{
+            "repo": "example/published",
+            "channel": "stable",
+            "asset_name": "demo-1.0.nvda-addon",
+            "download_url": "https://example.invalid/demo-1.0.nvda-addon",
+            "cache_key": "k1",
+            "release_tag": "1.0",
+            "published_at": "2026-09-01T00:00:00Z",
+            "changelog": "",
+        }]
+        cache = {
+            "__discovery__": {
+                "addon_repositories": ["example/published"],
+                "scanned_repositories": ["example/published"],
+                "release_state": {
+                    "example/published": {
+                        "etag": '"e"',
+                        "candidates": cached_candidates,
+                        "latest_version": [1, 0, 0],
+                    },
+                },
+            },
+            "k1": {
+                "addonId": "demo",
+                "displayName": "Demo",
+                "download_url": cached_candidates[0]["download_url"],
+                "sha256": "a" * 64,
+                "size": 123,
+            },
+        }
+
+        def release_state(repo, previous_state=None):
+            raise httpError("https://api.github.invalid", 403, "rate limit")
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"logins": ["example"]}, config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(
+                    mirror, "_github_owner_repositories", return_value=([], {})
+                ),                 mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ):
+                entries = mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        self.assertEqual(1, len(entries))
+        self.assertEqual(
+            cached_candidates[0]["download_url"], entries[0]["download_url"]
+        )
+        self.assertEqual(
+            '"e"',
+            written["__discovery__"]["release_state"]["example/published"]["etag"],
+        )
+
     def test_telegram_configuration_selects_original_owner(self):
         owners = mirror._load_github_owners()
         by_login = {spec["login"].casefold(): spec for spec in owners}

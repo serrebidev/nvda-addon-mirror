@@ -1441,6 +1441,8 @@ def fetch_github_owners(
     publishing an incomplete author set. Authenticated builds discover all
     current owner repositories; the configured list is the unauthenticated
     baseline and also guards against renamed or unexpectedly missing repos.
+    A rate-limited repository reuses its last verified release state until
+    the next run re-checks it for free through its stored ETag.
     """
     global GITHUB_OWNER_REJECTIONS
     GITHUB_OWNER_REJECTIONS = []
@@ -1604,12 +1606,28 @@ def fetch_github_owners(
                     source_kind == "release"
                     and isinstance(exc, HTTPError)
                     and exc.code in (403, 429)
-                    and source_name.casefold() not in release_state
-                    and source_name.casefold() not in configured_repositories
                 ):
-                    # Never published, so nothing disappears by waiting.
-                    pending_repositories.add(source_name)
-                    continue
+                    stale = release_state.get(source_name.casefold())
+                    if isinstance(stale, dict) and isinstance(
+                        stale.get("candidates"), list
+                    ):
+                        # Rate limited: publishing the last verified release
+                        # state keeps the catalog complete, and the next run
+                        # re-checks the repository's ETag without new quota.
+                        new_release_state[source_name.casefold()] = stale
+                        candidates.extend(stale["candidates"])
+                        log(
+                            "GitHub rate limit hit; reusing last verified "
+                            f"release state for {source_name}"
+                        )
+                        continue
+                    if (
+                        source_name.casefold() not in release_state
+                        and source_name.casefold() not in configured_repositories
+                    ):
+                        # Never published, so nothing disappears by waiting.
+                        pending_repositories.add(source_name)
+                        continue
                 if (
                     source_kind == "release"
                     and isinstance(exc, HTTPError)
