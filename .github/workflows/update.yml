@@ -6,8 +6,8 @@ on:
       - main
   schedule:
     # Offset from the top of the hour, when GitHub says scheduled jobs are most
-    # likely to be delayed or dropped. The keep-alive job below also dispatches
-    # the next run, because cron delivery alone is not guaranteed.
+    # likely to be delayed or dropped. Use one scheduler so dispatch chains
+    # cannot amplify the number of builds.
     - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
 
@@ -39,28 +39,59 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Restore build caches
+        id: build-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            hashcache.json
+            githubOwnerCache.json
+            .bundlecache
+          key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: mirror-downloads-v2-
+
       - name: Restore hash cache from last deployment
+        if: steps.build-cache.outputs.cache-matched-key == ''
         env:
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}
         run: |
           URL="https://${OWNER}.github.io/${REPO}/hashcache.json"
           echo "Restoring hash cache from ${URL}"
-          curl -fsSL "$URL" -o hashcache.json || echo "No previous cache (first run)."
+          curl --retry 3 -fsSL "$URL" -o hashcache.json.tmp
+          python -c 'import json; assert isinstance(json.load(open("hashcache.json.tmp")), dict)'
+          mv hashcache.json.tmp hashcache.json
 
       - name: Restore GitHub author manifest cache
+        if: steps.build-cache.outputs.cache-matched-key == ''
         env:
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}
         run: |
           URL="https://${OWNER}.github.io/${REPO}/githubOwnerCache.json"
           echo "Restoring GitHub author cache from ${URL}"
-          curl -fsSL "$URL" -o githubOwnerCache.json || echo "No previous author cache (first run)."
+          curl --retry 3 -fsSL "$URL" -o githubOwnerCache.json.tmp
+          python -c 'import json; assert isinstance(json.load(open("githubOwnerCache.json.tmp")), dict)'
+          mv githubOwnerCache.json.tmp githubOwnerCache.json
+
+      - name: Test mirror
+        run: python -W error -m unittest discover -s tests
 
       - name: Build mirror
+        id: mirror-build
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python mirror.py --out public
+
+      - name: Save build caches even if publication fails
+        if: always() && steps.mirror-build.outcome != 'skipped'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            hashcache.json
+            githubOwnerCache.json
+            .bundlecache
+          key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Audit the built catalog
         run: |
@@ -98,29 +129,3 @@ jobs:
         # deprecation. Limit suppression to this upstream action only.
         env:
           NODE_OPTIONS: --no-deprecation
-
-  schedule-next:
-    # GitHub documents that scheduled events can be delayed or dropped. Keep a
-    # ten-minute chain alive with the repository-scoped GITHUB_TOKEN; cron above
-    # remains a watchdog that restarts the chain if a run is ever interrupted.
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
-    permissions:
-      actions: write
-      contents: read
-    steps:
-      - name: Wait for the next refresh interval
-        run: sleep 600
-
-      - name: Dispatch the next refresh when none is pending
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          ACTIVE_RUNS="$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/update.yml/runs?per_page=20" \
-            --jq "[.workflow_runs[] | select(.id != ${GITHUB_RUN_ID} and (.status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"pending\"))] | length")"
-          if [ "$ACTIVE_RUNS" -eq 0 ]; then
-            gh workflow run update.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
-          else
-            echo "$ACTIVE_RUNS other refresh run(s) already active; no dispatch needed."
-          fi

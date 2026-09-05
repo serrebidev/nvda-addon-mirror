@@ -71,7 +71,9 @@ Sources:
 The mirror serves **metadata only** — it does not re-host the `.nvda-addon`
 files. Each entry's `URL` points at the original host (GitHub release or
 `nvda.ru` upload), and NVDA downloads directly from there. The build downloads
-each file only once to compute the SHA-256 checksum NVDA enforces on install.
+uncached files to compute the SHA-256 checksum NVDA enforces on install, then
+reuses that result between daily checks. The helper does not crawl packages;
+NVDA downloads an add-on when the user installs or updates it.
 
 Point NVDA's Add-on Store at the live mirror:
 
@@ -119,8 +121,8 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 - `mirror.py` — the whole pipeline (stdlib only, Python 3.11+).
 - `audit_translations.py` — reports add-ons still published in a language
   other than English (see below).
-- `.github/workflows/update.yml` — ten-minute cron plus a self-dispatching
-  ten-minute keep-alive, because GitHub may delay or drop scheduled events.
+- `.github/workflows/update.yml` — ten-minute cron, with persistent build caches.
+  GitHub may delay or drop scheduled events.
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
   packs it into `dist/`.
 - `public/` — generated site (published to GitHub Pages by Actions).
@@ -193,8 +195,18 @@ artifacts that contain symlinks.
   pads with `0`; `addonVersionName` keeps the original string for display.
 - **Bandwidth + hashes**: the combined catalogs are large, so the first run
   downloads each unhashed package once. `hashcache.json` stores the SHA-256,
-  version, size, ETag, and Last-Modified validator; changed validators or
-  versions trigger a re-download, including same-size replacements.
+  version, size, HTTP validators, and the next permitted check time. Unchanged
+  versions make no package requests for 24 hours, then use a conditional GET.
+  HTTP 304 keeps the existing hash; a full response is hashed once. Hosts without
+  validators may require one download per day. New catalog versions bypass the
+  daily interval; same-version replacements are detected at the next daily check.
+  Failed downloads wait six hours before retrying. Existing legacy hashes seed
+  the daily interval without a bulk download during migration. `--no-head-check`
+  explicitly forces downloads and bypasses these protections.
+  GitHub Actions saves build caches even after build/publication failures. On a
+  cache miss, it requires a valid cache from the last deployment before building.
+  Pinned bundles are cached by release asset identity and update time, so
+  repackaging also avoids downloading unchanged assets on each run.
   `githubOwnerCache.json` stores validated manifests, repository discovery, and
   conditional GitHub release ETags so unchanged ten-minute checks normally use
   quota-free HTTP 304 responses.

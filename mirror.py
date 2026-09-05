@@ -154,6 +154,9 @@ PINNED_CONFIG_PATH = "pinned.json"
 GITHUB_OWNERS_PATH = "githubOwners.json"
 GITHUB_OWNER_CACHE_PATH = "githubOwnerCache.json"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
+DOWNLOAD_RECHECK_SECONDS = 24 * 60 * 60
+DOWNLOAD_RETRY_SECONDS = 6 * 60 * 60
+PINNED_BUNDLE_CACHE_PATH = ".bundlecache"
 
 # Newly discovered repositories cost one uncached request each, while repeat
 # checks are conditional and free. Adding an author with hundreds of repos would
@@ -209,30 +212,6 @@ def http_get(url, timeout=120, headers=None):
 
 def http_get_json(url, timeout=120, headers=None):
     return json.loads(http_get(url, timeout=timeout, headers=headers).decode("utf-8-sig"))
-
-
-def http_head_metadata(url, timeout=60):
-    """Return status, size, ETag, and Last-Modified without the full body.
-
-    Uses a ranged GET (bytes=0-0); servers that support ranges reply with
-    "Content-Range: bytes 0-0/TOTAL", which gives the full size cheaply.
-    """
-    req = Request(quote_url(url), headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"})
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            cr = resp.headers.get("Content-Range", "")
-            if cr and "/" in cr:
-                length = cr.rsplit("/", 1)[1]
-            else:
-                length = resp.headers.get("Content-Length")
-            return (
-                resp.status,
-                length,
-                resp.headers.get("ETag"),
-                resp.headers.get("Last-Modified"),
-            )
-    except (HTTPError, URLError, OSError):
-        return None, None, None, None
 
 
 def sanitize_version(version):
@@ -321,9 +300,16 @@ def clean_text(text):
     return t.strip()
 
 
-def sha256_stream(url, timeout=120):
+def sha256_stream(url, timeout=120, validators=None):
     """Stream-download url and return its digest, size, and HTTP validators."""
-    req = Request(quote_url(url), headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+    log(f"Package request: {url}")
+    headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    if validators:
+        if validators.get("etag"):
+            headers["If-None-Match"] = validators["etag"]
+        elif validators.get("last_modified"):
+            headers["If-Modified-Since"] = validators["last_modified"]
+    req = Request(quote_url(url), headers=headers)
     digest = hashlib.sha256()
     size = 0
     with urlopen(req, timeout=timeout) as resp:
@@ -336,6 +322,54 @@ def sha256_stream(url, timeout=120):
             digest.update(chunk)
             size += len(chunk)
     return digest.hexdigest(), size, etag, last_modified
+
+
+def cached_download(entry, cached=None, force=False, now=None):
+    """Return (cache record, error), with no package request between daily checks.
+
+    A changed catalog version bypasses the TTL. Conditional GET handles both
+    unchanged files (304) and replacements in one request, even on hosts without
+    HEAD/range support. Failures are backed off, including first-time failures.
+    """
+    now = time.time() if now is None else now
+    cached = cached if isinstance(cached, dict) else {}
+    version = entry.get("version")
+    same_version = cached.get("version") == version
+    usable = bool(cached.get("sha256") and cached.get("size") is not None)
+    if not force:
+        if same_version and cached.get("next_check", 0) > now:
+            return dict(cached), cached.get("error")
+        # Seed old deployments without probing every author's files at once.
+        if usable and "next_check" not in cached and (
+            same_version or cached.get("version") is None
+        ):
+            return dict(cached, version=version,
+                        next_check=now + DOWNLOAD_RECHECK_SECONDS), None
+    try:
+        digest, size, etag, modified = sha256_stream(
+            entry["download_url"],
+            validators=cached if usable and same_version and not force else None,
+        )
+    except HTTPError as exc:
+        status = exc.code
+        error = str(exc)
+        exc.close()
+        if status == 304 and usable and same_version and not force:
+            refreshed = dict(cached, next_check=now + DOWNLOAD_RECHECK_SECONDS)
+            refreshed.pop("error", None)
+            return refreshed, None
+    except (URLError, OSError) as exc:
+        error = str(exc)
+    else:
+        return {"sha256": digest, "size": size, "etag": etag,
+                "last_modified": modified, "version": version,
+                "next_check": now + DOWNLOAD_RECHECK_SECONDS}, None
+    # Keep previous validators only for the same catalog version. Do not publish
+    # a stale hash for a changed version or a URL whose refresh failed.
+    failed = dict(cached) if same_version else {}
+    failed.update(version=version, error=error,
+                  next_check=now + DOWNLOAD_RETRY_SECONDS)
+    return failed, error
 
 
 # ---------------------------------------------------------------------------
@@ -538,6 +572,33 @@ def _fetch_pinned_impl(config_path):
     return entries
 
 
+def cached_pinned_bundle(asset):
+    # These bundles must be repackaged for publication, so keep their bytes
+    # across runners too. Asset identity/update time invalidates replacements.
+    bundle_key = hashlib.sha256(json.dumps([
+        asset.get("id"), asset.get("updated_at"), asset.get("size"),
+        asset["browser_download_url"],
+    ]).encode("utf-8")).hexdigest()
+    bundle_path = os.path.join(PINNED_BUNDLE_CACHE_PATH, bundle_key)
+    if os.path.isfile(bundle_path):
+        with open(bundle_path, "rb") as bundle_file:
+            raw = bundle_file.read()
+    else:
+        log(f"Pinned package request: {asset['browser_download_url']}")
+        raw = http_get(asset["browser_download_url"], headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "application/octet-stream",
+        })
+        # Validate before persisting, so a broken response is never cached.
+        with zipfile.ZipFile(io.BytesIO(raw)) as bundle:
+            bundle.read("manifest.ini")
+        os.makedirs(PINNED_BUNDLE_CACHE_PATH, exist_ok=True)
+        with open(bundle_path + ".tmp", "wb") as bundle_file:
+            bundle_file.write(raw)
+        os.replace(bundle_path + ".tmp", bundle_path)
+    return raw
+
+
 def _fetch_one_pinned(spec, repo, addon_id):
     api_headers = {
         "User-Agent": USER_AGENT,
@@ -560,10 +621,7 @@ def _fetch_one_pinned(spec, repo, addon_id):
 
     # The asset download hits github.com (redirected to the release CDN), not
     # api.github.com, so it does not need (or want) the Authorization header.
-    raw = http_get(asset["browser_download_url"], headers={
-        "User-Agent": USER_AGENT,
-        "Accept": "application/octet-stream",
-    })
+    raw = cached_pinned_bundle(asset)
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         manifest_text = zf.read("manifest.ini").decode("utf-8")
 
@@ -2836,6 +2894,7 @@ def main():
 
     # 4. Download + hash (with persistent, resumable cache).
     cache_lock = threading.Lock()
+    download_locks = {e["download_url"]: threading.Lock() for e in todo}
     completed_count = 0
     FLUSH_EVERY = 25
 
@@ -2874,55 +2933,13 @@ def main():
             # behind for the next real build to publish as verified.
             return e, hashlib.sha256(url.encode()).hexdigest(), 0, None
 
-        cached = hashcache.get(url)
-        if cached and not args.no_head_check:
-            status, length, etag, last_modified = http_head_metadata(url)
-            size_matches = (
-                status in (200, 206)
-                and length is not None
-                and str(cached.get("size")) == str(length)
+        with download_locks[url]:
+            cached, error = cached_download(
+                e, new_hashcache.get(url), force=args.no_head_check,
             )
-            cached_etag = cached.get("etag")
-            cached_modified = cached.get("last_modified")
-            if cached_etag and etag:
-                validators_match = cached_etag == etag
-            elif cached_modified and last_modified:
-                validators_match = cached_modified == last_modified
-            else:
-                validators_match = not any(
-                    (cached_etag, etag, cached_modified, last_modified)
-                )
-            cached_version = cached.get("version")
-            version_matches = cached_version == e.get("version")
-            migrating_legacy_cache = cached_version is None and not any(
-                (cached_etag, cached_modified)
-            )
-            if size_matches and (validators_match or migrating_legacy_cache) and (
-                version_matches or migrating_legacy_cache
-            ):
-                refreshed_cache = dict(cached)
-                refreshed_cache.update({
-                    "etag": etag,
-                    "last_modified": last_modified,
-                    "version": e.get("version"),
-                })
-                with cache_lock:
-                    new_hashcache[url] = refreshed_cache
-                return e, cached["sha256"], cached["size"], None
-
-        try:
-            digest, size, etag, last_modified = sha256_stream(url)
             with cache_lock:
-                new_hashcache[url] = {
-                    "sha256": digest,
-                    "size": size,
-                    "etag": etag,
-                    "last_modified": last_modified,
-                    "version": e.get("version"),
-                }
-            return e, digest, size, None
-        except (HTTPError, URLError, OSError) as exc:
-            return e, None, 0, str(exc)
+                new_hashcache[url] = cached
+            return e, cached.get("sha256"), cached.get("size", 0), error
 
     results = []
     download_failed = []
