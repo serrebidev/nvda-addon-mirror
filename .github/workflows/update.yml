@@ -5,10 +5,12 @@ on:
     branches:
       - main
   schedule:
-    # Offset from the top of the hour, when GitHub says scheduled jobs are most
-    # likely to be delayed or dropped. Use one scheduler so dispatch chains
-    # cannot amplify the number of builds.
-    - cron: "3,13,23,33,43,53 * * * *"
+    # One run an hour, offset from the top of the hour when GitHub says
+    # scheduled jobs are most likely to be delayed or dropped. High-frequency
+    # crons get throttled by the platform, so this is the cadence it reliably
+    # honors; hourly builds also stay well inside the GITHUB_TOKEN API budget
+    # of 1000 requests/hour even when every cached ETag has expired.
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions:

@@ -3,8 +3,8 @@
 ## Goal
 
 Publish a self-updating, English-metadata mirror in the wire format consumed by
-NVDA's built-in Add-on Store. Known upstream add-ons are checked every ten
-minutes and deployed through GitHub Pages.
+NVDA's built-in Add-on Store. Known upstream add-ons are checked hourly and
+deployed through GitHub Pages.
 
 ## Sources
 
@@ -29,7 +29,7 @@ files with a root `manifest.ini` and a non-template add-on ID. Invalid bundles,
 removed assets, and unrelated repositories are recorded as rejections.
 
 `githubOwnerCache.json` stores validated manifests, the repository baseline,
-and GitHub ETags. Every ten-minute run conditionally checks all known add-on
+and GitHub ETags. Every hourly run conditionally checks all known add-on
 repositories. Once per day a lightweight owner scan discovers newly created
 repositories; only repositories not previously examined receive a baseline
 release scan.
@@ -58,8 +58,9 @@ release scan.
 
 ## Scheduling and reliability
 
-The workflow has an offset ten-minute cron and a parallel self-dispatch
-watchdog. Download socket stalls are capped at two minutes. Source-wide network
+The workflow runs on an offset hourly cron; GitHub throttles schedule delivery
+on this repository, so hourly is the cadence it reliably honors. Download
+socket stalls are capped at two minutes. Source-wide network
 or API failures stop publication so a partial catalog cannot replace a complete
 deployment. Permanent invalid or removed individual release assets are rejected
 with an auditable reason.

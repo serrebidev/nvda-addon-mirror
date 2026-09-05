@@ -2,7 +2,7 @@
 
 A self-updating mirror of NVDA add-on catalogs, direct author releases, and
 explicitly pinned GitHub releases, published in the exact wire format NVDA's built-in Add-on Store
-consumes. It refreshes every 10 minutes via GitHub Actions and is served from
+consumes. It refreshes hourly via GitHub Actions and is served from
 GitHub Pages.
 
 Sources:
@@ -23,7 +23,7 @@ Sources:
 - **Configured GitHub authors** — release assets from the requested author list
   are accepted only when the filename ends in `.nvda-addon` and the downloaded
   ZIP has a valid root `manifest.ini`. Known add-on repositories are checked on
-  every ten-minute run; a lightweight daily account scan discovers new repos.
+  every hourly run; a lightweight daily account scan discovers new repos.
   Original repositories are always eligible. A fork is eligible only when its
   numeric release version is strictly newer than its parent repository's
   release; equal, older, missing, or incomparable fork versions are rejected.
@@ -121,7 +121,7 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 - `mirror.py` — the whole pipeline (stdlib only, Python 3.11+).
 - `audit_translations.py` — reports add-ons still published in a language
   other than English (see below).
-- `.github/workflows/update.yml` — ten-minute cron, with persistent build caches.
+- `.github/workflows/update.yml` — hourly cron, with persistent build caches.
   GitHub may delay or drop scheduled events.
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
   packs it into `dist/`.
@@ -208,7 +208,7 @@ artifacts that contain symlinks.
   Pinned bundles are cached by release asset identity and update time, so
   repackaging also avoids downloading unchanged assets on each run.
   `githubOwnerCache.json` stores validated manifests, repository discovery, and
-  conditional GitHub release ETags so unchanged ten-minute checks normally use
+  conditional GitHub release ETags so unchanged hourly checks normally use
   quota-free HTTP 304 responses. A repository that still hits the API rate
   limit reuses its last verified release state until the next run re-checks it;
   only a rate-limited repository with no verified state yet blocks publication.
