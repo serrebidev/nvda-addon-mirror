@@ -384,6 +384,7 @@
       "login": "serrebidev",
       "fork_policy": "exclude",
       "repositories": [
+        "AppleMusicNVDA",
         "NVDARemoteAudioClient",
         "nvda-addon-mirror",
         "logCollector",

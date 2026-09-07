@@ -758,6 +758,10 @@ class GitHubOwnerTests(unittest.TestCase):
 
         self.assertIn("keyang556", by_login)
         self.assertEqual("exclude", by_login["serrebidev"]["fork_policy"])
+        self.assertIn(
+            "AppleMusicNVDA",
+            by_login["serrebidev"]["repositories"],
+        )
 
     def test_requested_authors_stay_configured(self):
         # Requested by name. accessolutions is an organization rather than a
