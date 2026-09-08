@@ -48,7 +48,7 @@ class RenderBodyTests(unittest.TestCase):
         self.assertIn("`exampleAddon` (https://example.org/addon)", first)
         self.assertIn("`anotherOne` (no source URL)", first)
         self.assertIn("2 add-ons", first)
-        self.assertIn("owner/repo/actions/workflows/translation-audit.yml", first)
+        self.assertIn("owner/repo/actions/workflows/update.yml", first)
 
     def test_long_text_is_wrapped_in_a_fence_it_cannot_break(self):
         body = translation_issue.render_body(make_findings(), "owner/repo")
@@ -181,7 +181,46 @@ class CloseIssueTests(unittest.TestCase):
                 translation_issue.close_issue(gh=gh)
 
 
-class MainTests(unittest.TestCase):
+class SyncIssueTests(TempFileTestCase):
+    def test_findings_open_the_issue(self):
+        calls = []
+
+        def gh(args):
+            calls.append(args)
+            if args[:2] == ["issue", "list"]:
+                return 0, "[]"
+            if args[:2] == ["issue", "create"]:
+                return 0, "https://github.com/owner/repo/issues/11"
+            return 0, ""
+
+        path = self.write_findings(make_findings())
+        with mock.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"}):
+            translation_issue.sync_issue(path, gh=gh)
+        self.assertTrue(any(c[:2] == ["issue", "create"] for c in calls))
+
+    def test_no_findings_close_the_issue(self):
+        calls = []
+
+        def gh(args):
+            calls.append(args)
+            if args[:2] == ["issue", "list"]:
+                return 0, json.dumps(
+                    [{"number": 5, "title": translation_issue.ISSUE_TITLE}]
+                )
+            return 0, ""
+
+        path = self.write_findings([])
+        with mock.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"}):
+            translation_issue.sync_issue(path, gh=gh)
+        self.assertTrue(any(c[:2] == ["issue", "close"] for c in calls))
+
+    def test_missing_findings_file_raises_rather_than_closing(self):
+        with mock.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"}):
+            with self.assertRaises(FileNotFoundError):
+                translation_issue.sync_issue("does-not-exist.json", gh=lambda a: (0, ""))
+
+
+class MainTests(TempFileTestCase):
     def test_usage_error_on_bad_arguments(self):
         self.assertEqual(2, translation_issue.main([]))
         self.assertEqual(2, translation_issue.main(["frobnicate", "x.json"]))
@@ -195,6 +234,21 @@ class MainTests(unittest.TestCase):
             ) as close:
                 self.assertEqual(0, translation_issue.main(["close"]))
         close.assert_called_once_with()
+
+    def test_sync_routes_to_open_and_close(self):
+        with_findings = self.write_findings(make_findings())
+        without = self.write_findings([])
+        with mock.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"}):
+            with mock.patch.object(
+                translation_issue, "open_issue", return_value=None
+            ) as opener, mock.patch.object(
+                translation_issue, "close_issue", return_value=None
+            ) as closer:
+                self.assertEqual(0, translation_issue.main(["sync", with_findings]))
+                self.assertEqual(0, translation_issue.main(["sync", without]))
+        opener.assert_called_once()
+        self.assertEqual(with_findings, opener.call_args.args[0])
+        closer.assert_called_once()
 
 
 if __name__ == "__main__":

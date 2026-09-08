@@ -122,10 +122,8 @@ in-page filter. The same data is available as JSON at `rejected.json`.
 - `audit_translations.py` — reports add-ons still published in a language
   other than English (see below).
 - `.github/workflows/update.yml` — hourly cron, with persistent build caches.
-  GitHub may delay or drop scheduled events.
-- `.github/workflows/translation-audit.yml` — daily audit of the live mirror;
-  opens, updates, or closes a `translation-gap` issue automatically (see
-  below).
+  GitHub may delay or drop scheduled events. Each build audits its own catalog
+  for untranslated add-ons and manages the `translation-gap` issue (see below).
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
   packs it into `dist/`.
 - `public/` — generated site (published to GitHub Pages by Actions).
@@ -155,13 +153,13 @@ text. It is biased towards precision: a very short Latin-script product name
 carries too little signal to separate from English, so a few of those are
 missed, but every description long enough to read as prose is caught.
 
-The [`translation-audit` workflow](.github/workflows/translation-audit.yml)
-runs the auditor against the live mirror once a day. When it finds gaps it
-opens or updates the `translation-gap` issue (`translation_issue.py` edits the
-issue only when its content changed, so clean runs never touch it); when the
-audit passes it closes the issue with a comment. Translating the flagged
-add-ons in `translations.json` closes the issue on the next daily run — no
-manual issue management.
+The hourly update workflow runs the auditor against the freshly built catalog
+and manages the `translation-gap` issue (`translation_issue.py sync` creates
+the issue on new findings, edits it only when its content changed, and closes
+it once the audit passes). New untranslated add-ons therefore surface within
+an hour of their first build, and translating them in `translations.json`
+closes the issue on the next hourly run — no manual issue management. The
+audit is report-only: it never blocks the mirror's deployment.
 
 ## Running locally
 
