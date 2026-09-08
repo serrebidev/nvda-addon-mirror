@@ -44,7 +44,12 @@ Sources:
 2. Rejects candidates that cannot be safely installed through NVDA's store:
    - no download URL,
    - missing / template add-on id,
-   - a version string with no parseable numeric parts.
+   - voice and speech/data packs from the Russian catalog.
+   The official NV Access, BestMidi, and Russian catalog sources otherwise
+   retain every entry, including free-form version strings and any upstream
+   scan metadata. A free-form version is represented as `0.0.0` only in
+   NVDA's required numeric comparison field; its original version text is
+   preserved for display.
 3. Merges sources case-insensitively by add-on id and channel. Explicitly pinned
    releases win, followed by direct author releases, the official store,
    nvda-addons.ru, bestmidi, and Spanish-catalog originals. A dev or beta entry
@@ -113,7 +118,7 @@ Three ways to do this:
 
 The site publishes [rejected.html](https://serrebidev.github.io/nvda-addon-mirror/rejected.html)
 — every candidate excluded while building the mirror, grouped by reason
-(voice/data packs skipped, no download URL, unparseable version, …), with an
+(voice/data packs skipped, no download URL, …), with an
 in-page filter. The same data is available as JSON at `rejected.json`.
 
 ## Repo layout

@@ -1081,9 +1081,9 @@ class TranslationTests(unittest.TestCase):
         self.assertEqual({}, mirror.english_changelogs(entries))
 
 
-class UnparseableOfficialVersionTests(unittest.TestCase):
-    def test_official_entry_without_a_numeric_version_does_not_abort_the_build(self):
-        """reject_reason trusts official versions without parsing them.
+class UnparseableCatalogVersionTests(unittest.TestCase):
+    def test_catalog_entry_without_a_numeric_version_does_not_abort_the_build(self):
+        """Trusted catalog entries are published even with free-form versions.
 
         transform() then indexed sanitize_version() unconditionally, so a
         single malformed official version would have raised TypeError and
@@ -1105,6 +1105,28 @@ class UnparseableOfficialVersionTests(unittest.TestCase):
         self.assertEqual(
             {"major": 0, "minor": 0, "patch": 0},
             obj["addonVersionNumber"],
+        )
+
+    def test_bestmidi_and_russian_catalog_versions_are_not_rejected(self):
+        for source in ("bestmidi", "ru"):
+            with self.subTest(source=source):
+                self.assertIsNone(mirror.reject_reason({
+                    "name": "exampleAddon",
+                    "version": "current",
+                    "download_url": "https://example.invalid/example.nvda-addon",
+                    "source": source,
+                }))
+
+    def test_voice_packs_remain_excluded_from_the_russian_catalog(self):
+        self.assertEqual(
+            "voice/data pack (skipped)",
+            mirror.reject_reason({
+                "name": "exampleVoice",
+                "version": "current",
+                "download_url": "https://example.invalid/example.nvda-addon",
+                "source": "ru",
+                "category": "synth-voice",
+            }),
         )
 
 

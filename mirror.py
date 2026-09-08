@@ -2015,10 +2015,16 @@ def reject_reason(entry):
         return "voice/data pack (skipped)"
     if entry.get("subcategory") in ("vosk", "silero", "vosk_tts"):
         return "voice/data model (skipped)"
-    # Official store entries are NV Access-reviewed with upstream-computed
-    # hashes; their version strings are already store-valid, so only the
-    # community catalogs go through the lenient sanitizer check.
-    if source != "official" and sanitize_version(version) is None:
+    # The three complete catalog sources are authoritative about what they
+    # list.  Keep a catalog entry even when its version is free-form: the
+    # store object retains the original text and transform() uses 0.0.0 only
+    # for NVDA's required numeric comparison field.  This is deliberately not
+    # a malware or quality verdict; scan metadata is informational only.
+    # Direct author and pinned releases remain package-validated sources.
+    if (
+        source not in ("official", "bestmidi", "ru")
+        and sanitize_version(version) is None
+    ):
         return f"unparseable version {version!r}"
     if not download_url:
         return "no download_url"
