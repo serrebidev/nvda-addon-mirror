@@ -156,6 +156,13 @@ GITHUB_OWNER_CACHE_PATH = "githubOwnerCache.json"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
 DOWNLOAD_RECHECK_SECONDS = 24 * 60 * 60
 DOWNLOAD_RETRY_SECONDS = 6 * 60 * 60
+#: A catalog that publishes a free-form version ("unknown", "current") still
+#: ships the real one inside the bundle's manifest.ini. The hashing pass
+#: already streams those bytes, so the manifest is read from the stream it
+#: keeps rather than from a second request. Bundles above this size are hashed
+#: without buffering: no ordinary add-on is that large, and the packs that are
+#: (voice and speech data) are not published anyway.
+MANIFEST_CAPTURE_LIMIT = 32 * 1024 * 1024
 PINNED_BUNDLE_CACHE_PATH = ".bundlecache"
 
 # Newly discovered repositories cost one uncached request each, while repeat
@@ -300,8 +307,15 @@ def clean_text(text):
     return t.strip()
 
 
-def sha256_stream(url, timeout=120, validators=None):
-    """Stream-download url and return its digest, size, and HTTP validators."""
+def sha256_stream(url, timeout=120, validators=None, capture_limit=0):
+    """Stream-download url and return its digest, size, HTTP validators, body.
+
+    ``capture_limit`` keeps the streamed bytes in memory up to that many bytes
+    so a caller can read the bundle's manifest without asking the host for the
+    file a second time. The body is None when nothing was requested or the
+    download grew past the limit; the digest and size are unaffected either
+    way.
+    """
     log(f"Package request: {url}")
     headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
     if validators:
@@ -312,6 +326,7 @@ def sha256_stream(url, timeout=120, validators=None):
     req = Request(quote_url(url), headers=headers)
     digest = hashlib.sha256()
     size = 0
+    buffered = [] if capture_limit else None
     with urlopen(req, timeout=timeout) as resp:
         etag = resp.headers.get("ETag")
         last_modified = resp.headers.get("Last-Modified")
@@ -321,22 +336,59 @@ def sha256_stream(url, timeout=120, validators=None):
                 break
             digest.update(chunk)
             size += len(chunk)
-    return digest.hexdigest(), size, etag, last_modified
+            if buffered is not None:
+                if size > capture_limit:
+                    buffered = None
+                else:
+                    buffered.append(chunk)
+    body = b"".join(buffered) if buffered is not None else None
+    return digest.hexdigest(), size, etag, last_modified, body
 
 
-def cached_download(entry, cached=None, force=False, now=None):
+def bundle_manifest_version(raw):
+    """Return the version declared in a downloaded bundle's manifest.ini.
+
+    Returns "" for anything that is not a readable add-on bundle: the caller
+    is recovering a version a catalog failed to state, so a damaged or
+    unexpected download simply leaves the catalog's own string in place.
+    """
+    if not raw:
+        return ""
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            manifest_text = archive.read("manifest.ini").decode("utf-8-sig", "replace")
+    except (zipfile.BadZipFile, KeyError, OSError, ValueError):
+        return ""
+    return _manifest_value(manifest_text, "version").strip()
+
+
+def cached_download(entry, cached=None, force=False, now=None, capture_limit=0):
     """Return (cache record, error), with no package request between daily checks.
 
     A changed catalog version bypasses the TTL. Conditional GET handles both
     unchanged files (304) and replacements in one request, even on hosts without
     HEAD/range support. Failures are backed off, including first-time failures.
+
+    With ``capture_limit`` set, the version declared inside the downloaded
+    bundle is recorded as ``manifest_version`` so a catalog's free-form version
+    string can be replaced by the real one. It is cached alongside the digest,
+    so recovering it costs one download per release, not one per build.
     """
     now = time.time() if now is None else now
     cached = cached if isinstance(cached, dict) else {}
     version = entry.get("version")
     same_version = cached.get("version") == version
     usable = bool(cached.get("sha256") and cached.get("size") is not None)
-    if not force:
+    # A cache written before the version was ever looked for has no answer to
+    # reuse. Inspect the bundle once, then fall back to the ordinary schedule.
+    # A URL whose last fetch failed keeps its retry backoff: recovering a
+    # version is never a reason to hammer a host that is already refusing.
+    unexamined = (
+        bool(capture_limit)
+        and "manifest_version" not in cached
+        and not cached.get("error")
+    )
+    if not force and not unexamined:
         if same_version and cached.get("next_check", 0) > now:
             return dict(cached), cached.get("error")
         # Seed old deployments without probing every author's files at once.
@@ -346,9 +398,16 @@ def cached_download(entry, cached=None, force=False, now=None):
             return dict(cached, version=version,
                         next_check=now + DOWNLOAD_RECHECK_SECONDS), None
     try:
-        digest, size, etag, modified = sha256_stream(
+        digest, size, etag, modified, body = sha256_stream(
             entry["download_url"],
-            validators=cached if usable and same_version and not force else None,
+            # An unexamined bundle must arrive as a body, so it is asked for
+            # unconditionally; a 304 would carry no manifest to read.
+            validators=(
+                cached
+                if usable and same_version and not force and not unexamined
+                else None
+            ),
+            capture_limit=capture_limit,
         )
     except HTTPError as exc:
         status = exc.code
@@ -357,13 +416,21 @@ def cached_download(entry, cached=None, force=False, now=None):
         if status == 304 and usable and same_version and not force:
             refreshed = dict(cached, next_check=now + DOWNLOAD_RECHECK_SECONDS)
             refreshed.pop("error", None)
+            if capture_limit:
+                refreshed.setdefault("manifest_version", "")
             return refreshed, None
     except (URLError, OSError) as exc:
         error = str(exc)
     else:
-        return {"sha256": digest, "size": size, "etag": etag,
-                "last_modified": modified, "version": version,
-                "next_check": now + DOWNLOAD_RECHECK_SECONDS}, None
+        record = {"sha256": digest, "size": size, "etag": etag,
+                  "last_modified": modified, "version": version,
+                  "next_check": now + DOWNLOAD_RECHECK_SECONDS}
+        if capture_limit:
+            # Store the answer even when it is empty: the key's presence is how
+            # the next build knows this bundle has already been inspected and
+            # must not be fetched again just to look for a version.
+            record["manifest_version"] = bundle_manifest_version(body)
+        return record, None
     # Keep previous validators only for the same catalog version. Do not publish
     # a stale hash for a changed version or a URL whose refresh failed.
     failed = dict(cached) if same_version else {}
@@ -826,7 +893,12 @@ def _select_pinned_version(manifest_version, asset_name, release_tag):
         if parsed is not None:
             candidates.append((parsed, value))
     if not candidates:
-        fallback = (asset_name or "").rsplit(".nvda-addon", 1)[0].strip()
+        # Nothing numeric anywhere. The add-on's own manifest is still a
+        # better display string than the asset filename, which is often just
+        # the add-on id.
+        fallback = (manifest_version or "").strip()
+        if not fallback:
+            fallback = (asset_name or "").rsplit(".nvda-addon", 1)[0].strip()
         return fallback or (release_tag or "").strip()
     return max(candidates, key=lambda item: item[0])[1]
 
@@ -2005,9 +2077,7 @@ def keep_original_es_entries(entries):
 def reject_reason(entry):
     """Return a reason string if the entry should be rejected, else None."""
     name = (entry.get("name") or "").strip()
-    version = (entry.get("version") or "").strip()
     download_url = (entry.get("download_url") or "").strip()
-    source = entry.get("source")
 
     if not name or name.lower() in _TEMPLATE_NAMES:
         return "missing or template add-on id"
@@ -2015,17 +2085,13 @@ def reject_reason(entry):
         return "voice/data pack (skipped)"
     if entry.get("subcategory") in ("vosk", "silero", "vosk_tts"):
         return "voice/data model (skipped)"
-    # The three complete catalog sources are authoritative about what they
-    # list.  Keep a catalog entry even when its version is free-form: the
-    # store object retains the original text and transform() uses 0.0.0 only
-    # for NVDA's required numeric comparison field.  This is deliberately not
-    # a malware or quality verdict; scan metadata is informational only.
-    # Direct author and pinned releases remain package-validated sources.
-    if (
-        source not in ("official", "bestmidi", "ru")
-        and sanitize_version(version) is None
-    ):
-        return f"unparseable version {version!r}"
+    # A free-form version is never a reason to drop an add-on. Sources are
+    # authoritative about what they list, and the add-on itself is the
+    # authority on its own version: the hashing pass reads manifest.ini out
+    # of the download it already makes and substitutes the real version
+    # there. Only when the bundle states nothing usable either does the store
+    # object fall back to 0.0.0 for NVDA's required numeric comparison field,
+    # with the original text preserved for display.
     if not download_url:
         return "no download_url"
     return None
@@ -2125,10 +2191,10 @@ def transform(entry, sha256):
 
     addon_version = sanitize_version(version)
     if addon_version is None:
-        # Only reachable for official entries, whose version strings
-        # reject_reason trusts without parsing. Publish the add-on rather
-        # than crash the whole build: addonVersionName still carries the
-        # real string, and only update comparisons use the number.
+        # Reached only when neither the catalog nor the bundle's manifest.ini
+        # stated anything numeric. Publish the add-on rather than drop it:
+        # addonVersionName still carries the real string, and only update
+        # comparisons use the number.
         log(f"{name}: unparseable version {version!r}; publishing as 0.0.0")
         addon_version = (0, 0, 0)
     min_nvda = entry.get("min_nvda") or (0, 0, 0)
@@ -2958,11 +3024,22 @@ def main():
             return e, hashlib.sha256(url.encode()).hexdigest(), 0, None
 
         with download_locks[url]:
+            # A catalog that states no usable version ("unknown", "current")
+            # still ships the real one in manifest.ini, and these bytes are
+            # being streamed anyway, so read it out of this download instead
+            # of publishing the add-on as 0.0.0.
+            needs_version = sanitize_version(e.get("version")) is None
             cached, error = cached_download(
                 e, new_hashcache.get(url), force=args.no_head_check,
+                capture_limit=MANIFEST_CAPTURE_LIMIT if needs_version else 0,
             )
             with cache_lock:
                 new_hashcache[url] = cached
+            recovered = cached.get("manifest_version") if needs_version else ""
+            if recovered and sanitize_version(recovered) is not None:
+                log(f"{e.get('name')}: version {e.get('version')!r} -> "
+                    f"{recovered!r} from manifest.ini")
+                e["version"] = recovered
             return e, cached.get("sha256"), cached.get("size", 0), error
 
     results = []

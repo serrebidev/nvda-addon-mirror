@@ -45,11 +45,14 @@ Sources:
    - no download URL,
    - missing / template add-on id,
    - voice and speech/data packs from the Russian catalog.
-   The official NV Access, BestMidi, and Russian catalog sources otherwise
-   retain every entry, including free-form version strings and any upstream
-   scan metadata. A free-form version is represented as `0.0.0` only in
-   NVDA's required numeric comparison field; its original version text is
-   preserved for display.
+   Every source otherwise retains its entries, including free-form version
+   strings and any upstream scan metadata. A catalog that states no usable
+   version ("unknown", "current") is not trusted over the add-on itself: the
+   version is read from `manifest.ini` in the bundle the next step downloads
+   anyway, so no extra request is made and the answer is cached with the
+   hash. Only when the bundle declares nothing numeric either is the version
+   represented as `0.0.0` in NVDA's required numeric comparison field, with
+   the original version text preserved for display.
 3. Merges sources case-insensitively by add-on id and channel. Explicitly pinned
    releases win, followed by direct author releases, the official store,
    nvda-addons.ru, bestmidi, and Spanish-catalog originals. A dev or beta entry

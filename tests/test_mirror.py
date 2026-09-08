@@ -1107,15 +1107,23 @@ class UnparseableCatalogVersionTests(unittest.TestCase):
             obj["addonVersionNumber"],
         )
 
-    def test_bestmidi_and_russian_catalog_versions_are_not_rejected(self):
-        for source in ("bestmidi", "ru"):
+    def test_no_source_is_rejected_for_a_free_form_version(self):
+        """The bundle's manifest.ini, read while hashing, decides the version."""
+        for source in mirror.ALL_SOURCES:
             with self.subTest(source=source):
                 self.assertIsNone(mirror.reject_reason({
                     "name": "exampleAddon",
-                    "version": "current",
+                    "version": "unknown",
                     "download_url": "https://example.invalid/example.nvda-addon",
                     "source": source,
                 }))
+
+    def test_a_release_stating_no_numeric_version_still_shows_its_manifest_text(self):
+        """Falling back to the asset filename published the add-on id as a version."""
+        self.assertEqual(
+            "rolling",
+            mirror._select_pinned_version("rolling", "bible.nvda-addon", ""),
+        )
 
     def test_voice_packs_remain_excluded_from_the_russian_catalog(self):
         self.assertEqual(

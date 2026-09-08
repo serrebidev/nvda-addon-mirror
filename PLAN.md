@@ -37,7 +37,9 @@ release scan.
 ## Pipeline
 
 1. Fetch and normalize all enabled sources.
-2. Reject structurally invalid candidates before cross-source suppression.
+2. Reject structurally invalid candidates before cross-source suppression: no
+   download URL, a missing or template add-on id, and the Russian catalog's
+   voice and speech/data packs. A free-form version is never a rejection.
 3. Retain Spanish originals only when the same add-on/channel is not covered by
    a valid stronger source.
 4. Deduplicate by case-insensitive add-on ID and channel, then drop a dev or
@@ -45,7 +47,10 @@ release scan.
    whose channels carry one release is listed once.
 5. Use upstream hashes where trusted; otherwise stream the package and compute
    SHA-256. Cache version, size, ETag, and Last-Modified so same-URL and
-   same-size replacements are detected.
+   same-size replacements are detected. When the source states no usable
+   version, read it from `manifest.ini` in the bytes this step already
+   streams and cache the answer, so a catalog's "unknown" becomes the real
+   version without an extra request and without dropping the add-on.
 6. Overlay maintained English metadata. Release notes that are not English
    are replaced by the English notes another source published for the same
    add-on id, and only fall back to a clear English unavailable message when
