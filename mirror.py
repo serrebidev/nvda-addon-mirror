@@ -32,7 +32,7 @@ import zipfile
 from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 BESTMIDI_URL = "https://bestmidi.com/addons/addons.json"
 RU_ADDONS_URL = "https://nvda-addons.ru/get.php?addonslist"
@@ -871,6 +871,56 @@ def _version_from_filename(download_name):
     if not match:
         return None
     return match.group(1).replace("_", ".")
+
+
+def version_is_uninformative(version):
+    """True when a version tells NVDA nothing about which release this is.
+
+    Covers both a free-form string ("unknown", "current") and a catalog that
+    states a degenerate number: nvda-addons.ru publishes CodeFactoryOnlineTTS
+    as version "0" while its own filename says 1.1. Either way the comparison
+    value is 0.0.0, so NVDA can never see a newer release, and the real
+    version has to come from the download itself.
+    """
+    return (sanitize_version(version) or (0, 0, 0)) == (0, 0, 0)
+
+
+def better_version(current, candidate):
+    """Return candidate when it says more about the release than current.
+
+    Recovery must never talk an add-on backwards: a candidate is taken only
+    when the current version is unusable, or when the candidate is genuinely
+    the higher release.
+    """
+    parsed = sanitize_version(candidate)
+    if parsed is None or parsed == (0, 0, 0):
+        return None
+    existing = sanitize_version(current)
+    if existing is None or parsed > existing:
+        return candidate
+    return None
+
+
+def recover_uninformative_versions(entries):
+    """Fill in versions the catalogs failed to state, from the file name.
+
+    Free and offline: the download URL is already in hand. Whatever this
+    cannot answer is left for the manifest read in the hashing pass, which
+    costs no extra request but does need the bytes.
+    """
+    recovered = 0
+    for entry in entries:
+        if not version_is_uninformative(entry.get("version")):
+            continue
+        file_name = unquote(urlsplit(entry.get("download_url") or "").path)
+        candidate = _version_from_filename(file_name.rsplit("/", 1)[-1])
+        replacement = better_version(entry.get("version"), candidate)
+        if replacement:
+            log(f"{entry.get('name')}: version {entry.get('version')!r} -> "
+                f"{replacement!r} from the file name")
+            entry["version"] = replacement
+            recovered += 1
+    return recovered
 
 
 def _select_pinned_version(manifest_version, asset_name, release_tag):
@@ -2919,6 +2969,13 @@ def main():
     if args.limit:
         all_entries = all_entries[: args.limit]
 
+    # 1b. Recover versions the catalogs failed to state, while it is still
+    # free to do so. Running before dedupe means the merge and the
+    # channel-duplicate check compare real releases rather than 0.0.0.
+    recovered = recover_uninformative_versions(all_entries)
+    if recovered:
+        log(f"Recovered {recovered} versions from add-on file names")
+
     # 2. Filter.
     todo = []
     for e in all_entries:
@@ -3024,22 +3081,25 @@ def main():
             return e, hashlib.sha256(url.encode()).hexdigest(), 0, None
 
         with download_locks[url]:
-            # A catalog that states no usable version ("unknown", "current")
-            # still ships the real one in manifest.ini, and these bytes are
-            # being streamed anyway, so read it out of this download instead
-            # of publishing the add-on as 0.0.0.
-            needs_version = sanitize_version(e.get("version")) is None
+            # A catalog that states no usable version ("unknown", "current",
+            # a bare "0") still ships the real one in manifest.ini, and these
+            # bytes are being streamed anyway, so read it out of this download
+            # rather than publish the add-on as 0.0.0. The file name was
+            # already tried, for free, before the filter.
+            needs_version = version_is_uninformative(e.get("version"))
             cached, error = cached_download(
                 e, new_hashcache.get(url), force=args.no_head_check,
                 capture_limit=MANIFEST_CAPTURE_LIMIT if needs_version else 0,
             )
             with cache_lock:
                 new_hashcache[url] = cached
-            recovered = cached.get("manifest_version") if needs_version else ""
-            if recovered and sanitize_version(recovered) is not None:
+            replacement = better_version(
+                e.get("version"), cached.get("manifest_version"),
+            ) if needs_version else None
+            if replacement:
                 log(f"{e.get('name')}: version {e.get('version')!r} -> "
-                    f"{recovered!r} from manifest.ini")
-                e["version"] = recovered
+                    f"{replacement!r} from manifest.ini")
+                e["version"] = replacement
             return e, cached.get("sha256"), cached.get("size", 0), error
 
     results = []

@@ -48,9 +48,11 @@ release scan.
 5. Use upstream hashes where trusted; otherwise stream the package and compute
    SHA-256. Cache version, size, ETag, and Last-Modified so same-URL and
    same-size replacements are detected. When the source states no usable
-   version, read it from `manifest.ini` in the bytes this step already
-   streams and cache the answer, so a catalog's "unknown" becomes the real
-   version without an extra request and without dropping the add-on.
+   version -- a free-form string or a degenerate "0" -- recover it from the
+   download's file name, and failing that from `manifest.ini` in the bytes
+   this step already streams, caching the answer. A catalog's "unknown" or
+   "0" becomes the real version without an extra request, without dropping
+   the add-on, and never lower than what the catalog already stated.
 6. Overlay maintained English metadata. Release notes that are not English
    are replaced by the English notes another source published for the same
    add-on id, and only fall back to a clear English unavailable message when

@@ -1118,6 +1118,41 @@ class UnparseableCatalogVersionTests(unittest.TestCase):
                     "source": source,
                 }))
 
+    def test_a_catalog_version_of_zero_is_treated_as_no_version_at_all(self):
+        """nvda-addons.ru states "0" for an add-on its own file names 1.1."""
+        for stated in ("unknown", "", "0", "0.0", "0.0.0"):
+            with self.subTest(version=stated):
+                self.assertTrue(mirror.version_is_uninformative(stated))
+        for stated in ("1.1", "0.0.1", "2026.08.19"):
+            with self.subTest(version=stated):
+                self.assertFalse(mirror.version_is_uninformative(stated))
+
+    def test_recovery_never_talks_an_add_on_backwards(self):
+        self.assertEqual("2.0", mirror.better_version("unknown", "2.0"))
+        self.assertEqual("2.0", mirror.better_version("1.0", "2.0"))
+        self.assertIsNone(mirror.better_version("2.0", "1.0"))
+        self.assertIsNone(mirror.better_version("2.0", "2.0"))
+        self.assertIsNone(mirror.better_version("unknown", "0"))
+        self.assertIsNone(mirror.better_version("unknown", "still-not-a-version"))
+        self.assertIsNone(mirror.better_version("unknown", None))
+
+    def test_a_version_is_recovered_from_the_file_name_without_downloading(self):
+        entries = [
+            {"name": "codeFactoryOnlineTTS", "version": "0", "download_url":
+             "https://nvda.ru/uploads/addons/CodeFactoryOnlineTTS-V.1.1.nvda-addon"},
+            {"name": "spaced", "version": "unknown", "download_url":
+             "https://example.invalid/files/My%20Addon-2.3.4.nvda-addon"},
+            {"name": "alreadyKnown", "version": "3.0", "download_url":
+             "https://example.invalid/alreadyKnown-1.0.nvda-addon"},
+            {"name": "noVersionAnywhere", "version": "unknown", "download_url":
+             "https://example.invalid/noVersionAnywhere.nvda-addon"},
+        ]
+        self.assertEqual(2, mirror.recover_uninformative_versions(entries))
+        self.assertEqual("1.1", entries[0]["version"])
+        self.assertEqual("2.3.4", entries[1]["version"])
+        self.assertEqual("3.0", entries[2]["version"])
+        self.assertEqual("unknown", entries[3]["version"])
+
     def test_a_release_stating_no_numeric_version_still_shows_its_manifest_text(self):
         """Falling back to the asset filename published the add-on id as a version."""
         self.assertEqual(

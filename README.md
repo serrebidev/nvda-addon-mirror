@@ -47,12 +47,18 @@ Sources:
    - voice and speech/data packs from the Russian catalog.
    Every source otherwise retains its entries, including free-form version
    strings and any upstream scan metadata. A catalog that states no usable
-   version ("unknown", "current") is not trusted over the add-on itself: the
-   version is read from `manifest.ini` in the bundle the next step downloads
-   anyway, so no extra request is made and the answer is cached with the
-   hash. Only when the bundle declares nothing numeric either is the version
-   represented as `0.0.0` in NVDA's required numeric comparison field, with
-   the original version text preserved for display.
+   version is not trusted over the add-on itself. That covers both a
+   free-form string ("unknown", "current") and a degenerate number — nvda.ru
+   lists CodeFactoryOnlineTTS as version "0" while its own file is named
+   `CodeFactoryOnlineTTS-V.1.1.nvda-addon` — because either one leaves NVDA
+   comparing against 0.0.0 and never seeing an update. The real version is
+   taken from the download's file name first, which is free, and otherwise
+   from `manifest.ini` inside the bundle the next step downloads anyway, so
+   no extra request is made and the answer is cached with the hash. A
+   recovered version is used only when it is genuinely the higher release.
+   Only when nothing states anything numeric is the version represented as
+   `0.0.0` in NVDA's required numeric comparison field, with the original
+   version text preserved for display.
 3. Merges sources case-insensitively by add-on id and channel. Explicitly pinned
    releases win, followed by direct author releases, the official store,
    nvda-addons.ru, bestmidi, and Spanish-catalog originals. A dev or beta entry
