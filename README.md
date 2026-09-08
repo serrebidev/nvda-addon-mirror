@@ -36,6 +36,26 @@ Sources:
   and are published with unique IDs and display names so installing one cannot
   overwrite another.
 
+- **Add-ons published from an author's own website** — some authors distribute
+  a `.nvda-addon` from their own site and never appear in a catalog or on
+  GitHub, so nothing else in the build can reach them. A `pinned.json` entry
+  naming a `url` instead of a `repo` publishes one. The bundle is downloaded,
+  validated, and its `manifest.ini` read for version, summary, author and NVDA
+  version range exactly as a GitHub pin's is. Re-downloads are avoided by the
+  host's own ETag / Last-Modified / length, so a build only refetches when the
+  author actually replaces the file. Such an entry is repackaged and rehosted
+  **only** when it renames the add-on; an entry whose `addon_id` matches the
+  bundle's own manifest name keeps pointing at the author's URL, so their
+  download count still sees real installs.
+
+  ```json
+  { "url": "https://example.org/myAddon-1.2.nvda-addon", "addon_id": "myAddon" }
+  ```
+
+  `summary`, `publisher`, `channel`, `homepage`, `source_url`, `license`,
+  `license_url`, `changelog`, `min_nvda_version` and `last_tested_nvda_version`
+  are optional and override what the bundle states.
+
 **Questions, bugs, or release news?** Join the [SerrebiProjects Telegram group](https://t.me/SerrebiProjects), the fastest place to get help.
 
 ## What it does

@@ -32,6 +32,7 @@ import zipfile
 from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from email.utils import parsedate_to_datetime
 from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 BESTMIDI_URL = "https://bestmidi.com/addons/addons.json"
@@ -187,6 +188,11 @@ STORE_SOURCE_LABELS = {
     "bestmidi": "BestMidi",
     "es": "NVDA.es",
 }
+#: A pinned entry is one source for priority and dedupe, but it reaches the
+#: mirror two ways. This labels the half that came from an author's own site,
+#: so the helper add-on does not describe it as a GitHub release. Deliberately
+#: not a STORE_SOURCE_LABELS key: it is a provenance label, not a source.
+PINNED_URL_SOURCE_LABEL = "Author's website"
 GITHUB_API = "https://api.github.com"
 GITHUB_OWNER_REJECTIONS = []
 
@@ -277,6 +283,21 @@ def parse_iso8601_to_ms(value):
         return int(dt.timestamp() * 1000)
     except ValueError:
         return None
+
+
+def parse_http_date_to_ms(value):
+    """Parse an HTTP Last-Modified header to epoch milliseconds, or None."""
+    if not value:
+        return None
+    try:
+        parsed = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp() * 1000)
 
 
 def parse_ru_modified(value):
@@ -619,16 +640,21 @@ def _fetch_pinned_impl(config_path):
     failures = []
     for spec in pinned:
         repo = spec.get("repo")
+        url = spec.get("url")
         addon_id = spec.get("addon_id")
-        if not repo or not addon_id:
-            message = f"pinned entry missing repo/addon_id: {spec!r}"
+        if not addon_id or not (repo or url):
+            message = f"pinned entry missing addon_id and repo/url: {spec!r}"
             log(message)
             failures.append(message)
             continue
+        label = repo or url
         try:
-            entries.extend(_fetch_one_pinned(spec, repo, addon_id))
+            if repo:
+                entries.extend(_fetch_one_pinned(spec, repo, addon_id))
+            else:
+                entries.extend(_fetch_one_pinned_url(spec, url, addon_id))
         except Exception as exc:  # noqa: BLE001 - report every failed pin together
-            message = f"pinned entry {repo} failed: {exc}"
+            message = f"pinned entry {label} failed: {exc}"
             log(message)
             failures.append(message)
     if failures:
@@ -738,6 +764,105 @@ def _fetch_one_pinned(spec, repo, addon_id):
         "sha256": digest,
         "_patched_bytes": patched,
     }
+    return [entry]
+
+
+def _pinned_url_asset(url):
+    """Describe a website-hosted bundle without downloading it.
+
+    Add-ons distributed from an author's own site have no release metadata, so
+    the HTTP validators stand in for it: ETag, Last-Modified and length give
+    ``cached_pinned_bundle`` an identity that changes exactly when the author
+    replaces the file. A host that answers no HEAD leaves the URL as the only
+    identity, which is noted rather than silently accepted -- a replacement
+    there is picked up when the cache is cleared, not before.
+    """
+    request = Request(quote_url(url), headers={
+        "User-Agent": USER_AGENT, "Accept": "*/*",
+    }, method="HEAD")
+    etag = last_modified = length = None
+    try:
+        with urlopen(request, timeout=60) as response:
+            etag = response.headers.get("ETag")
+            last_modified = response.headers.get("Last-Modified")
+            length = response.headers.get("Content-Length")
+    except (HTTPError, URLError, OSError) as exc:
+        log(f"pinned url {url}: HEAD unavailable ({exc}); "
+            "a replaced file will not be noticed until the cache is cleared")
+    if not (etag or last_modified or length):
+        log(f"pinned url {url}: host supplies no validators")
+    file_name = unquote(urlsplit(url).path).rsplit("/", 1)[-1]
+    return {
+        "id": etag,
+        "updated_at": last_modified,
+        "size": length,
+        "browser_download_url": url,
+        "name": file_name,
+    }, last_modified
+
+
+def _fetch_one_pinned_url(spec, url, addon_id):
+    """Publish an add-on its author distributes from their own website.
+
+    No catalog lists these and they are not on GitHub, so nothing else in the
+    build can see them. The bundle is validated and its manifest read exactly
+    as a GitHub pin's is. It is repackaged only when the pin renames the
+    add-on: leaving an unrenamed bundle alone keeps the author's own download
+    URL, so their download counter still sees real installs and the mirror
+    does not become a second home for their file.
+    """
+    asset, last_modified = _pinned_url_asset(url)
+    raw = cached_pinned_bundle(asset)
+    with zipfile.ZipFile(io.BytesIO(raw)) as bundle:
+        manifest_text = bundle.read("manifest.ini").decode("utf-8-sig")
+
+    original_name = _manifest_name(manifest_text)
+    if not original_name or original_name.casefold() in _TEMPLATE_NAMES:
+        raise RuntimeError(f"{url} has no valid manifest name")
+
+    manifest_version = _manifest_value(manifest_text, "version")
+    version = _select_pinned_version(manifest_version, asset["name"], "")
+    summary = (spec.get("summary") or _manifest_value(manifest_text, "summary")
+               or addon_id)
+    homepage = (spec.get("homepage") or _manifest_value(manifest_text, "url") or "")
+
+    renamed = original_name != addon_id
+    if renamed:
+        patched = _repack_addon(
+            raw, _rename_manifest_name(manifest_text, addon_id).encode("utf-8"),
+        )
+    else:
+        patched = raw
+
+    entry = {
+        "name": addon_id,
+        "summary": summary,
+        "description": _manifest_value(manifest_text, "description") or "",
+        "author": (spec.get("publisher")
+                   or _manifest_value(manifest_text, "author") or ""),
+        "version": version,
+        "channel": spec.get("channel", "stable"),
+        "homepage": homepage,
+        "source_url": spec.get("source_url") or homepage or url,
+        "license": spec.get("license", "Unknown"),
+        "license_url": spec.get("license_url", ""),
+        "changelog": (spec.get("changelog") or "").strip(),
+        "download_url": url,
+        "submission_ms": parse_http_date_to_ms(last_modified),
+        "min_nvda": (parse_api_version(
+                         _manifest_value(manifest_text, "minimumNVDAVersion"))
+                     or parse_api_version(spec.get("min_nvda_version") or "")),
+        "last_tested": (parse_api_version(
+                            _manifest_value(manifest_text, "lastTestedNVDAVersion"))
+                        or parse_api_version(spec.get("last_tested_nvda_version") or "")),
+        "source": "pinned",
+        "store_source_label": PINNED_URL_SOURCE_LABEL,
+        "sha256": hashlib.sha256(patched).hexdigest(),
+    }
+    # Only a renamed bundle is ours to serve; an untouched one keeps pointing
+    # at the author's URL, and hash_one must not try to host it.
+    if renamed:
+        entry["_patched_bytes"] = patched
     return [entry]
 
 
@@ -2288,7 +2413,10 @@ def transform(entry, sha256):
         },
         "submissionTime": entry.get("submission_ms") or 0,
         "legacy": False,
-        "storeSource": STORE_SOURCE_LABELS.get(
+        # A pinned entry may come from a GitHub release or straight from an
+        # author's website, so it carries its own label rather than being
+        # described as a GitHub release either way.
+        "storeSource": entry.get("store_source_label") or STORE_SOURCE_LABELS.get(
             entry.get("source"),
             entry.get("source") or "Unknown",
         ),
@@ -3060,8 +3188,12 @@ def main():
         url = e["download_url"]
         # Pinned variants: we host the repackaged bundle ourselves, so the
         # hash is already computed and the bytes are already in memory.
-        if e.get("source") == "pinned":
+        # A pinned bundle we repackaged is one we must serve ourselves, since
+        # the renamed manifest no longer matches the author's file. A pinned
+        # URL we left untouched keeps pointing at the author's own download.
+        if e.get("source") == "pinned" and "_patched_bytes" in e:
             patched = e.pop("_patched_bytes")
+            e["_hosted"] = True
             rel = f"downloads/{e['name']}-{e['version']}.nvda-addon"
             with cache_lock:
                 hosted.append((rel, patched))
@@ -3127,7 +3259,7 @@ def main():
     # release asset carries the colliding manifest name).
     base = args.site_base_url.rstrip("/")
     for e, digest, size in results:
-        if e.get("source") == "pinned":
+        if e.get("_hosted"):
             e["download_url"] = f"{base}/downloads/{e['name']}-{e['version']}.nvda-addon"
 
     # 5. Transform.

@@ -15,7 +15,10 @@ deployed through GitHub Pages.
   already covered by a valid stronger source in the same channel are retained.
 - Direct `.nvda-addon` release assets from owners in `githubOwners.json`;
   forks are retained only when released beyond their parent repository.
-- Explicit variants and packages in `pinned.json`.
+- Explicit variants and packages in `pinned.json`, which pins either a GitHub
+  `repo` or a plain `url`. The `url` form reaches add-ons an author publishes
+  only from their own website, which no catalog lists and no GitHub scan can
+  find; it is repackaged and rehosted only when it renames the add-on.
 
 Priority within an add-on ID and channel is: pinned, direct author, official,
 Russian catalog, BestMidi, then Spanish catalog. A newer version from the same
