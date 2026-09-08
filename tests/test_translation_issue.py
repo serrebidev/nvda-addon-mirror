@@ -185,6 +185,16 @@ class MainTests(unittest.TestCase):
     def test_usage_error_on_bad_arguments(self):
         self.assertEqual(2, translation_issue.main([]))
         self.assertEqual(2, translation_issue.main(["frobnicate", "x.json"]))
+        self.assertEqual(2, translation_issue.main(["open"]))
+
+    def test_close_takes_no_path_argument(self):
+        # The workflow invokes `close` with no file argument.
+        with mock.patch.dict("os.environ", {"GITHUB_REPOSITORY": "owner/repo"}):
+            with mock.patch.object(
+                translation_issue, "close_issue", return_value=None
+            ) as close:
+                self.assertEqual(0, translation_issue.main(["close"]))
+        close.assert_called_once_with()
 
 
 if __name__ == "__main__":

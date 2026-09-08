@@ -174,12 +174,15 @@ def close_issue(gh=default_gh, repository=None):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if len(argv) != 2 or argv[0] not in ("open", "close"):
+    valid = (
+        len(argv) == 2 and argv[0] == "open"
+        or len(argv) == 1 and argv[0] == "close"
+    )
+    if not valid:
         print(__doc__, file=sys.stderr)
         return 2
-    action, path = argv
-    if action == "open":
-        open_issue(path)
+    if argv[0] == "open":
+        open_issue(argv[1])
     else:
         close_issue()
     return 0
