@@ -83,12 +83,15 @@ def render_body(findings, repository):
 def find_open_issue(gh=default_gh, repository=None):
     """Return the number of the open gap issue, or None when there is none."""
     repository = repository or os.environ["GITHUB_REPOSITORY"]
+    # List and match locally rather than --search: GitHub's issue search
+    # index lags newly created issues by minutes, so a run that follows a
+    # create too closely would not find it and open a duplicate.
     code, out = gh(
         [
             "issue", "list",
             "--repo", repository,
             "--state", "open",
-            "--search", ISSUE_TITLE,
+            "--limit", "200",
             "--json", "number,title",
         ]
     )
