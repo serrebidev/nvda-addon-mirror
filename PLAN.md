@@ -65,6 +65,11 @@ or API failures stop publication so a partial catalog cannot replace a complete
 deployment. Permanent invalid or removed individual release assets are rejected
 with an auditable reason.
 
+A separate daily workflow audits the published catalog for add-ons still
+lacking English metadata and manages a `translation-gap` issue: new findings
+create or update it, a clean audit closes it. Findings are report-only; a gap
+never blocks the mirror build.
+
 ## Verification
 
 - `python -m py_compile mirror.py build_helper.py`

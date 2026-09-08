@@ -1,0 +1,62 @@
+name: translation-audit
+
+on:
+  schedule:
+    # Daily, shortly after the mirror's hourly refresh slot, so the audit
+    # reads a catalog published by today's builds. GitHub throttles
+    # high-frequency crons on this repo; a daily slot is honored reliably.
+    - cron: "37 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translation-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+
+      - name: Install langdetect
+        run: python -m pip install "langdetect==1.0.9"
+
+      # The auditor exits 1 when it finds untranslated add-ons; that outcome
+      # selects the issue step below instead of failing the job.
+      - name: Audit the live mirror
+        id: audit
+        continue-on-error: true
+        run: python audit_translations.py --json findings.json
+
+      - name: Report the result
+        run: |
+          python - <<'PYEOF'
+          import json
+          try:
+              findings = json.load(open("findings.json", encoding="utf-8"))
+          except FileNotFoundError:
+              findings = []
+          print(f"Audit finished: {len(findings)} untranslated add-on(s).")
+          PYEOF
+
+      - name: Open or update the translation-gap issue
+        if: steps.audit.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python translation_issue.py open findings.json
+
+      - name: Close the translation-gap issue
+        if: steps.audit.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python translation_issue.py close
