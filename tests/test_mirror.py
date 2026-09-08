@@ -767,11 +767,13 @@ class GitHubOwnerTests(unittest.TestCase):
         # Requested by name. accessolutions is an organization rather than a
         # user, which repository discovery handles through its own GraphQL
         # branch, so it is worth pinning down alongside the two accounts.
+        # daliana907 publishes three Spanish add-ons that the official store
+        # does not carry.
         by_login = {
             spec["login"].casefold(): spec
             for spec in mirror._load_github_owners()
         }
-        for login in ("javidominguez", "mltony", "accessolutions"):
+        for login in ("javidominguez", "mltony", "accessolutions", "daliana907"):
             with self.subTest(login=login):
                 self.assertIn(login, by_login)
 
