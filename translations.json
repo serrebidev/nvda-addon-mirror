@@ -4848,6 +4848,64 @@
   },
   "tdkSozluk": {
    "summary": "TDK and Dictionaries"
+  },
+  "ailivetranslate": {
+   "summary": "AILiveTranslate (real-time speech translation powered by Gemini 3.5 Live Translate)",
+   "description": "AILiveTranslate turns your speech into text in your chosen language in real time during a conversation.\nChoose the translation language in the settings, press the gesture, and speak in any of the supported languages: the translation lands in the active field, typed directly rather than copied to the clipboard, with correct punctuation.\nPowered by Gemini 3.5 Live Translate (a fast real-time stream with automatic fallback to audio recording); requires a free API key.\nSee the add-on settings for all supported languages.\nAll add-on features are described in the help documentation."
+  },
+  "audioTranscriber": {
+   "summary": "AudioTranscriber (AI transcription)",
+   "description": "The Audio Transcriber add-on transcribes audio and video files to text using three neural networks to choose from: Gemini, ElevenLabs, and Groq.\nChoose a file from disk, press the transcribe button, and receive the result in an edit field.\nThe finished text can be copied to the clipboard or saved to a TXT file.\nA history of all transcriptions is kept and can be viewed, edited, and deleted.\nEach network has its own API key and model settings.\nWith Gemini selected, an extra feature can transcribe YouTube videos from a link without downloading them.\nYou can enable timestamp insertion for convenient navigation through videos.\nInstead of a full transcription, Gemini can summarize the video with a brief or detailed overview of its content.\nFor ElevenLabs, an account status check shows your plan and remaining characters.\nSwitch between networks using the list in the main window or the Ctrl+Tab and Ctrl+Shift+Tab shortcuts.\nWhen switching, the add-on announces the selected network by speech.\nAll settings are independent for each provider.\nResetting the settings clears the key and model only for the current network, leaving the others untouched.\nAssign the start shortcut in NVDA's Input Gestures dialog.",
+   "author": "Sergey Pulyaev <a45951011@gmail.com>"
+  },
+  "biosManager": {
+   "summary": "Add-on for NVDA that lets you view, search, and modify BIOS and UEFI parameters directly from Windows.",
+   "description": "Lets you view and modify BIOS and UEFI options on Lenovo computers directly from Windows with NVDA, instead of navigating the boot menu blindly."
+  },
+  "climaAccesible": {
+   "summary": "Check the current weather and your city's forecast with accessible NVDA keyboard shortcuts, no accounts or keys required.",
+   "description": "Check the current weather and your city's forecast using keyboard shortcuts. Works instantly with Open-Meteo, with no registration or API keys needed."
+  },
+  "copyURL": {
+   "summary": "NVDA add-on for copying the current page or link URL to the clipboard.",
+   "description": "For web browsers only. Copies the URL of the current page or of a link at the cursor to the clipboard and announces it. Both command gestures can be configured through NVDA's Input Gestures dialog. The Copy Link URL command can be turned off in settings. Copy Page URL may be unavailable in Edge when UIA browse mode is enabled; see the add-on help."
+  },
+  "customActions": {
+   "summary": "CustomActions (custom command sequences for NVDA)",
+   "description": "CustomActions lets you create sequences of NVDA commands and run them with keyboard shortcuts.\nThe add-on binds actions to specific applications and zones for precise, contextual execution.\nYou can combine NVDA commands, system keys, and special actions in a single sequence.\nAvailable special actions include pause, speech mute, moving the navigator object, and playing audio files.\nSearching for objects and text with the navigator object or the review cursor is supported.\nEvents can trigger actions automatically when the application, window, focus, or zone changes.\nYou can use object-appear and object-vanish events to build adaptive scenarios.\nA timer event lets you schedule actions to run on a timetable.\nA built-in ADSR synthesizer with three oscillators and an LFO lets you create your own sound signals.\nYou can replace NVDA's standard beep with your own synthesized sound for each application.\nThe Copy to clipboard action collects information about the system, windows, and files.\nStep markers let you split a single custom action into sequential phases.\nPressing the shortcut twice can copy the action's result to the clipboard.\nAll settings are saved in JSON files and transfer easily between computers.\nThe editor remembers the cursor position and state for each application and zone.\nThe add-on provides flexible tools for automating everyday tasks in NVDA.\nAll add-on features are described in a detailed reference guide."
+  },
+  "geminiSpellCheckerPlus": {
+   "summary": "GeminiSpellCheckerPlus (spelling and punctuation correction and translation using AI APIs)",
+   "description": "Gemini Spell Checker Plus is an independent continuation of the Gemini Spell Checker add-on for NVDA, using artificial intelligence to check spelling, grammar, and translate text.\nIt supports two services: Google Gemini and the Groq API.\nIt checks and corrects errors in text and translates into 49 languages.\nIt works on the selected text, and the result is copied to the clipboard.\nIt switches between models automatically when errors occur.\nIt includes an option to add emoji to the corrected text.\nEasy to use: select text and press your gestures to check or translate it.\nIt requires API keys from your chosen service.\nAssign input gestures yourself in the Gemini Spell Checker Plus category.\nSettings are located under Preferences, Settings, Gemini Spell Checker Plus.\nThe add-on's features are described in detail in the help documentation.",
+   "author": "Zloy Ltd (original idea and development); Sergey Pulyaev (further development since version 1.0 of this fork)"
+  },
+  "monitorSistema": {
+   "summary": "Accessible resource monitor for NVDA. Check CPU load, frequency, RAM, disks, Wi-Fi network, graphics card (GPU/VRAM), and overheat and battery alerts in real time.",
+   "description": "Accessible resource monitor for NVDA. Based on Resource Monitor by Joseph Lee and contributors. Lets you check in real time the usage and temperature of the CPU, graphics card, RAM, hard disk and SSD status, battery and Bluetooth devices, Wi-Fi network, and internet speed."
+  },
+  "Qadreen": {
+   "summary": "Qadreen",
+   "description": "An advanced add-on designed to serve the Qadreen community and simplify tasks for supervisors and beneficiaries. The add-on manages and organizes links quickly and efficiently via the original Insert+Ctrl+H shortcut, plus a new feature to copy any link and press Insert+Shift+C to open an interactive window that lets the user add and program programs and links directly in design mode."
+  },
+  "radiotv": {
+   "description": "Listen to radio and TV channel audio, including sports, from the keyboard, with accent-insensitive search, program schedules, and favorite channels. The source catalog is packaged statically."
+  },
+  "ricerca_testuale_accesso_digitale": {
+   "summary": "NVDA add-on for advanced text search in files, documents, and images.",
+   "description": "Lets you search for words, phrases, and textual elements inside documents, images, and multimedia content."
+  },
+  "soundtub": {
+   "summary": "Accessible add-on for NVDA that downloads MP3 audio, MP4 video, and playlists.",
+   "description": "Download MP3 audio and MP4 video through an interface accessible with NVDA.",
+   "author": "Luziano Silva - software developer - luzianosilva.dv@gmail.com"
+  },
+  "vocalizer_automotive_driver_free": {
+   "summary": "VocalizerAutomotiveDriverFree (Nuance Vocalizer 5.5 speech synthesizer driver)",
+   "description": "The VocalizerAutomotiveDriverFree add-on is a driver for Nuance Vocalizer 5.5 speech synthesizers.\nThe driver works indefinitely, but to use it you must install at least one voice:\nNuance Vocalizer 5.5.\nNuance Vocalizer Direct.\nBoth can be downloaded through the Russian-language catalog.\nImportant note:\nThis driver with the Free prefix works with only one voice (automatic language switching became unavailable after unlocking).\nIf you own a previously purchased license for this driver, it is best to install the fully functional original VocalizerAutomotiveDriver instead.\nDo not install this modified driver alongside the original, because the drivers share the same configuration, which can cause a conflict."
+  },
+  "voicepulse": {
+   "summary": "VoicePulse (voice dictation powered by Gemini)",
+   "description": "VoicePulse turns your microphone into an AI typist.\nPress the gesture, speak in one or several languages at once, and the text is inserted into the active field with punctuation added automatically.\nDictation runs on Gemini (a fast live stream with an automatic audio-recording fallback).\nIt requires a free API key and needs no special configuration.\nAll add-on features are described in detail in the help documentation."
   }
  }
 }
