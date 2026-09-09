@@ -136,10 +136,12 @@ class ManifestVersionRecoveryTests(unittest.TestCase):
     URL = "https://example.invalid/addon.nvda-addon"
 
     @staticmethod
-    def _bundle(manifest):
+    def _bundle(manifest, extra=None):
         raw = io.BytesIO()
         with zipfile.ZipFile(raw, "w") as archive:
             archive.writestr("manifest.ini", manifest)
+            for name, content in (extra or {}).items():
+                archive.writestr(name, content)
         return raw.getvalue()
 
     def test_manifest_version_is_read_from_the_download_being_hashed(self):
@@ -221,11 +223,59 @@ class ManifestVersionRecoveryTests(unittest.TestCase):
         ) as download:
             record, _ = mirror.cached_download(
                 entry, legacy, now=100, capture_limit=mirror.MANIFEST_CAPTURE_LIMIT,
+                inspect=True,
             )
         download.assert_called_once_with(
             self.URL, validators=None, capture_limit=mirror.MANIFEST_CAPTURE_LIMIT,
         )
         self.assertEqual("3.2.1", record["manifest_version"])
+
+    def test_capturing_bytes_alone_does_not_force_a_download(self):
+        """Harvesting translations must never re-download the whole catalog.
+
+        Every bundle is captured now, so if capture implied inspection the
+        first build after that change would refetch every cached add-on at
+        once. Only a version the catalogs failed to state earns a forced
+        download; translations wait for the ordinary recheck schedule.
+        """
+        entry = {"download_url": self.URL, "version": "1.0"}
+        fresh = {"sha256": "a" * 64, "size": 5, "version": "1.0",
+                 "etag": '"old"', "next_check": 10 ** 9}
+        with mock.patch.object(mirror, "sha256_stream") as download:
+            record, error = mirror.cached_download(
+                entry, fresh, now=100, capture_limit=mirror.MANIFEST_CAPTURE_LIMIT,
+            )
+        download.assert_not_called()
+        self.assertIsNone(error)
+        self.assertEqual("a" * 64, record["sha256"])
+
+    def test_author_translations_are_read_from_the_downloaded_bytes(self):
+        bundle = self._bundle(
+            "name = example\nversion = 1.0\n",
+            extra={
+                "locale/fr/manifest.ini": (
+                    'summary = "Horloge"\ndescription = """Une horloge."""\n'
+                ),
+                "locale/de/manifest.ini": 'summary = "Uhr"\n',
+                # English is the source language, never a translation.
+                "locale/en/manifest.ini": 'summary = "Clock"\n',
+            },
+        )
+        entry = {"download_url": self.URL, "version": "1.0"}
+        with mock.patch.object(
+            mirror, "sha256_stream",
+            return_value=("a" * 64, len(bundle), None, None, bundle),
+        ):
+            record, _ = mirror.cached_download(
+                entry, now=100, capture_limit=mirror.MANIFEST_CAPTURE_LIMIT,
+            )
+        self.assertEqual(
+            {
+                "fr": {"displayName": "Horloge", "description": "Une horloge."},
+                "de": {"displayName": "Uhr"},
+            },
+            record["manifest_locales"],
+        )
 
     def test_a_failing_url_keeps_its_backoff_instead_of_being_re_probed(self):
         entry = {"download_url": self.URL, "version": "unknown"}

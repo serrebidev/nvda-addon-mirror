@@ -149,6 +149,71 @@ class NvdaReleaseMetadataTests(unittest.TestCase):
             mirror.published_nvda_api_versions(entries),
         )
 
+    def test_superseded_patches_within_a_line_are_not_published(self):
+        # NVDA moves users onto the newest patch in their line on its own, and
+        # every patch in a line shares one BACK_COMPAT_TO, so the older patches
+        # are near-duplicate files that cost a full catalog copy per locale.
+        entries = [
+            self._entry((2026, 1, 0)),
+            self._entry((2026, 1, 1)),
+            self._entry((2026, 1, 2)),
+        ]
+        self.assertEqual(
+            ["2026.1.2"], mirror.published_nvda_api_versions(entries)
+        )
+
+    def test_older_years_keep_only_their_newest_line(self):
+        # Most users sit on the current and previous year; those keep every
+        # line. Anything older keeps one file, not one per line.
+        entries = [
+            self._entry((2025, 1, 0)),
+            self._entry((2025, 2, 0)),
+            self._entry((2025, 3, 3)),
+            self._entry((2026, 1, 1)),
+            self._entry((2026, 2, 0)),
+            self._entry((2026, 3, 0)),
+            self._entry((2027, 1, 0)),
+        ]
+        self.assertEqual(
+            ["2027.1.0", "2026.3.0", "2026.2.0", "2026.1.1", "2025.3.3"],
+            mirror.published_nvda_api_versions(entries),
+        )
+
+    def test_retention_is_ranked_by_releases_not_the_calendar(self):
+        # A build running early in a new year, before that year has shipped
+        # anything, must not retire the year everyone is still on.
+        entries = [
+            self._entry((2025, 1, 0)),
+            self._entry((2025, 3, 3)),
+            self._entry((2026, 1, 0)),
+            self._entry((2026, 3, 0)),
+        ]
+        self.assertEqual(
+            ["2026.3.0", "2026.1.0", "2025.3.3", "2025.1.0"],
+            mirror.published_nvda_api_versions(entries),
+        )
+
+    def test_pruning_can_be_disabled_for_a_one_off_build(self):
+        entries = [
+            self._entry((2025, 1, 0)),
+            self._entry((2025, 3, 3)),
+            self._entry((2026, 1, 0)),
+            self._entry((2027, 1, 0)),
+        ]
+        self.assertEqual(
+            ["2027.1.0", "2026.1.0", "2025.3.3", "2025.1.0"],
+            mirror.published_nvda_api_versions(entries, years_in_full=0),
+        )
+
+    def test_the_store_floor_is_still_the_oldest_thing_considered(self):
+        # Nothing before 2025.1 can be pointed at a mirror at all, so those
+        # must never be published no matter how retention is configured.
+        entries = [self._entry((2024, 4, 2)), self._entry((2025, 1, 0))]
+        self.assertEqual(
+            ["2025.1.0"],
+            mirror.published_nvda_api_versions(entries, years_in_full=0),
+        )
+
     def test_bundled_api_versions_include_nvda_2026_2(self):
         versions = mirror.load_nvda_api_versions()
         self.assertEqual((2026, 1, 0), versions["2026.2.0"])
@@ -195,6 +260,111 @@ class NvdaReleaseMetadataTests(unittest.TestCase):
                     refresh=True,
                 )
         self.assertEqual(bundled, entries)
+
+
+class NvdaMasterParsingTests(unittest.TestCase):
+    """Parse NVDA master the way it is actually written.
+
+    Both declarations carry type annotations, so a pattern that treats the
+    annotation's ":" as the assignment operator never matches and silently
+    turns back_compat_to_version() into a constant. That is invisible in the
+    build output and invisible to audit_catalog(), which reads the floor back
+    from the build's own stats.json.
+    """
+
+    #: Deliberately not any real NVDA floor, and never FALLBACK_BACK_COMPAT_TO:
+    #: a fixture that happens to match the fallback lets the broken pattern
+    #: pass by falling back to the value the test was asserting.
+    UNMISTAKABLE_FLOOR = (2031, 3, 0)
+
+    @staticmethod
+    def _apiSource(backCompatTo):
+        """NVDA master's addonAPIVersion.py, verbatim in shape."""
+        year, major, minor = backCompatTo
+        return (
+            "import buildVersion\n"
+            "\n"
+            "AddonApiVersionT = tuple[int, int, int]\n"
+            "\n"
+            "CURRENT: AddonApiVersionT = (\n"
+            "\tbuildVersion.version_year,\n"
+            "\tbuildVersion.version_major,\n"
+            "\tbuildVersion.version_minor,\n"
+            ")\n"
+            "\n"
+            f"BACK_COMPAT_TO: AddonApiVersionT = ({year}, {major}, {minor})\n"
+            '"""\n'
+            "As BACK_COMPAT_TO is incremented, the reasoning should be added below.\n"
+            "(2027, 1, 0): Upgrade to python 3.14.\n"
+            "(2026, 1, 0): Upgrade to python 3.13 and migration to 64bit from 32bit\n"
+            '"""\n'
+        )
+
+    BUILD_VERSION_PY = (
+        "def formatVersionForGUI():\n"
+        '\treturn f"{version_year}.{version_major}.{version_minor}dev"\n'
+        "\n"
+        "version_year = 2027\n"
+        "version_major = 1\n"
+        "version_minor = 0\n"
+        "version_build = 0\n"
+    )
+
+    def test_annotated_back_compat_to_is_read_from_master(self):
+        self.assertNotEqual(
+            mirror.FALLBACK_BACK_COMPAT_TO,
+            self.UNMISTAKABLE_FLOOR,
+            "fixture floor must differ from the fallback or this proves nothing",
+        )
+        source = self._apiSource(self.UNMISTAKABLE_FLOOR)
+        with mock.patch.object(mirror, "http_get", return_value=source.encode()):
+            self.assertEqual(self.UNMISTAKABLE_FLOOR, mirror.back_compat_to_version())
+
+    def test_back_compat_to_ignores_the_changelog_tuples_below_it(self):
+        # The docstring under the declaration lists older tuples; picking one of
+        # those up would quietly lower every unlisted version's floor.
+        source = self._apiSource(self.UNMISTAKABLE_FLOOR)
+        self.assertIn("(2026, 1, 0)", source)
+        with mock.patch.object(mirror, "http_get", return_value=source.encode()):
+            self.assertEqual(self.UNMISTAKABLE_FLOOR, mirror.back_compat_to_version())
+
+    def test_unreadable_master_falls_back_to_the_bundled_floor(self):
+        with mock.patch.object(mirror, "http_get", side_effect=OSError("offline")):
+            self.assertEqual(
+                mirror.FALLBACK_BACK_COMPAT_TO, mirror.back_compat_to_version()
+            )
+
+    def test_bundled_fallback_matches_the_newest_known_release(self):
+        # The fallback is only reached when NVDA master is unreachable, so
+        # nothing else will catch it going stale. It must never sit below the
+        # highest floor the bundled release metadata already knows about.
+        floors = mirror.load_nvda_api_versions()
+        self.assertEqual(max(floors.values()), mirror.FALLBACK_BACK_COMPAT_TO)
+
+    def test_current_api_version_is_read_from_the_real_declarations(self):
+        with mock.patch.object(
+            mirror, "http_get", return_value=self.BUILD_VERSION_PY.encode()
+        ):
+            self.assertEqual("2027.1.0", mirror.current_nvda_api_version())
+
+    def test_current_api_version_ignores_earlier_mentions(self):
+        # formatVersionForGUI() names all three variables before they are
+        # assigned; an unanchored search can match the wrong occurrence.
+        source = "version_year = 1999\n" + self.BUILD_VERSION_PY
+        with mock.patch.object(mirror, "http_get", return_value=source.encode()):
+            self.assertEqual("1999.1.0", mirror.current_nvda_api_version())
+
+    def test_dev_api_version_uses_master_floor_when_datastore_omits_it(self):
+        # The failure this whole class exists for: the datastore has not listed
+        # the in-development release yet, so its floor comes from master. A
+        # wrong floor here publishes add-ons that release will refuse to load.
+        floors = mirror.nvda_api_versions_from_entries(
+            [NvdaReleaseMetadataTests._entry((2026, 2, 0))]
+        )
+        source = self._apiSource(self.UNMISTAKABLE_FLOOR)
+        with mock.patch.object(mirror, "http_get", return_value=source.encode()):
+            master = mirror.back_compat_to_version()
+        self.assertEqual(self.UNMISTAKABLE_FLOOR, floors.get("2031.3.0", master))
 
 
 class PinnedForkPolicyTests(unittest.TestCase):

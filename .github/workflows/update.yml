@@ -51,6 +51,8 @@ jobs:
           path: |
             hashcache.json
             githubOwnerCache.json
+            localeCache.json
+            translationCache.json
             .bundlecache
           key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: mirror-downloads-v2-
@@ -79,6 +81,48 @@ jobs:
           python -c 'import json; assert isinstance(json.load(open("githubOwnerCache.json.tmp")), dict)'
           mv githubOwnerCache.json.tmp githubOwnerCache.json
 
+      - name: Restore translation caches from last deployment
+        if: steps.build-cache.outputs.cache-matched-key == ''
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          # localeCache.json holds each language's ETag, so an unchanged
+          # language revalidates with a 304 instead of refetching 1.7 MB.
+          # translationCache.json holds machine translations already paid for.
+          # Losing either is only a cost and latency regression, never a
+          # correctness one, so a failed restore is not fatal.
+          for NAME in localeCache translationCache; do
+            URL="https://${OWNER}.github.io/${REPO}/${NAME}.json"
+            echo "Restoring ${NAME} from ${URL}"
+            if curl --retry 3 -fsSL "$URL" -o "${NAME}.json.tmp" \
+              && python -c "import json,sys; assert isinstance(json.load(open(sys.argv[1])), dict)" "${NAME}.json.tmp"; then
+              mv "${NAME}.json.tmp" "${NAME}.json"
+            else
+              echo "No usable ${NAME}; starting a fresh one"
+              rm -f "${NAME}.json.tmp"
+            fi
+          done
+
+      - name: Restore NVDA API version history from last deployment
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          # Offline fallback for the per-release BACK_COMPAT_TO map. The build
+          # refreshes it from nvaccess/addon-datastore, but when that fetch
+          # fails an unlisted API version falls back to the hardcoded floor and
+          # publishes add-ons the release rejects. Keep the last good copy.
+          URL="https://${OWNER}.github.io/${REPO}/nvdaAPIVersions.json"
+          echo "Restoring NVDA API version history from ${URL}"
+          if curl --retry 3 -fsSL "$URL" -o nvdaAPIVersions.json.tmp \
+            && python -c 'import json,sys; d=json.load(open("nvdaAPIVersions.json.tmp")); assert isinstance(d, list) and d, "not a non-empty list"'; then
+            mv nvdaAPIVersions.json.tmp nvdaAPIVersions.json
+          else
+            echo "Restore failed; keeping the committed copy"
+            rm -f nvdaAPIVersions.json.tmp
+          fi
+
       - name: Test mirror
         run: python -W error -m unittest discover -s tests
 
@@ -86,6 +130,10 @@ jobs:
         id: mirror-build
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          # Optional. Unset, the build still translates from the official
+          # store's per-language views and the add-ons' own bundled
+          # translations; only the machine-translated remainder is skipped.
+          TRANSLATE_API_KEY: ${{ secrets.TRANSLATE_API_KEY }}
         run: python mirror.py --out public
 
       - name: Save build caches even if publication fails
@@ -95,6 +143,8 @@ jobs:
           path: |
             hashcache.json
             githubOwnerCache.json
+            localeCache.json
+            translationCache.json
             .bundlecache
           key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
 

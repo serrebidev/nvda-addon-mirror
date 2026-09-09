@@ -90,10 +90,13 @@ Sources:
    one release.
 4. Downloads each remaining `.nvda-addon`, computes its SHA-256 (NVDA enforces
    this checksum on install), and emits the NVDA store schema.
-5. Writes `cacheHash.json`, `addons.json`, and
+5. Translates each locale's catalog: the official store's own per-language
+   view first, then the add-on's bundled `locale/<lang>/manifest.ini`, then
+   machine translation for whatever is still English.
+6. Writes `cacheHash.json`, `addons.json`, and
    `{lang}/{channel}/{apiVersion}.json` for every NVDA locale, channel, and a
    curated set of recent API versions.
-6. Publishes everything to GitHub Pages.
+7. Publishes everything to GitHub Pages.
 
 > These add-ons are **untested**. bestmidi's disclaimer: *"These add-ons have
 > not been tested and this is not an official NVDA add-on repository."* The
@@ -162,6 +165,78 @@ in-page filter. The same data is available as JSON at `rejected.json`.
   packs it into `dist/`.
 - `public/` — generated site (published to GitHub Pages by Actions).
 
+## Add-on names
+
+`manifest.ini`'s `summary` is the field NVDA shows as an add-on's **name**, and
+some authors write a description there instead. Published verbatim that leaves
+a paragraph where a title belongs and the real name nowhere at all — unusable
+when you are arrowing a list of names rather than reading it.
+
+`looks_like_prose_name()` flags a display name that reads as a sentence, using
+grammatical signals (a relative clause, second-person address, a description
+opener, a sentence-ending period) rather than length alone — real names are
+often long, like "Acapela TTS Voices for NVDA Engines" or "BOA: Better Office
+Accessibility", and must not be touched.
+
+When one is flagged, `best_display_name()` takes the first usable name from:
+the catalog's own summary, the add-on's `manifest.ini` summary (read from bytes
+already streamed for the SHA-256, so it costs no extra request), the name a
+"Name: tagline" summary opens with, then the add-on id made readable. It never
+gives up and republishes the sentence: a reconstructed title still beats a
+paragraph in a list of names.
+
+This corrected 65 names, including 8 in `translations.json` where the English
+overlay had a description in its `summary` field.
+
+### Names that are not in English
+
+An add-on called "Gestor de BIOS y UEFI Accesible" tells an English-speaking
+user nothing about what it does, but dropping its own name would stop them
+recognising it from its documentation or from anywhere it is discussed. Both
+are published, English first:
+
+    Accessible BIOS and UEFI Manager, AKA Gestor de BIOS y UEFI Accesible
+    System Monitor, AKA Monitor del Sistema
+
+The English half comes from `translations.json`; the original is the add-on's
+own `manifest.ini` summary. `looks_non_english_name()` decides whether there is
+a pair to show at all, and errs towards no — a false positive appends a
+redundant "AKA" to a name that never needed one. Nothing is appended when the
+original is the same name plus a subtitle in its own language ("SoundTub" and
+"SoundTub - download acessível de áudio e vídeo" are one name), nor when no
+English name has been supplied yet.
+
+## Translations
+
+Every locale used to be a byte-identical copy of the English catalog. Each one
+is now translated, best source first:
+
+1. **The official store's own per-language view.** NV Access publishes
+   `{lang}/all/latest.json` with author-supplied translations — 208 French,
+   176 German and 57 Japanese descriptions differ from the English. Fetched
+   with an `ETag`, so an unchanged language costs a 304 rather than 1.7 MB.
+   Matching is keyed by `(addonId, channel)`, because the store lists one row
+   per channel and keying on the id alone lets a dev row take a stable row's
+   wording.
+2. **The add-on's own `locale/<lang>/manifest.ini`.** This is where NVDA's
+   `addonHandler` reads a translated summary and description, so it is the
+   author's own text. Read out of bytes already being streamed for the SHA-256,
+   which costs no extra request. Coverage fills in over a day as the ordinary
+   recheck TTLs expire — harvesting never forces a re-download.
+3. **Machine translation**, for whatever is still English. Off unless
+   `TRANSLATE_API_KEY` is set; without it those entries stay English, which is
+   what they were before. `TRANSLATE_CHAR_BUDGET` (default 200 000 characters
+   per build) caps the spend, so the first pass is spread across builds rather
+   than paid for in one run. Results are cached by `(source text, language)` in
+   `translationCache.json`, so unchanged text is never paid for twice.
+
+Anything with no translation at any tier keeps its English string — a gap is
+never worse than the previous behaviour. `--no-translate` publishes English
+everywhere and skips the per-language fetches.
+
+Locale fallback follows NVDA's own: `pt_BR` uses a `pt` translation when there
+is no `pt_BR` one.
+
 ## Keeping the English overlay complete
 
 Many add-ons ship only Spanish, Russian, Turkish, French, Portuguese, German or
@@ -200,6 +275,8 @@ audit is report-only: it never blocks the mirror's deployment.
 ```sh
 python mirror.py --out public              # full build (all sources)
 python mirror.py --sources ru --limit 6 --skip-download --locales en   # fast smoke test
+python mirror.py --sources official --locales en,fr,ja --skip-download  # check translations
+python mirror.py --no-translate                                       # English everywhere
 ```
 
 The mirror writes real files rather than symlinks because GitHub Pages rejects
@@ -207,12 +284,11 @@ artifacts that contain symlinks.
 
 ## Notes and trade-offs
 
-- **File layout**: NVDA requests `{base}/{lang}/{channel}/{apiVersion}.json`,
-  using the language/channel/apiVersion only as cache keys — the returned list
-  is identical for all of them. The `apiVersion` is the *running NVDA's own*
-  add-on API version (e.g. `2026.2.0`), so the mirror must emit a file for
-  every released NVDA version still in use or those users get a 404 and an
-  empty "compatible" list.
+- **File layout**: NVDA requests `{base}/{lang}/{channel}/{apiVersion}.json`.
+  The `apiVersion` is the *running NVDA's own* add-on API version (e.g.
+  `2026.2.0`), so the mirror must emit a file for every released NVDA version
+  still in use or those users get a 404 and an empty "compatible" list — NVDA
+  has no fallback to another version or to English.
   - **Old NVDA support has a hard floor of NVDA 2025.1.** The Add-on Store
     client shipped earlier, in NVDA 2023.2, and 2023.2–2024.4 do fetch
     `{lang}/{channel}/{version}.json` — but from a hardcoded address:
@@ -225,13 +301,20 @@ artifacts that contain symlinks.
     any NVDA ever released, and they were about a third of the deployed site.
   - GitHub Pages forbids symlinks in Actions artifacts (and dereferences them
     on upload anyway), so the mirror writes **real copies** for every locale.
-    Every build reads NV Access's live `addon-datastore` metadata and publishes
-    every API version from NVDA 2025.1 onward, including experimental versions.
-    Endpoints at or above that floor are never pruned when a newer version
-    appears. The
-    bundled `nvdaAPIVersions.json` is the offline fallback, and also supplies
-    each version's `BACK_COMPAT_TO`. Users on a version whose file is absent
-    still get the `latest` (incompatible) view.
+    Every build reads NV Access's live `addon-datastore` metadata; the bundled
+    `nvdaAPIVersions.json` is the offline fallback and also supplies each
+    version's `BACK_COMPAT_TO`.
+  - **Which API versions are published.** Each release line costs one filtered
+    copy of the catalog per locale — around 120 MB across all locales — and
+    NVDA ships roughly three lines a year, so publishing every line since
+    2025.1 outgrew GitHub Pages' 1 GB soft limit (the site reached 1.79 GB).
+    `--api-version-years` (default 2) keeps every line from the current and
+    previous NVDA years, plus the newest line of each older year. Superseded
+    patches within a line are always dropped: NVDA moves those users onto the
+    newest patch itself, and every patch in a line shares one `BACK_COMPAT_TO`.
+    Users on a retired line still get the `latest` (incompatible) view. The
+    build logs every version it stops serving and warns if the site passes
+    1 GB.
 - **Version sanitization**: many non-GitHub add-ons use versions NVDA's
   `MajorMinorPatch` can't natively hold (`4.1.1009.12`, `2023.12.10.06.44.50`,
   `v20`, `1.0-beta`). The mirror keeps the first up-to-three integer runs and

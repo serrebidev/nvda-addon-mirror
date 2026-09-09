@@ -52,8 +52,10 @@ NVDA_API_VERSION_URL = (
 #: "compatible" when minimumNVDAVersion <= current and
 #: lastTestedNVDAVersion >= BACK_COMPAT_TO. Kept in sync with
 #: nvaccess/nvda source/addonAPIVersion.py, but refreshed from that file at
-#: build time when reachable.
-FALLBACK_BACK_COMPAT_TO = (2026, 1, 0)
+#: build time when reachable. NVDA raises this on the first release of each
+#: year, so a stale value here silently publishes add-ons the new release
+#: rejects; back_compat_to_version() logs whenever it has to fall back.
+FALLBACK_BACK_COMPAT_TO = (2027, 1, 0)
 
 # Every locale NVDA ships (source/locale/*). NVDA requests its store data at
 # {base}/{lang}/{channel}/{apiVersion}.json and uses the language code only as a
@@ -95,8 +97,44 @@ CHANNELS = ["all"]
 # versions remain published permanently as new versions are appended.
 ADDON_STORE_FIRST_API_VERSION = (2025, 1, 0)
 
+#: How many NVDA release years to publish in full. Each release line
+#: (year.major) costs one filtered copy of the catalog per locale -- about
+#: 120 MB across the 74 locales -- and NVDA ships roughly three lines a year,
+#: so publishing every line since 2025.1 outgrows what GitHub Pages will hold.
+#:
+#: Retention follows where users actually are. The current and previous years
+#: keep every line, because that is where nearly everyone sits and a missing
+#: file is an empty Add-on Store, not a degraded one -- NVDA has no version
+#: fallback. Older years keep only their newest line, on the assumption that
+#: anyone that far behind who is still updating at all has taken their year's
+#: last patch. Superseded patches within a line are always dropped: NVDA moves
+#: those users forward on its own, and every patch in a line shares one
+#: BACK_COMPAT_TO, so they are near-duplicate files nobody requests.
+API_VERSION_YEARS_IN_FULL = 2
+
+#: Warn when the built site passes this. GitHub Pages documents 1 GB as a soft
+#: limit; going over is not refused outright but does invite throttling and a
+#: warning mail, so the build says so rather than letting it be a surprise.
+SITE_SIZE_WARN_BYTES = 1_000_000_000
+
 # API version regex mirrors NVDA source/addonAPIVersion.py: year.major(.minor)
 _API_VERSION_RE = re.compile(r"^(0|\d{4})\.(\d)(?:\.(\d))?$")
+
+# NVDA master declares these as annotated, module-level assignments:
+#     BACK_COMPAT_TO: AddonApiVersionT = (2027, 1, 0)
+#     version_year = 2027
+# Both are anchored to the start of a line so an incidental mention earlier in
+# the file (a docstring, an f-string, the BACK_COMPAT_TO changelog block) can
+# never be picked up ahead of the real declaration.
+_MASTER_BACK_COMPAT_TO_RE = re.compile(
+    r"^BACK_COMPAT_TO\s*(?::[^=\n]*)?=\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)",
+    re.MULTILINE,
+)
+
+
+def _master_build_version_re(name):
+    return re.compile(rf"^{name}\s*(?::[^=\n]*)?=\s*(\d+)", re.MULTILINE)
+
 
 _INT_RUN_RE = re.compile(r"\d+")
 
@@ -154,6 +192,11 @@ SOURCE_PRIORITY = {
 PINNED_CONFIG_PATH = "pinned.json"
 GITHUB_OWNERS_PATH = "githubOwners.json"
 GITHUB_OWNER_CACHE_PATH = "githubOwnerCache.json"
+#: Bump when a change alters how a cached entry is derived from a bundle. The
+#: cache is keyed by asset identity, so an entry stays forever while the asset
+#: is untouched -- which left add-ons published under a description that their
+#: manifest had never named them. Changing this re-derives every entry once.
+GITHUB_OWNER_CACHE_VERSION = "v2-displayname"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
 DOWNLOAD_RECHECK_SECONDS = 24 * 60 * 60
 DOWNLOAD_RETRY_SECONDS = 6 * 60 * 60
@@ -225,6 +268,30 @@ def http_get(url, timeout=120, headers=None):
 
 def http_get_json(url, timeout=120, headers=None):
     return json.loads(http_get(url, timeout=timeout, headers=headers).decode("utf-8-sig"))
+
+
+def http_get_conditional(url, validators=None, timeout=120):
+    """GET url, returning (body, etag, last_modified).
+
+    Sends the caller's stored validators so an unchanged resource comes back
+    as a 304 (raised as HTTPError, for the caller to treat as "reuse what you
+    have") instead of a full body. The mirror re-reads the same large catalogs
+    every hour, so this is the difference between a few hundred bytes and
+    megabytes per language per build.
+    """
+    headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    if validators:
+        if validators.get("etag"):
+            headers["If-None-Match"] = validators["etag"]
+        elif validators.get("last_modified"):
+            headers["If-Modified-Since"] = validators["last_modified"]
+    req = Request(quote_url(url), headers=headers)
+    with urlopen(req, timeout=timeout) as resp:
+        return (
+            resp.read(),
+            resp.headers.get("ETag"),
+            resp.headers.get("Last-Modified"),
+        )
 
 
 def sanitize_version(version):
@@ -366,6 +433,67 @@ def sha256_stream(url, timeout=120, validators=None, capture_limit=0):
     return digest.hexdigest(), size, etag, last_modified, body
 
 
+def bundle_locale_translations(raw):
+    """Return {lang: {"displayName":..., "description":...}} from a bundle.
+
+    NVDA add-ons carry their own translations at locale/<lang>/manifest.ini,
+    which is where addonHandler reads a translated summary and description
+    from. Those are the author's own words, so they beat anything this build
+    could generate.
+
+    Harvested from bytes that were already being streamed for the sha256, so
+    it costs no extra request. Returns {} for anything unreadable: a damaged
+    download simply leaves the add-on in English.
+    """
+    if not raw:
+        return {}
+    found = {}
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            for name in archive.namelist():
+                parts = name.split("/")
+                if (len(parts) != 3 or parts[0] != "locale"
+                        or parts[2] != "manifest.ini"):
+                    continue
+                lang = parts[1].strip()
+                if not lang or lang == "en":
+                    continue
+                try:
+                    text = archive.read(name).decode("utf-8-sig", "replace")
+                except (KeyError, OSError, ValueError):
+                    continue
+                # A translated manifest carries summary/description only; the
+                # store's displayName is the manifest's summary.
+                entry = {}
+                summary = clean_text(_manifest_value(text, "summary"))
+                description = clean_text(_manifest_value(text, "description"))
+                if summary:
+                    entry["displayName"] = summary
+                if description:
+                    entry["description"] = description
+                if entry:
+                    found[lang] = entry
+    except (zipfile.BadZipFile, OSError, ValueError):
+        return {}
+    return found
+
+
+def bundle_manifest_summary(raw):
+    """Return the name declared in a bundle's manifest.ini, or "".
+
+    manifest.ini's ``summary`` is what NVDA itself shows as the add-on's name,
+    so it is the authority when a catalog states a description instead.
+    """
+    if not raw:
+        return ""
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            text = archive.read("manifest.ini").decode("utf-8-sig", "replace")
+    except (zipfile.BadZipFile, KeyError, OSError, ValueError):
+        return ""
+    return clean_text(_manifest_value(text, "summary"))
+
+
 def bundle_manifest_version(raw):
     """Return the version declared in a downloaded bundle's manifest.ini.
 
@@ -383,17 +511,24 @@ def bundle_manifest_version(raw):
     return _manifest_value(manifest_text, "version").strip()
 
 
-def cached_download(entry, cached=None, force=False, now=None, capture_limit=0):
+def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
+                    inspect=False):
     """Return (cache record, error), with no package request between daily checks.
 
     A changed catalog version bypasses the TTL. Conditional GET handles both
     unchanged files (304) and replacements in one request, even on hosts without
     HEAD/range support. Failures are backed off, including first-time failures.
 
-    With ``capture_limit`` set, the version declared inside the downloaded
-    bundle is recorded as ``manifest_version`` so a catalog's free-form version
-    string can be replaced by the real one. It is cached alongside the digest,
-    so recovering it costs one download per release, not one per build.
+    With ``capture_limit`` set, the streamed bytes are held so the version
+    declared inside the bundle and the author's own translations can be read
+    out of them. Both are cached alongside the digest, so they cost one
+    download per release rather than one per build.
+
+    ``inspect`` additionally forces one download when the cache has no answer
+    yet. That is only ever set for a version the catalogs failed to state,
+    where the add-on is otherwise unpublishable. Everything else waits for the
+    ordinary recheck schedule: turning a new capture into a forced refresh
+    would re-download the entire catalog in a single build.
     """
     now = time.time() if now is None else now
     cached = cached if isinstance(cached, dict) else {}
@@ -405,7 +540,8 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0):
     # A URL whose last fetch failed keeps its retry backoff: recovering a
     # version is never a reason to hammer a host that is already refusing.
     unexamined = (
-        bool(capture_limit)
+        inspect
+        and bool(capture_limit)
         and "manifest_version" not in cached
         and not cached.get("error")
     )
@@ -451,6 +587,16 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0):
             # the next build knows this bundle has already been inspected and
             # must not be fetched again just to look for a version.
             record["manifest_version"] = bundle_manifest_version(body)
+            # The author's own translations, taken from bytes already in hand.
+            # Deliberately NOT part of the "unexamined" force-download rule:
+            # a bundle is inspected for these only when it was being fetched
+            # anyway, so enabling the harvest never re-downloads the whole
+            # catalog at once. Coverage fills in over a day as the normal
+            # recheck TTLs expire.
+            record["manifest_locales"] = bundle_locale_translations(body)
+            # The add-on's own name, for catalogs whose summary is a
+            # description. Same free bytes as the two above.
+            record["manifest_summary"] = bundle_manifest_summary(body)
         return record, None
     # Keep previous validators only for the same catalog version. Do not publish
     # a stale hash for a changed version or a URL whose refresh failed.
@@ -505,6 +651,292 @@ OFFICIAL_STORE_URLS = [
     "https://addonstore.nvaccess.org/en/all/latest.json",
     "https://addonstore.nvaccess.mirror.nvdadr.com/en/all/latest.json",
 ]
+
+#: The official store publishes a separate view per language, and for add-ons
+#: whose authors supplied translations the displayName and description in it
+#: are genuinely translated (107 of 528 French descriptions differ from the
+#: English ones). That is the best translation source available: written by the
+#: add-on's own author, already reviewed by NV Access, and free.
+OFFICIAL_STORE_LOCALE_URLS = [
+    "https://addonstore.nvaccess.org/{lang}/all/latest.json",
+    "https://addonstore.nvaccess.mirror.nvdadr.com/{lang}/all/latest.json",
+]
+
+#: Persisted between builds and republished with the site, like hashcache.json.
+#: Holds each locale's ETag plus only the strings that actually differ from
+#: English, so an unchanged language costs one 304 rather than 1.7 MB.
+LOCALE_CACHE_PATH = "localeCache.json"
+
+#: Fields the store shows as prose, in the order a reader meets them.
+TRANSLATABLE_FIELDS = ("displayName", "description")
+
+#: Machine translation is the last resort, behind the add-on author's own
+#: words. It is off unless TRANSLATE_API_KEY is set, so the build works
+#: unchanged with no credentials and simply leaves those entries in English.
+TRANSLATE_PROVIDER = os.environ.get("TRANSLATE_PROVIDER", "deepl").strip().lower()
+TRANSLATE_API_KEY = os.environ.get("TRANSLATE_API_KEY", "").strip()
+
+#: Characters of source text a single build may send to the provider. The
+#: first full pass over 74 locales is tens of millions of characters, so an
+#: uncapped build could spend a lot of money in one run before anyone noticed.
+#: Work is spread across builds instead: whatever is not translated this hour
+#: stays English and is picked up next hour, newest add-ons first.
+TRANSLATE_CHAR_BUDGET = int(os.environ.get("TRANSLATE_CHAR_BUDGET", "200000"))
+
+#: Republished with the site and restored next build, like hashcache.json.
+#: Keyed by (sha256 of the source text, target language), so text that has not
+#: changed is never paid for twice.
+TRANSLATION_CACHE_PATH = "translationCache.json"
+
+#: DeepL wants its own spelling of a few languages, and only supports a subset.
+#: Anything not mappable is left in English rather than guessed at.
+_DEEPL_TARGETS = {
+    "bg": "BG", "cs": "CS", "da": "DA", "de": "DE", "el": "EL", "es": "ES",
+    "et": "ET", "fi": "FI", "fr": "FR", "hu": "HU", "id": "ID", "it": "IT",
+    "ja": "JA", "ko": "KO", "lt": "LT", "lv": "LV", "nb_NO": "NB", "nl": "NL",
+    "pl": "PL", "pt_BR": "PT-BR", "pt_PT": "PT-PT", "ro": "RO", "ru": "RU",
+    "sk": "SK", "sl": "SL", "sv": "SV", "tr": "TR", "uk": "UK",
+    "zh_CN": "ZH-HANS", "zh_TW": "ZH-HANT",
+}
+
+
+def _translation_row(addon):
+    """Key a translation the way the catalog itself is keyed.
+
+    The official store lists one row PER CHANNEL for the same add-on (a stable
+    and a dev row of robEnhancements are separate entries with their own text),
+    and NVDA indexes by [channel][addonId]. Keying translations by addonId
+    alone silently lets one channel's wording overwrite the other's.
+    """
+    addon_id = (addon.get("addonId") or addon.get("name") or "").strip()
+    channel = (addon.get("channel") or "stable").strip().lower()
+    # Joined on a tab: no addonId or channel contains one, and the result is a
+    # plain string, so these maps serialise straight into the JSON caches.
+    return f"{addon_id}	{channel}" if addon_id else ""
+
+
+def _english_baseline(entries):
+    """Map (addonId, channel) -> English strings, for spotting translations."""
+    baseline = {}
+    for a in entries:
+        row = _translation_row(a)
+        if row:
+            baseline[row] = {
+                field: a.get(field) or "" for field in TRANSLATABLE_FIELDS
+            }
+    return baseline
+
+
+def fetch_official_english_baseline(cached=None):
+    """Return (baseline, cache record) from the official store's own English view.
+
+    The comparison that decides "is this string actually translated?" has to
+    be against the *store's* English, not the mirror's. The mirror rewrites
+    some English text of its own -- borrowing an English description for a
+    Russian-only add-on, substituting a changelog placeholder -- so comparing
+    a language against the mirror's English marks untranslated add-ons as
+    translated and then publishes English under a Japanese URL.
+    """
+    cached = cached if isinstance(cached, dict) else {}
+    validators = {
+        "etag": cached.get("etag"),
+        "last_modified": cached.get("last_modified"),
+    }
+    for template in OFFICIAL_STORE_LOCALE_URLS:
+        url = template.format(lang="en")
+        try:
+            raw, etag, last_modified = http_get_conditional(url, validators)
+        except HTTPError as exc:
+            status = exc.code
+            exc.close()
+            if status == 304 and "baseline" in cached:
+                return cached["baseline"], dict(cached)
+            continue
+        except (URLError, OSError):
+            continue
+        try:
+            data = json.loads(raw.decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, list):
+            continue
+        baseline = _english_baseline(data)
+        return baseline, {
+            "etag": etag,
+            "last_modified": last_modified,
+            "baseline": baseline,
+        }
+    return cached.get("baseline", {}), dict(cached)
+
+
+def fetch_official_locale_translations(lang, baseline, cached=None):
+    """Return (translations, cache record) for one official-store language.
+
+    Only strings that differ from English are kept: for most languages that is
+    a small minority of the catalog, and storing the rest would make the cache
+    as large as the catalog times seventy-four for no information.
+
+    A 304 means the language is unchanged, so the previous translations are
+    reused without re-parsing 1.7 MB of JSON. Any failure returns whatever was
+    cached rather than dropping the language back to English mid-build.
+    """
+    cached = cached if isinstance(cached, dict) else {}
+    validators = {
+        "etag": cached.get("etag"),
+        "last_modified": cached.get("last_modified"),
+    }
+    for template in OFFICIAL_STORE_LOCALE_URLS:
+        url = template.format(lang=lang)
+        try:
+            raw, etag, last_modified = http_get_conditional(url, validators)
+        except HTTPError as exc:
+            status = exc.code
+            exc.close()
+            if status == 304 and "translations" in cached:
+                return cached["translations"], dict(cached)
+            continue
+        except (URLError, OSError):
+            continue
+        try:
+            data = json.loads(raw.decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, list):
+            continue
+        translations = {}
+        for a in data:
+            row = _translation_row(a)
+            english = baseline.get(row)
+            if not row or english is None:
+                continue
+            translated = {}
+            for field in TRANSLATABLE_FIELDS:
+                value = a.get(field) or ""
+                if value and value != english.get(field):
+                    translated[field] = value
+            if translated:
+                # JSON keys must be strings; rejoin on a character no addonId
+                # or channel contains.
+                translations[row] = translated
+        return translations, {
+            "etag": etag,
+            "last_modified": last_modified,
+            "translations": translations,
+        }
+    # Every mirror failed. Keep the last good answer for this language.
+    return cached.get("translations", {}), dict(cached)
+
+
+def translation_key(text, lang):
+    """Cache key for one string in one language."""
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
+    return f"{lang}:{digest}"
+
+
+def machine_translation_target(lang):
+    """Provider code for an NVDA locale, or None when it cannot be served."""
+    if TRANSLATE_PROVIDER == "deepl":
+        if lang in _DEEPL_TARGETS:
+            return _DEEPL_TARGETS[lang]
+        # "pt", "zh" and friends arrive without a region from NVDA's list.
+        return _DEEPL_TARGETS.get(lang.split("_")[0])
+    # An unrecognised provider translates nothing rather than guessing at an
+    # API shape and sending the catalog somewhere unintended.
+    return None
+
+
+def machine_translate_batch(texts, target, timeout=60):
+    """Translate a batch of strings, or return None if the call failed.
+
+    Only DeepL is implemented. The return is positional: index i of the result
+    is the translation of index i of ``texts``, or None for the whole batch on
+    any failure, so a provider hiccup can never silently misalign a catalog.
+    """
+    if not texts or not TRANSLATE_API_KEY or TRANSLATE_PROVIDER != "deepl":
+        return None
+    host = ("api-free.deepl.com" if TRANSLATE_API_KEY.endswith(":fx")
+            else "api.deepl.com")
+    payload = json.dumps({
+        "text": list(texts),
+        "target_lang": target,
+        "source_lang": "EN",
+        # Add-on descriptions carry key names and NVDA+F12 style shortcuts.
+        "preserve_formatting": True,
+    }).encode("utf-8")
+    request = Request(
+        f"https://{host}/v2/translate",
+        data=payload,
+        headers={
+            "Authorization": f"DeepL-Auth-Key {TRANSLATE_API_KEY}",
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, OSError, ValueError) as exc:
+        log(f"machine translation failed for {target}: {exc}")
+        return None
+    translations = body.get("translations")
+    if not isinstance(translations, list) or len(translations) != len(texts):
+        log(f"machine translation returned {len(translations or [])} results "
+            f"for {len(texts)} strings ({target}); discarding the batch")
+        return None
+    return [(item or {}).get("text") or None for item in translations]
+
+
+def machine_translate_missing(needed, cache, budget=TRANSLATE_CHAR_BUDGET):
+    """Fill translation gaps from the provider, within one build's budget.
+
+    ``needed`` is an iterable of (lang, text). Returns the number of characters
+    actually sent. The cache is updated in place, including negative results
+    (recorded as an empty string) so a string the provider cannot handle is not
+    retried every hour forever.
+    """
+    if not TRANSLATE_API_KEY:
+        return 0
+    by_lang = {}
+    for lang, text in needed:
+        if not text or translation_key(text, lang) in cache:
+            continue
+        by_lang.setdefault(lang, []).append(text)
+
+    spent = 0
+    # Fewest gaps first, so small languages reach full coverage rather than
+    # every language staying perpetually half-translated.
+    for lang in sorted(by_lang, key=lambda k: len(by_lang[k])):
+        target = machine_translation_target(lang)
+        if target is None:
+            continue
+        batch, batch_chars = [], 0
+        pending = list(dict.fromkeys(by_lang[lang]))
+        while pending or batch:
+            if pending and len(batch) < 40 and batch_chars + len(pending[0]) <= 25000:
+                text = pending.pop(0)
+                if spent + batch_chars + len(text) > budget:
+                    pending.clear()
+                    if not batch:
+                        break
+                else:
+                    batch.append(text)
+                    batch_chars += len(text)
+                    continue
+            if not batch:
+                break
+            results = machine_translate_batch(batch, target)
+            spent += batch_chars
+            for source, translated in zip(batch, results or [None] * len(batch)):
+                cache[translation_key(source, lang)] = translated or ""
+            batch, batch_chars = [], 0
+            if results is None:
+                # The provider is unhappy; stop pestering it this build.
+                break
+        if spent >= budget:
+            log(f"machine translation budget of {budget} characters reached; "
+                f"remaining gaps stay English until the next build")
+            break
+    return spent
 
 
 def fetch_official():
@@ -1355,6 +1787,7 @@ def _release_asset_candidates_from_records(repo, releases):
                 "cache_key": "#".join(
                     str(value or "")
                     for value in (
+                        GITHUB_OWNER_CACHE_VERSION,
                         asset.get("browser_download_url") or asset.get("downloadUrl"),
                         asset.get("updated_at") or asset.get("updatedAt"),
                         asset.get("size"),
@@ -2384,7 +2817,21 @@ def transform(entry, sha256):
 
     obj = {
         "addonId": name,
-        "displayName": clean_text(entry.get("summary")) or name,
+        # Authors sometimes put a description in manifest.ini's summary,
+        # which is the field NVDA shows as the add-on's name. Publishing that
+        # verbatim leaves a paragraph where a title belongs, and the real name
+        # nowhere at all -- unusable when arrowing a list of names.
+        # An add-on whose own name is not English gets the English name first
+        # and its real name after "AKA", so it is both understandable and
+        # still recognisable from its own documentation.
+        "displayName": compose_display_name(
+            best_display_name(
+                clean_text(entry.get("summary")),
+                clean_text(entry.get("manifest_summary")),
+                name,
+            ) or name,
+            clean_text(entry.get("manifest_summary")),
+        ),
         "description": entry.get("description") or "",
         "publisher": author,
         "channel": entry.get("channel") or "stable",
@@ -2557,6 +3004,23 @@ def drop_redundant_channel_duplicates(entries):
     return kept, rejected
 
 
+def load_json_cache(path):
+    """Load a persisted dict cache, or {} for anything unreadable.
+
+    Used for the caches that ride along with the site (locale ETags, machine
+    translations). A corrupt or missing file costs a rebuild of that cache,
+    never a failed build.
+    """
+    if path and os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return {}
+        return data if isinstance(data, dict) else {}
+    return {}
+
+
 def load_hashcache(path):
     if path and os.path.exists(path):
         try:
@@ -2577,10 +3041,12 @@ def current_nvda_api_version():
         src = http_get(NVDA_BUILD_VERSION_URL, timeout=30).decode("utf-8")
     except (HTTPError, URLError, OSError):
         return None
-    year = re.search(r"version_year\s*=\s*(\d+)", src)
-    major = re.search(r"version_major\s*=\s*(\d+)", src)
-    minor = re.search(r"version_minor\s*=\s*(\d+)", src)
+    year = _master_build_version_re("version_year").search(src)
+    major = _master_build_version_re("version_major").search(src)
+    minor = _master_build_version_re("version_minor").search(src)
     if not (year and major and minor):
+        log("current NVDA API version: buildVersion.py no longer matches the "
+            "expected declarations; no dev API version will be published")
         return None
     return f"{year.group(1)}.{major.group(1)}.{minor.group(1)}"
 
@@ -2596,10 +3062,19 @@ def back_compat_to_version():
     """
     try:
         src = http_get(NVDA_API_VERSION_URL, timeout=30).decode("utf-8")
-    except (HTTPError, URLError, OSError):
+    except (HTTPError, URLError, OSError) as exc:
+        log(f"BACK_COMPAT_TO: could not read NVDA master ({exc}); "
+            f"falling back to {FALLBACK_BACK_COMPAT_TO}")
         return FALLBACK_BACK_COMPAT_TO
-    m = re.search(r"BACK_COMPAT_TO\s*[:=]\s*\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)", src)
+    # The declaration carries a type annotation between the name and the "=":
+    #     BACK_COMPAT_TO: AddonApiVersionT = (2027, 1, 0)
+    # so the annotation has to be skipped explicitly. Matching ":" as if it
+    # were the assignment operator silently never matches, which turns this
+    # whole function into a constant.
+    m = _MASTER_BACK_COMPAT_TO_RE.search(src)
     if not m:
+        log(f"BACK_COMPAT_TO: NVDA master no longer matches the expected "
+            f"declaration; falling back to {FALLBACK_BACK_COMPAT_TO}")
         return FALLBACK_BACK_COMPAT_TO
     return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
@@ -2669,8 +3144,20 @@ def load_nvda_api_versions(path=NVDA_API_VERSIONS_PATH, refresh=False):
     )
 
 
-def published_nvda_api_versions(data):
-    """Select every Add-on Store-era API version for publication."""
+def published_nvda_api_versions(data, years_in_full=API_VERSION_YEARS_IN_FULL):
+    """Select the Add-on Store-era API versions to publish, newest first.
+
+    Every published version costs one full copy of the compatibility-filtered
+    catalog per locale, so the set cannot grow without bound: NVDA adds roughly
+    eight API versions a year and the site has a size ceiling.
+
+    Retention keeps every release line from the newest ``years_in_full`` NVDA
+    years, and only the newest line of each year before that. Superseded
+    patches within a line are always dropped. See API_VERSION_YEARS_IN_FULL.
+
+    ``years_in_full=0`` disables pruning beyond superseded patches, keeping
+    every line's newest patch.
+    """
     released = set()
     for entry in data:
         if not isinstance(entry, dict):
@@ -2678,10 +3165,89 @@ def published_nvda_api_versions(data):
         ver = _api_version_from_entry(entry)
         if ver is not None and ver >= ADDON_STORE_FIRST_API_VERSION:
             released.add(ver)
+
+    # One entry per (year, major) line: the newest patch in that line.
+    newest_in_line = {}
+    for ver in released:
+        line = (ver[0], ver[1])
+        if ver > newest_in_line.get(line, (0, 0, 0)):
+            newest_in_line[line] = ver
+
+    kept = set(newest_in_line.values())
+    if years_in_full:
+        # Years are ranked by what NVDA actually released, not by the calendar,
+        # so a build running in a quiet stretch of a new year does not silently
+        # retire the year everyone is still on.
+        full_years = sorted({ver[0] for ver in kept}, reverse=True)[:years_in_full]
+        newest_in_year = {}
+        for ver in kept:
+            if ver > newest_in_year.get(ver[0], (0, 0, 0)):
+                newest_in_year[ver[0]] = ver
+        kept = {
+            ver for ver in kept
+            if ver[0] in full_years or ver == newest_in_year[ver[0]]
+        }
     return [
-        f"{ver[0]}.{ver[1]}.{ver[2]}"
-        for ver in sorted(released, reverse=True)
+        f"{ver[0]}.{ver[1]}.{ver[2]}" for ver in sorted(kept, reverse=True)
     ]
+
+
+def _log_api_version_retention(entries, api_versions):
+    """Say plainly which releases this build stopped serving, and why.
+
+    A pruned API version is not a degraded experience for anyone still on it:
+    NVDA has no version fallback, so the request 404s and the Add-on Store is
+    simply empty. That is worth one honest line in the build log rather than
+    being discoverable only by diffing the deployed site.
+    """
+    published = set(api_versions)
+    dropped = [
+        ver for ver in published_nvda_api_versions(entries, years_in_full=0)
+        if ver not in published
+    ]
+    if not dropped:
+        return
+    superseded = []
+    lines_dropped = []
+    kept_lines = {tuple(v.split(".")[:2]) for v in published if v != "latest"}
+    for ver in dropped:
+        (lines_dropped if tuple(ver.split(".")[:2]) not in kept_lines
+         else superseded).append(ver)
+    if superseded:
+        log(f"API versions not published (superseded patch releases, NVDA "
+            f"moves these users forward automatically): {', '.join(superseded)}")
+    if lines_dropped:
+        log(f"API versions not published (release line retired; anyone still "
+            f"on one of these gets an EMPTY Add-on Store, raise "
+            f"--api-version-years to keep them): {', '.join(lines_dropped)}")
+
+
+def _report_site_size(out_dir, stats):
+    """Record the built site's size and warn when it passes the Pages limit.
+
+    Every published API version and every locale is a full copy of the
+    catalog, so the site grows with each NVDA release whether or not anything
+    else changed. Measuring the real output is the only honest number: a
+    translated catalog is larger than an English one, and non-Latin locales
+    cost two to three bytes per character where English costs one.
+    """
+    total = 0
+    for root, _dirs, files in os.walk(out_dir):
+        for name in files:
+            try:
+                total += os.path.getsize(os.path.join(root, name))
+            except OSError:
+                continue
+    stats["site_bytes"] = total
+    log(f"Built site: {total/1e9:.2f} GB across {len(stats['api_versions'])} "
+        f"API versions and {stats['locales']} locales")
+    if total > SITE_SIZE_WARN_BYTES:
+        log(f"WARNING: the built site is {total/1e9:.2f} GB, over the "
+            f"{SITE_SIZE_WARN_BYTES/1e9:.2f} GB GitHub Pages soft limit. "
+            f"Lower --api-version-years (currently publishing "
+            f"{len(stats['api_versions'])} views) or move to a host without "
+            f"this ceiling.")
+    return total
 
 
 def _ver_tuple(d):
@@ -2705,6 +3271,265 @@ def _compatible_for_api_version(output, api_version_tuple, back_compat_to):
         if min_nvda <= api_version_tuple and last_tested >= back_compat_to:
             compatible.append(obj)
     return compatible
+
+
+#: Openers that mark a description rather than a name. An add-on called
+#: "The Clock" is fine; "An NVDA add-on that ..." is a sentence.
+_PROSE_OPENER_RE = re.compile(
+    r"^(an?|the|this|these|add-?ons?|nvda\s+add-?ons?|accessible\s+add-?ons?|"
+    r"plugins?|complementos?|extensions?)\b", re.I)
+
+#: Relative clauses and second-person address only occur in prose.
+_PROSE_CLAUSE_RE = re.compile(
+    r"\b(that|which|lets\s+you|let\s+you|allows?\s+you|enables?\s+you|"
+    r"you\s+can|designed\s+to|featuring)\b", re.I)
+
+
+def looks_like_prose_name(value):
+    """True when a display name reads as a sentence rather than a name.
+
+    Add-on authors sometimes put a description in manifest.ini's ``summary``,
+    which is the field NVDA shows as the add-on's name. The store then lists a
+    paragraph where every other row has a title, which is unusable to navigate
+    by: a screen reader user arrowing the list hears a sentence instead of a
+    name, and the real name appears nowhere at all.
+
+    Deliberately conservative. Real names are often long ("Acapela TTS Voices
+    for NVDA Engines", "BOA: Better Office Accessibility"), so length alone is
+    never enough -- there has to be a grammatical signal too.
+    """
+    text = (value or "").strip()
+    if not text:
+        return False
+    # A composed "English name, AKA original name" is a pair of names, not a
+    # sentence. Judge the English half, so the combined length of two titles
+    # is never mistaken for prose.
+    text = text.split(AKA_SEPARATOR, 1)[0].strip() or text
+    words = text.split()
+    # A relative clause or second-person address is decisive at any length.
+    if _PROSE_CLAUSE_RE.search(text):
+        return True
+    ends_sentence = text.endswith(".") and not text.endswith("...")
+    opens_prose = bool(_PROSE_OPENER_RE.match(text)) and len(words) >= 4
+    if ends_sentence and len(words) >= 5:
+        return True
+    if opens_prose and (ends_sentence or len(words) >= 6):
+        return True
+    # Long enough that no reasonable title is this shape.
+    return len(words) >= 10
+
+
+def humanized_addon_id(addon_id):
+    """Turn an add-on id into a readable title as a last resort.
+
+    "biosManager" -> "Bios Manager", "ricerca_testuale" -> "Ricerca Testuale".
+    Only ever used when no source states a usable name: it is a worse name
+    than the author's own, but it is a name, and it is what the add-on is
+    called everywhere else in NVDA.
+    """
+    text = re.sub(r"[_\-.]+", " ", (addon_id or "").strip())
+    text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)
+    words = [w for w in text.split() if w]
+    return " ".join(
+        # "contrast-checker-nvda" should not become "Contrast Checker Nvda".
+        _ADDON_ID_ACRONYMS.get(w.casefold())
+        or (w if w[:1].isupper() else w.capitalize())
+        for w in words
+    )
+
+
+#: Spellings to restore when an add-on id is turned back into a title.
+_ADDON_ID_ACRONYMS = {
+    "nvda": "NVDA", "ocr": "OCR", "tts": "TTS", "sapi": "SAPI", "url": "URL",
+    "ui": "UI", "ai": "AI", "api": "API", "pdf": "PDF", "html": "HTML",
+    "usb": "USB", "ups": "UPS", "cpu": "CPU", "os": "OS", "id": "ID",
+    "aria": "ARIA", "dom": "DOM", "wav": "WAV", "mp3": "MP3", "mp4": "MP4",
+}
+
+#: "OmniTranslate - High-speed accessible translation add-on", "TextInfo:
+#: counting standard pages", "AILiveTranslate (real-time speech translation)".
+#: A name followed by its tagline: the name is the part before the separator.
+_NAME_THEN_TAGLINE_RE = re.compile(r"^([^:(–—]{2,40}?)\s*(?:[:(]|\s[-–—]\s)")
+
+
+def leading_name_segment(value):
+    """Return the name a "Name: tagline" summary opens with, or "".
+
+    Only accepted when the leading part is itself name-shaped, so a sentence
+    that merely contains a colon or a dash is not chopped into a fake title.
+    """
+    match = _NAME_THEN_TAGLINE_RE.match((value or "").strip())
+    if not match:
+        return ""
+    head = match.group(1).strip(" -–—:").strip()
+    if not head or len(head.split()) > 5 or looks_like_prose_name(head):
+        return ""
+    return head
+
+
+#: Joins an English name to the add-on's own name: "System Monitor, AKA
+#: Monitor del Sistema". One string, because NVDA shows a single name per row.
+AKA_SEPARATOR = ", AKA "
+
+#: Vietnamese and friends: Latin letters, but a range plain English never uses.
+_LATIN_EXTENDED_ADDITIONAL_RE = re.compile(r"[Ḁ-ỿ]")
+
+#: Function words that mark a short *name* as non-English. A name has no room
+#: for a stray match, so one hit is enough -- which is exactly why the list has
+#: to be words English product names never contain. "Monitor", "radio" and
+#: "audio" are deliberately absent: they are ordinary English.
+_NON_ENGLISH_NAME_RE = re.compile(
+    r"(?i)(?:^|\s)(?:de|del|della|des|du|da|do|dos|das|la|le|les|el|los|las|"
+    r"lo|il|un[ao]?|und|der|die|das|voor|het|och|för|para|por|com|con|sin|"
+    r"pour|avec|sur|dans|zum|zur|mit|auf|gestor|herramientas?|ferramentas?|"
+    r"lector|leitor|configuraci[oó]n|configura[cç][aã]o|acess[ií]vel|"
+    r"accesible|accessibilit[eé]|sistema|arquivos?|archivos?|fichiers?|"
+    r"pantalla|[ée]cran|tela|teclado|clavier|sonido|som|voz|vozes|voces)"
+    r"(?:\s|$)"
+)
+
+
+def looks_non_english_name(value):
+    """True when a display name is written in a language other than English.
+
+    Used only to decide whether to show an English name alongside the
+    original, so it errs towards saying no: a false positive appends a
+    redundant "AKA" to a name that never needed one.
+    """
+    text = (value or "").strip()
+    if not text:
+        return False
+    return bool(
+        _NON_LATIN_SCRIPT_RE.search(text)
+        or _LATIN_EXTENDED_ADDITIONAL_RE.search(text)
+        or _NON_ENGLISH_NAME_RE.search(text)
+    )
+
+
+def compose_display_name(english, original):
+    """Show the English name first, then the add-on's own name after "AKA".
+
+    An add-on named "Gestor de BIOS y UEFI Accesible" tells an English-speaking
+    user nothing about what it does, and dropping the original name entirely
+    would stop them recognising it from its own documentation or from anywhere
+    else it is discussed. Both, English first, is the readable order:
+    "Accessible BIOS and UEFI Manager, AKA Gestor de BIOS y UEFI Accesible".
+    """
+    english = (english or "").strip()
+    original = (original or "").strip()
+    if not original or not english:
+        return english or original
+    if english.casefold() == original.casefold():
+        return english
+    # Nothing to add when the original is already inside the English name, or
+    # when the original is that same name plus a tagline in its own language:
+    # "SoundTub" against "SoundTub - download acessivel de audio e video" is
+    # one name and a subtitle, not two names.
+    if original.casefold() in english.casefold():
+        return english
+    if original.casefold().startswith(english.casefold()):
+        return english
+    # The "English" name is itself in the other language; there is no pair.
+    if looks_non_english_name(english):
+        return english
+    if not looks_non_english_name(original):
+        return english
+    return f"{english}{AKA_SEPARATOR}{original}"
+
+
+def best_display_name(summary, manifest_summary, addon_id):
+    """Pick the most name-like of the strings a build has for one add-on.
+
+    Order: whatever the catalog stated (so a curated English name or an
+    overlay still wins), then the add-on's own manifest.ini summary, then the
+    name either of them opens with before a tagline, then the add-on id made
+    readable. A wrong-looking title still beats a paragraph in a list of
+    names, so this never gives up and returns the sentence.
+    """
+    candidates = [summary, manifest_summary]
+    for candidate in candidates:
+        text = (candidate or "").strip()
+        if text and not looks_like_prose_name(text):
+            return text
+    for candidate in candidates:
+        head = leading_name_segment(candidate)
+        if head:
+            return head
+    fallback = humanized_addon_id(addon_id)
+    if fallback:
+        return fallback
+    for candidate in candidates:
+        if (candidate or "").strip():
+            return candidate.strip()
+    return ""
+
+
+def _locale_fallbacks(lang):
+    """NVDA's own lookup order for a language: pt_BR, then pt.
+
+    Mirrors addonHandler._translatedManifestPaths, so a translation an author
+    filed under "pt" is used for a pt_BR reader exactly as NVDA would use it.
+    """
+    if "_" in lang:
+        return (lang, lang.split("_")[0])
+    return (lang,)
+
+
+def localize_catalog(output, lang, official, authored, machine):
+    """Return the catalog as one language sees it.
+
+    Three sources, best first:
+
+    1. the official store's own per-language view (the author's words, already
+       reviewed by NV Access),
+    2. locale/<lang>/manifest.ini inside the add-on bundle (the author's words
+       for everything the official store does not carry),
+    3. machine translation, for whatever is still English.
+
+    Anything with no translation at any tier keeps its English string, which is
+    what NVDA shows today, so a missing translation is never worse than now.
+    """
+    if lang == "en":
+        return output
+    localized = []
+    for addon in output:
+        row = _translation_row(addon)
+        replacement = {}
+        for field in TRANSLATABLE_FIELDS:
+            english = addon.get(field) or ""
+            if not english:
+                continue
+            value = ""
+            for candidate in _locale_fallbacks(lang):
+                value = (
+                    (official.get(candidate, {}).get(row) or {}).get(field)
+                    or (authored.get(row, {}).get(candidate) or {}).get(field)
+                    or machine.get(translation_key(english, candidate))
+                    or ""
+                )
+                if value:
+                    break
+            if value and value != english:
+                replacement[field] = value
+        localized.append({**addon, **replacement} if replacement else addon)
+    return localized
+
+
+def translation_gaps(output, lang, official, authored):
+    """(lang, text) pairs this language still has no human translation for."""
+    for addon in output:
+        row = _translation_row(addon)
+        for field in TRANSLATABLE_FIELDS:
+            english = addon.get(field) or ""
+            if not english:
+                continue
+            if any(
+                (official.get(c, {}).get(row) or {}).get(field)
+                or (authored.get(row, {}).get(c) or {}).get(field)
+                for c in _locale_fallbacks(lang)
+            ):
+                continue
+            yield lang, english
 
 
 def _esc(text):
@@ -2827,7 +3652,17 @@ def emit(
     stats,
     rejected,
     hosted,
+    localize,
+    dump,
+    back_compat_by_ver,
 ):
+    """Write the site.
+
+    ``localize(lang)`` returns the catalog as that language sees it and
+    ``dump`` serialises a catalog the way NVDA expects; ``canonical_bytes``
+    and ``compatible_bytes`` are the English renderings, kept for the
+    top-level addons.json and the recorded counts.
+    """
     os.makedirs(out_dir, exist_ok=True)
 
     with open(os.path.join(out_dir, "addons.json"), "wb") as f:
@@ -2889,16 +3724,27 @@ def emit(
         with open(target, "wb") as f:
             f.write(data)
 
+    # Each locale is rendered, written and released before the next one starts.
+    # Holding all seventy-four in memory at once would cost most of a gigabyte
+    # for no benefit, since nothing needs two locales at the same time.
     for lang in locales:
+        localized = localize(lang)
+        lang_canonical = dump(localized)
         for channel in channels:
             # "latest.json" is NVDA's "include incompatible add-ons" view: the
             # full catalog. The per-apiVersion files are the "compatible" view
             # and must only contain add-ons compatible with that API version.
-            write_bytes(f"{lang}/{channel}/latest.json", canonical_bytes)
+            write_bytes(f"{lang}/{channel}/latest.json", lang_canonical)
             for ver in api_versions:
                 if ver == "latest":
                     continue
-                write_bytes(f"{lang}/{channel}/{ver}.json", compatible_bytes[ver])
+                write_bytes(
+                    f"{lang}/{channel}/{ver}.json",
+                    dump(_compatible_for_api_version(
+                        localized, parse_api_version(ver) or (0, 0, 0),
+                        back_compat_by_ver[ver],
+                    )),
+                )
 
 
 _AUDIT_REQUIRED_KEYS = (
@@ -3016,7 +3862,19 @@ def main():
                               "github_owner,pinned"))
     parser.add_argument("--locales", help="comma-separated locale override")
     parser.add_argument("--api-versions", help="comma-separated apiVersion override")
+    parser.add_argument(
+        "--api-version-years", type=int, default=API_VERSION_YEARS_IN_FULL,
+        help=("publish every release line from this many recent NVDA years, "
+              "plus the newest line of each older year; 0 keeps every "
+              "line. Each line costs roughly 120 MB across all locales."),
+    )
     parser.add_argument("--channels", help="comma-separated channel override")
+    parser.add_argument(
+        "--no-translate", dest="translate", action="store_false",
+        help=("publish every locale in English instead of translating it. "
+              "Skips the per-language official-store fetches; the author "
+              "translations already in the download cache are ignored too."),
+    )
     parser.add_argument("--limit", type=int, default=0, help="process only first N add-ons (testing)")
     parser.add_argument("--skip-download", action="store_true", help="fill dummy sha256 (testing)")
     parser.add_argument("--no-head-check", action="store_true",
@@ -3041,11 +3899,14 @@ def main():
     if args.api_versions:
         api_versions = args.api_versions.split(",")
     else:
-        api_versions = published_nvda_api_versions(nvda_api_entries) + ["latest"]
+        api_versions = published_nvda_api_versions(
+            nvda_api_entries, years_in_full=args.api_version_years
+        ) + ["latest"]
         current = current_nvda_api_version()
         if current and current not in api_versions:
             api_versions.insert(0, current)
     api_versions = list(dict.fromkeys(api_versions))
+    _log_api_version_retention(nvda_api_entries, api_versions)
 
     hashcache = load_hashcache(args.hashcache)
     new_hashcache = dict(hashcache)
@@ -3221,7 +4082,12 @@ def main():
             needs_version = version_is_uninformative(e.get("version"))
             cached, error = cached_download(
                 e, new_hashcache.get(url), force=args.no_head_check,
-                capture_limit=MANIFEST_CAPTURE_LIMIT if needs_version else 0,
+                # Always capture. The bytes are being streamed for the sha256
+                # either way, and holding them lets this build read both the
+                # real version and the author's own translations without ever
+                # asking the host for the file a second time.
+                capture_limit=MANIFEST_CAPTURE_LIMIT,
+                inspect=needs_version,
             )
             with cache_lock:
                 new_hashcache[url] = cached
@@ -3232,6 +4098,11 @@ def main():
                 log(f"{e.get('name')}: version {e.get('version')!r} -> "
                     f"{replacement!r} from manifest.ini")
                 e["version"] = replacement
+            # The add-on's own name, for a catalog that stated a description
+            # in place of one. transform() only reaches for it when what the
+            # catalog gave is a sentence.
+            if cached.get("manifest_summary"):
+                e.setdefault("manifest_summary", cached["manifest_summary"])
             return e, cached.get("sha256"), cached.get("size", 0), error
 
     results = []
@@ -3302,15 +4173,83 @@ def main():
     log(f"compatible counts (BACK_COMPAT_TO per version): "
         f"{ {v: len(json.loads(b)) for v, b in compatible_bytes.items()} }")
 
+    # ---- Translations -------------------------------------------------
+    # English is the source catalog; every other locale is the same catalog
+    # with translated prose overlaid. Best source wins: the official store's
+    # own per-language view, then the author's locale/<lang>/manifest.ini out
+    # of the bundle, then machine translation for what is left.
+    locale_cache = load_json_cache(LOCALE_CACHE_PATH)
+    translation_cache = load_json_cache(TRANSLATION_CACHE_PATH)
+    official_translations = {}
+    if args.translate:
+        english_baseline, locale_cache["en"] = fetch_official_english_baseline(
+            locale_cache.get("en")
+        )
+        for lang in locales:
+            if lang == "en":
+                continue
+            translations, record = fetch_official_locale_translations(
+                lang, english_baseline, locale_cache.get(lang),
+            )
+            official_translations[lang] = translations
+            locale_cache[lang] = record
+        log(f"official store translations: "
+            f"{sum(len(t) for t in official_translations.values())} strings "
+            f"across {len(official_translations)} languages")
+
+    authored_translations = {}
+    for e, _digest, _size in results:
+        cached = new_hashcache.get(e.get("download_url") or "")
+        locales_from_bundle = (cached or {}).get("manifest_locales")
+        if locales_from_bundle:
+            authored_translations[_translation_row(e)] = locales_from_bundle
+    if authored_translations:
+        log(f"author-supplied bundle translations: "
+            f"{len(authored_translations)} add-ons")
+
+    if args.translate and TRANSLATE_API_KEY:
+        gaps = []
+        for lang in locales:
+            if lang == "en":
+                continue
+            gaps.extend(translation_gaps(
+                output, lang, official_translations, authored_translations,
+            ))
+        spent = machine_translate_missing(gaps, translation_cache)
+        if spent:
+            log(f"machine translation: {spent} characters sent this build")
+    elif args.translate:
+        log("machine translation disabled (TRANSLATE_API_KEY unset); "
+            "untranslated add-ons stay in English")
+
+    def localize(lang):
+        return localize_catalog(
+            output, lang, official_translations, authored_translations,
+            translation_cache,
+        )
+
     # Hash the canonical catalog plus every compatibility-filtered view, so any
     # change to the catalog OR the filter bumps the hash and forces NVDA clients
-    # to re-fetch the affected endpoint.
-    hash_input = canonical_bytes
+    # to re-fetch the affected endpoint. Translations are part of what a client
+    # holds, so a language changing has to move the hash too -- NVDA fetches a
+    # single global cacheHash.json, not one per language.
+    hasher = hashlib.sha256()
+    hasher.update(canonical_bytes)
     for ver in api_versions:
         if ver == "latest":
             continue
-        hash_input += b"\x00" + compatible_bytes[ver]
-    cache_hash = hashlib.sha256(hash_input).hexdigest()
+        hasher.update(b"\x00" + compatible_bytes[ver])
+    for lang in sorted(locales):
+        if lang == "en":
+            continue
+        for addon_id, fields in sorted(
+            (official_translations.get(lang) or {}).items()
+        ):
+            hasher.update(f"\x00{lang}:{addon_id}:{sorted(fields.items())}".encode())
+    for addon_id, langs in sorted(authored_translations.items()):
+        hasher.update(f"\x00{addon_id}:{sorted(langs)}".encode())
+    hasher.update(f"\x00mt:{len(translation_cache)}".encode())
+    cache_hash = hasher.hexdigest()
 
     stats = {
         "accepted": len(output),
@@ -3319,6 +4258,14 @@ def main():
         "api_versions": api_versions,
         "back_compat_to": back_compat_by_ver,
         "compatible_counts": {v: len(json.loads(b)) for v, b in compatible_bytes.items()},
+        "locales": len(locales),
+        "translations": {
+            "official_strings": sum(
+                len(t) for t in official_translations.values()
+            ),
+            "authored_addons": len(authored_translations),
+            "machine_strings": sum(1 for v in translation_cache.values() if v),
+        },
         "sources": sources,
     }
 
@@ -3333,6 +4280,9 @@ def main():
         stats,
         rejected,
         hosted,
+        localize,
+        dump,
+        back_compat_by_ver,
     )
 
     # Persist the hash cache so the next run only re-downloads changed add-ons.
@@ -3343,7 +4293,35 @@ def main():
         with open(GITHUB_OWNER_CACHE_PATH, "rb") as source_cache:
             with open(os.path.join(args.out, GITHUB_OWNER_CACHE_PATH), "wb") as public_cache:
                 public_cache.write(source_cache.read())
+    # Publish the merged API-version history the same way as the hash cache, so
+    # the next run restores it instead of falling back to whatever was last
+    # committed. The bundled copy only has to survive a cold start; without this
+    # it silently loses a year of API versions per year, and an unlisted version
+    # falls back to FALLBACK_BACK_COMPAT_TO.
+    with open(os.path.join(args.out, NVDA_API_VERSIONS_PATH), "w", encoding="utf-8") as f:
+        # Tabs, matching nvaccess/addon-datastore and the committed copy, so a
+        # restored file does not show up as a whole-file reformat.
+        json.dump(nvda_api_entries, f, indent="	", ensure_ascii=False)
+    # Translation caches ride along with the site the same way. The locale
+    # cache holds each language's ETag so an unchanged language costs a 304
+    # instead of 1.7 MB; the translation cache holds machine translations, so
+    # text that has not changed is never paid for twice.
+    for cache_path, cache_data in (
+        (LOCALE_CACHE_PATH, locale_cache),
+        (TRANSLATION_CACHE_PATH, translation_cache),
+    ):
+        with open(os.path.join(args.out, cache_path), "w", encoding="utf-8") as f:
+            json.dump(cache_data, f, ensure_ascii=False)
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache_data, f, ensure_ascii=False)
     flush_cache()
+
+    # Measure the finished output, then rewrite stats.json with the figure in
+    # it. Everything above is already on disk, so this is the real number
+    # rather than a projection.
+    _report_site_size(args.out, stats)
+    with open(os.path.join(args.out, "stats.json"), "w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2)
 
     total_bytes = sum(s for _, _, s in results)
     log(

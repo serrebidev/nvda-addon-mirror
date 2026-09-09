@@ -12,3 +12,6 @@ githubOwnerCache.json
 # Python
 __pycache__/
 *.pyc
+
+localeCache.json
+translationCache.json
