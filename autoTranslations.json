@@ -4,22 +4,22 @@
    "summary": "10Dita"
   },
   "2FAGenerator": {
-   "summary": "2FAGenerator"
+   "summary": "2FA Generator"
   },
   "AIAssistant": {
-   "summary": "AIAssistant"
+   "summary": "AI Assistant"
   },
   "AIChatbot": {
-   "summary": "AIChatbot"
+   "summary": "AI Chatbot"
   },
   "AISummarizer": {
-   "summary": "AISummarizer"
+   "summary": "AI Summarizer"
   },
   "AVCRuTube": {
    "summary": "AVCRuTube"
   },
   "AbsoluteFileAndFolder": {
-   "summary": "AbsoluteFileAndFolder"
+   "summary": "Absolute Files and Folders"
   },
   "AbsoluteSite": {
    "summary": "AbsoluteSite"
@@ -34,7 +34,7 @@
    "summary": "URL Shortener, AKA AcortadorURL"
   },
   "Add-on Packager by Technology and News": {
-   "summary": "AddonPackagerByTechnologyAndNews"
+   "summary": "Add-on Packager"
   },
   "AirExplorer": {
    "summary": "AirExplorer"
@@ -49,19 +49,19 @@
    "summary": "AppendText"
   },
   "AppleDeviceInfo": {
-   "summary": "AppleDeviceInfo"
+   "summary": "Apple Device Info"
   },
   "AudioThemes3D": {
-   "summary": "AudioThemes3D"
+   "summary": "3D Audio Themes"
   },
   "AutoBeepClipBoard": {
-   "summary": "AutoBeepClipboard"
+   "summary": "Auto Beep Clipboard"
   },
   "AutoMaximize": {
-   "summary": "AutoMaximize"
+   "summary": "Auto Maximize"
   },
   "AutoWindowMaximizer": {
-   "summary": "AutoWindowMaximizer"
+   "summary": "Automatic Window Maximizer"
   },
   "Autoclip": {
    "summary": "AutoClip"
@@ -73,79 +73,79 @@
    "summary": "BTSync"
   },
   "BasicYoutubeDownloader": {
-   "summary": "BasicYouTubeDownloader"
+   "summary": "Basic YouTube Downloader"
   },
   "Becky": {
    "summary": "Becky"
   },
   "BeepOnQuotes": {
-   "summary": "BeepOnQuotes"
+   "summary": "Beep on Quotes"
   },
   "BibleAddon": {
-   "summary": "BibleAddon"
+   "summary": "Bible"
   },
   "BitChe": {
-   "summary": "BitCheappModule"
+   "summary": "Bit Che App Module"
   },
   "BlueToothBatteryReport": {
-   "summary": "BlueToothBatteryReport"
+   "summary": "Bluetooth Battery Report"
   },
   "BluetoothAudioActive": {
-   "summary": "BluetoothAudioActive"
+   "summary": "Bluetooth Audio Active"
   },
   "Bookmark&Search": {
-   "summary": "BookmarkSearch"
+   "summary": "Bookmark Search"
   },
   "BraiLab PC Beszédszintetizátor": {
    "summary": "BraiLab PC Speech Synthesizer, AKA BraiLab PC Beszédszintetizátor"
   },
   "BrlIMEHelper": {
-   "summary": "BrlIMEHelper"
+   "summary": "Braille Input Helper IME"
   },
   "CCBE": {
    "summary": "CCBE"
   },
   "CJKEnhancedUI": {
-   "summary": "CJKEnhancedUI"
+   "summary": "CJK Enhanced User Interface"
   },
   "CMDReader": {
-   "summary": "CMDReader"
+   "summary": "Command Line Reader"
   },
   "Captain": {
    "summary": "Captain"
   },
   "CaptchaSolver": {
-   "summary": "CaptchaSolver"
+   "summary": "Captcha Solver"
   },
   "CaptvtyAddon": {
-   "summary": "CaptvtyAddon"
+   "summary": "Captvty"
   },
   "CdBurnerXP": {
    "summary": "CdBurnerXP"
   },
   "CerenceTTSVoiceManager": {
-   "summary": "CerenceTTSVoiceManager"
+   "summary": "Cerence TTS Vocalizer Manager"
   },
   "ChangeSounds": {
-   "summary": "ChangeSounds"
+   "summary": "Change Sounds"
   },
   "ChizhikPizhik": {
-   "summary": "ChizhikPizhik"
+   "summary": "Chizhik Pizhik"
   },
   "CiscoJabber": {
-   "summary": "CiscoJabber"
+   "summary": "Cisco Jabber"
   },
   "ClauVDA": {
    "summary": "ClauVDA"
   },
   "ClipHistory": {
-   "summary": "ClipHistory"
+   "summary": "Clipboard History"
   },
   "ClipboardAssist": {
-   "summary": "ClipboardAssist"
+   "summary": "Clipboard Assist"
   },
   "ClipboardContentEditor": {
-   "summary": "ClipboardContentEditor"
+   "summary": "Clipboard Content Editor"
   },
   "CloseAll": {
    "summary": "CloseAll"
@@ -154,22 +154,22 @@
    "summary": "ComodoDragon"
   },
   "ContextGestures": {
-   "summary": "ContextGestures"
+   "summary": "Context Gestures"
   },
   "Cuckoo": {
    "summary": "Cuckoo"
   },
   "DLEChecker": {
-   "summary": "DLEChecker"
+   "summary": "DLE Checker"
   },
   "DdummyKeyboard": {
-   "summary": "DummyKeyboard"
+   "summary": "Dummy Keyboard"
   },
   "DesktopFocus": {
-   "summary": "DesktopFocus"
+   "summary": "Desktop Focus"
   },
   "DictionaryDisplayLite": {
-   "summary": "DictionaryDisplayLite"
+   "summary": "Dictionary Display Lite"
   },
   "DoctorNVDA": {
    "summary": "DoctorNVDA"
@@ -178,22 +178,22 @@
    "summary": "Elten"
   },
   "EOFbeep": {
-   "summary": "EOFbeep"
+   "summary": "End of File Beep"
   },
   "EasySoundRecorder": {
-   "summary": "EasySoundRecorder"
+   "summary": "Easy Sound Recorder"
   },
   "EloquenceAutoLanguageSwitching": {
-   "summary": "Eloquence"
+   "summary": "Eloquence Auto Language Switching"
   },
   "EmojiFromIOS": {
-   "summary": "EmojiFromIOS"
+   "summary": "Emoji from iOS"
   },
   "EmptyFolder": {
-   "summary": "EmptyFolder"
+   "summary": "Empty Folder"
   },
   "EnhancingWindowInspector": {
-   "summary": "EnhancingWindowInspector"
+   "summary": "Enhanced Window Inspector"
   },
   "ExcelPlus": {
    "summary": "ExcelPlus"
@@ -202,7 +202,7 @@
    "summary": "Fifteen"
   },
   "FirefoxSupport": {
-   "summary": "FirefoxSupport"
+   "summary": "Firefox Support"
   },
   "FonixTalk": {
    "summary": "FonixTalk"
@@ -211,7 +211,7 @@
    "summary": "Format Information, AKA FormatBilgisi"
   },
   "GBMRadioStreaming": {
-   "summary": "GBMRadioStreaming"
+   "summary": "GBM Streaming Radio"
   },
   "GBReader": {
    "summary": "GBReader"
@@ -226,43 +226,40 @@
    "summary": "Gregor"
   },
   "GroqSpellChecker": {
-   "summary": "GroqSpellChecker"
+   "summary": "Groq Spell Checker"
   },
   "HISS": {
    "summary": "HISS"
   },
   "HearthstoneCardLookup": {
-   "summary": "HearthstoneCardLookup"
+   "summary": "Hearthstone Card Lookup"
   },
   "HerramientasReaper": {
-   "summary": "Reaper Tools, AKA HerramientasReaper"
+   "summary": "REAPER Tools, AKA HerramientasReaper"
   },
   "HookManager": {
-   "summary": "HookManager"
+   "summary": "Hook Manager"
   },
   "HotkeysPlus": {
-   "summary": "HotkeysPlus"
+   "summary": "Hotkeys Plus"
   },
   "IBMTTS": {
    "summary": "IBMTTS"
   },
-  "IBMTTS With Serbian Cyrillic Support": {
-   "summary": "IBMTTS"
-  },
   "IndentNav": {
-   "summary": "IndentNav"
+   "summary": "Indent Navigation"
   },
   "IntelliJImproved": {
-   "summary": "IntelliJImproved"
+   "summary": "IntelliJ Improved"
   },
   "InternetUsageMonitor": {
-   "summary": "InternetUsageMonitor"
+   "summary": "Internet Usage Monitor"
   },
   "IslamicPedia": {
    "summary": "IslamicPedia"
   },
   "JGT": {
-   "summary": "JGT"
+   "summary": "Japanese Game Translator"
   },
   "JadwalKu": {
    "summary": "My Schedule, AKA Jadwal Ku"
@@ -271,13 +268,13 @@
    "summary": "KeyMirror"
   },
   "KoreanHelper": {
-   "summary": "KoreanHelper"
+   "summary": "Korean Helper"
   },
   "KoreanSpellChecker": {
-   "summary": "KoreanSpellChecker"
+   "summary": "Korean Spell Checker"
   },
   "LHM_Monitor_Addon": {
-   "summary": "LHMMonitorAddon"
+   "summary": "Hardware Monitor"
   },
   "LangReporter": {
    "summary": "LangReporter"
@@ -289,10 +286,10 @@
    "summary": "Notification Area Icons List, AKA Liste Icones Zone Notification"
   },
   "LocalAI": {
-   "summary": "LocalAI"
+   "summary": "Local AI"
   },
   "MW-word-lexicon": {
-   "summary": "MWWordLexicon"
+   "summary": "Merriam-Webster Dictionary"
   },
   "Milena_MBROLA": {
    "summary": "Milena"
@@ -307,49 +304,49 @@
    "summary": "NVBox"
   },
   "NVDA Theems Manager": {
-   "summary": "NVDATheemsManager"
+   "summary": "NVDA Sound Themes Manager"
   },
   "NVDABatteryReport": {
-   "summary": "NVDABatteryReport"
+   "summary": "NVDA Battery Report"
   },
   "NVDAScripts": {
-   "summary": "NVDAScripts"
+   "summary": "NVDA Scripts"
   },
   "NVDASpeedTest": {
-   "summary": "NVDASpeedTest"
+   "summary": "NVDA Speed Test"
   },
   "NVDATranslate": {
    "summary": "Translate"
   },
   "NVIDIAMonitor": {
-   "summary": "NVIDIAMonitor"
+   "summary": "NVIDIA Monitor"
   },
   "NeuralVoiceManager": {
-   "summary": "NeuralVoiceManager"
+   "summary": "Neural Voice Manager"
   },
   "Nick-Eloquence64RS": {
    "summary": "Eloquence64RS Synthesizer"
   },
   "Note diary for NVDA": {
-   "summary": "NoteDiaryForNVDA"
+   "summary": "Note Diary"
   },
   "OBS-Studio": {
-   "summary": "OBSStudio"
+   "summary": "OBS Studio"
   },
   "OnlineLibrary": {
-   "summary": "OnlineLibrary"
+   "summary": "Online Library"
   },
   "OpenContextMenu": {
-   "summary": "OpenContextMenu"
+   "summary": "Open Context Menu"
   },
   "Open_Bible": {
-   "summary": "OpenBible"
+   "summary": "Open Bible"
   },
   "PUREtts": {
    "summary": "PureTTS"
   },
   "PerfectCurrencyConverter": {
-   "summary": "PerfectCurrencyConverter"
+   "summary": "Perfect Currency Converter"
   },
   "Pomodoro": {
    "summary": "Pomodoro"
@@ -361,79 +358,79 @@
    "summary": "ProfileDict"
   },
   "ProfileGestures": {
-   "summary": "ProfileGestures"
+   "summary": "Profile Gestures"
   },
   "Prueba_de_velocidad_de_internet": {
-   "summary": "Internet speed test, AKA PruebaDeVelocidadDeInternet"
+   "summary": "Internet Speed Test, AKA PruebaDeVelocidadDeInternet"
   },
   "QuickNav": {
-   "summary": "QuickNav"
+   "summary": "Quick Navigation"
   },
   "RAT_OCR": {
-   "summary": "RATOCR"
+   "summary": "RAT OCR"
   },
   "RHVoice": {
    "summary": "RHVoice"
   },
   "RHVoiceVoiceManager": {
-   "summary": "RHVoiceVoiceManager"
+   "summary": "RHVoice Voice Manager"
   },
   "RayoAI_connector_for_NVDA": {
-   "summary": "RayoAIConnector"
+   "summary": "RayoAI Connector"
   },
   "ReminderApp": {
-   "summary": "ReminderApp"
+   "summary": "Reminder App"
   },
   "Rutas_fav": {
    "summary": "Favorite Paths, AKA RutasFav"
   },
   "SMB": {
-   "summary": "SMB"
+   "summary": "Sao Mai Braille"
   },
   "ScreenReaderSounds": {
-   "summary": "ScreenReaderSounds"
+   "summary": "Screen Reader Sounds"
   },
   "SentenceNav": {
-   "summary": "SentenceNav"
+   "summary": "Sentence Navigation"
   },
   "SessionTimer": {
-   "summary": "SessionTimer"
+   "summary": "Session Timer"
   },
   "Sight-Free-Talon": {
-   "summary": "SightFreeTalon"
+   "summary": "Sight Free Talon"
   },
   "SileroTTS": {
-   "summary": "SileroTTS"
+   "summary": "Silero TTS"
   },
   "SiteMarker": {
-   "summary": "SiteMarker"
+   "summary": "Site Marker"
   },
   "SpeechPauseResume": {
-   "summary": "SpeechPauseResume"
+   "summary": "Speech Pause Resume"
   },
   "SpellGuard": {
    "summary": "SpellGuard"
   },
   "StayAwake": {
-   "summary": "StayAwake"
+   "summary": "Stay Awake"
   },
   "Store": {
-   "summary": "Store"
+   "summary": "NVDA.RU Store"
   },
   "Synth Dictionary Editor": {
-   "summary": "SynthDictionaryEditor"
+   "summary": "Synth Dictionary Editor"
   },
   "TCA-Portapapeles": {
    "summary": "TCA-Clipboard, AKA TCAPortapapeles"
   },
   "TCA_SystemUtilities": {
-   "summary": "TCASystemUtilities"
+   "summary": "TCA System Utilities"
   },
   "TabReporter": {
    "summary": "TabReporter"
   },
   "TalkBackSoundEffectForNVDA": {
-   "summary": "TalkBackSoundEffectForNVDA"
+   "summary": "TalkBack Sound Theme"
   },
   "TeamSpeak": {
    "summary": "TeamSpeak"
@@ -442,7 +439,7 @@
    "summary": "TeleNVDA"
   },
   "TelegramJusti": {
-   "summary": "TelegramJusti"
+   "summary": "Telegram Justi"
   },
   "Text Encryptor and Decryptor": {
    "summary": "TextEncryptorAndDecryptor"
@@ -454,106 +451,109 @@
    "summary": "Text for Telegram, AKA TextoParaTelegram"
   },
   "TiendaNVDA": {
-   "summary": "NVDA Add-on Store, AKA TiendaNVDA"
+   "summary": "NVDA Store, AKA TiendaNVDA"
   },
   "TimeWithSeconds": {
    "summary": "TimeWithSeconds"
   },
   "TreeNav": {
-   "summary": "TreeNav"
+   "summary": "Tree Navigation"
   },
   "Typing SFX": {
-   "summary": "TypingSFX"
+   "summary": "Typing Sounds"
   },
   "UIANotificationSwitch": {
-   "summary": "UIANotificationSwitch"
+   "summary": "UIA Notification Switch"
   },
   "URLPlayer": {
    "summary": "URLPlayer"
   },
   "UnigramCacheCleaner": {
-   "summary": "UnigramCacheCleaner"
+   "summary": "Unigram Cache Cleaner"
   },
   "UnigramHelper": {
-   "summary": "UnigramHelper"
+   "summary": "Unigram Helper"
   },
   "Unspoken-ng": {
    "summary": "UnspokenNG"
   },
   "VKSmiliesReader": {
-   "summary": "VKSmiliesReader"
+   "summary": "VK Emoticon Reader"
   },
   "VSU": {
    "summary": "Voicevox"
   },
   "Virtual_explorer": {
-   "summary": "VirtualExplorer"
+   "summary": "Virtual Explorer"
+  },
+  "VoiceOverByAnenkov": {
+   "summary": "VoiceOver"
   },
   "VoiceOverSounds": {
-   "summary": "VoiceOverSounds"
+   "summary": "VoiceOver Sounds"
   },
   "Vol_CTRL": {
-   "summary": "VolCTRL"
+   "summary": "Volume Control"
   },
   "VolumeNotifications": {
-   "summary": "VolumeNotifications"
+   "summary": "Volume Notifications"
   },
   "VoskTTS": {
-   "summary": "VoskTTS"
+   "summary": "Vosk TTS Driver"
   },
   "Vscode-line-numbers": {
-   "summary": "VsCodeLineNumbers"
+   "summary": "VsCode Line Numbers"
   },
   "Whatsapp_simple": {
-   "summary": "WhatsappSimple"
+   "summary": "Simple WhatsApp"
   },
   "Winboard": {
    "summary": "Winboard"
   },
   "WindowsMail": {
-   "summary": "WindowsMail"
+   "summary": "Windows Mail"
   },
   "WlanReporter": {
-   "summary": "WlanReporter"
+   "summary": "Wireless Network Report"
   },
   "WorldVoice": {
    "summary": "WorldVoice"
   },
   "YYPatch": {
-   "summary": "YYPatch"
+   "summary": "YY Patch"
   },
   "YandexSpeller": {
-   "summary": "YandexSpeller"
+   "summary": "Yandex Speller"
   },
   "YandexTranslate": {
-   "summary": "YandexTranslate"
+   "summary": "Yandex Translate"
   },
   "YoutubeAccessPro": {
-   "summary": "YouTubeAccessPro"
+   "summary": "YouTube Access Pro"
   },
   "YoutubeChannelManager": {
-   "summary": "YoutubeChannelManager"
+   "summary": "YouTube Channel Manager"
   },
   "YoutubeChatClientForNVDA": {
-   "summary": "YoutubeChatClientForNVDA"
+   "summary": "YouTube Live Chat Client"
   },
   "ZExplorer": {
    "summary": "ZExplorer"
   },
   "accentManager": {
-   "summary": "Accent Manager, AKA AccentManager"
+   "summary": "Accent Manager"
   },
   "accessibleKBBI": {
-   "summary": "AccessibleKBBI"
+   "summary": "Accessible KBBI"
   },
   "addonPackager": {
    "summary": "AddonPackager"
   },
   "addonPacker": {
-   "summary": "Add-on Packer, AKA AddonPacker"
+   "summary": "Add-on Packer"
   },
   "addonStoreLite": {
-   "summary": "addonStoreLite"
+   "summary": "Add-on Store Lite"
   },
   "addonsTools": {
    "summary": "AddonsTools"
@@ -562,7 +562,7 @@
    "summary": "Agenda"
   },
   "aiTranslator": {
-   "summary": "AI Translator, AKA AITranslator"
+   "summary": "AI Translator"
   },
   "aidaMenu": {
    "summary": "AidaMenu"
@@ -571,7 +571,7 @@
    "summary": "AkNVDA"
   },
   "androidStudio": {
-   "summary": "AndroidStudio"
+   "summary": "Android Studio"
   },
   "appOn": {
    "summary": "appOn"
@@ -580,22 +580,22 @@
    "summary": "Braille Attribute, AKA AttriBra"
   },
   "audacity": {
-   "summary": "AudaCity"
+   "summary": "Audacity"
   },
   "audioLogger": {
-   "summary": "AudioLogger"
+   "summary": "Audio Logger"
   },
   "audioManager": {
-   "summary": "Audio Manager, AKA AudioManager"
+   "summary": "Audio Manager"
   },
   "audioTranscriber": {
-   "summary": "AudioTranscriber"
+   "summary": "Audio Transcriber"
   },
   "audioVolumeControl": {
-   "summary": "AudioVolumeControl"
+   "summary": "Audio Volume Control"
   },
   "audio_themes_NG": {
-   "summary": "AudioThemesNG"
+   "summary": "Audio Themes NG"
   },
   "audiocinemateca": {
    "summary": "Audiocinemateca"
@@ -604,7 +604,7 @@
    "summary": "AutoOCR"
   },
   "baiduTranslation": {
-   "summary": "BaiduTranslation"
+   "summary": "Baidu Translation"
   },
   "beefText": {
    "summary": "BeefText"
@@ -628,7 +628,10 @@
    "summary": "Boo"
   },
   "bookLibrary": {
-   "summary": "BookLibrary"
+   "summary": "Book Library"
+  },
+  "brailabEmulated": {
+   "summary": "BraiLab PC"
   },
   "brailleChart": {
    "summary": "BrailleChart"
@@ -655,13 +658,13 @@
    "summary": "Calsci"
   },
   "cashflow": {
-   "summary": "CashFlow"
+   "summary": "Cash Flow Manager"
   },
   "cecitek": {
    "summary": "Cecitek"
   },
   "charInfo": {
-   "summary": "CharInfo"
+   "summary": "Character Information"
   },
   "chessmart": {
    "summary": "ChessMart"
@@ -670,40 +673,40 @@
    "summary": "ClimaSpeak"
   },
   "clipManager": {
-   "summary": "ClipManager"
+   "summary": "Clipboard History Manager"
   },
   "clipSaver": {
    "summary": "ClipSaver"
   },
   "clipboardEnhancement": {
-   "summary": "ClipboardEnhancement"
+   "summary": "Clipboard Enhancement"
   },
   "cliptools": {
    "summary": "ClipTools"
   },
   "codefactory-py3": {
-   "summary": "CodeFactory"
+   "summary": "CodeFactory Voices"
   },
   "compartir_archivos": {
-   "summary": "Share Files, AKA CompartirArchivos"
+   "summary": "File Share, AKA CompartirArchivos"
   },
   "consoleLog": {
    "summary": "ConsoleLog"
   },
   "consoleToolkit": {
-   "summary": "ConsoleToolkit"
+   "summary": "Console Toolkit"
   },
   "contactBook": {
-   "summary": "ContactBook"
+   "summary": "Contact Book"
   },
   "contador": {
    "summary": "Counter, AKA Contador"
   },
   "copyLastSpeech": {
-   "summary": "CopyLastSpeech"
+   "summary": "Copy Last Speech"
   },
   "cpuMon": {
-   "summary": "CpuMon"
+   "summary": "CPU Monitor"
   },
   "cricricri": {
    "summary": "CriCriCri"
@@ -712,16 +715,16 @@
    "summary": "CryptoInfo"
   },
   "customActions": {
-   "summary": "CustomActions"
+   "summary": "Custom Actions"
   },
   "customTextFinder": {
-   "summary": "CustomTextFinder"
+   "summary": "Custom Text Finder"
   },
   "debugHelper": {
-   "summary": "DebugHelper"
+   "summary": "Debug Helper"
   },
   "decimal2fraction": {
-   "summary": "Decimal2fraction"
+   "summary": "Decimal to Fraction"
   },
   "dectalk": {
    "summary": "DECtalk"
@@ -730,79 +733,82 @@
    "summary": "DevHelper"
   },
   "dictionariesAlmaany": {
-   "summary": "DictionariesAlmaany"
+   "summary": "Almaany Dictionaries"
   },
   "discordMessageHotkeys": {
-   "summary": "DiscordMessageHotkeys"
+   "summary": "Discord Message Hotkeys"
   },
   "displayAddonsChangelog": {
-   "summary": "DisplayAddonsChangelog"
+   "summary": "Display Addon Changelog"
   },
   "documentFormattingHelper": {
-   "summary": "DocumentFormattingHelper"
+   "summary": "Document Formatting Helper"
   },
   "dosya_arsivim": {
    "summary": "My File Archive, AKA Dosya Arşivim"
   },
   "dual_voice": {
-   "summary": "DualVoice"
+   "summary": "Dual Voice"
   },
   "dutchBiblicalStudies": {
-   "summary": "DutchBiblicalStudies"
+   "summary": "Dutch Biblical Studies"
   },
   "ePubLibre": {
-   "summary": "EPubLibre"
+   "summary": "ePubLibre"
   },
   "easyTableNavigator": {
-   "summary": "EasyTableNavigator"
+   "summary": "Easy Table Navigator"
   },
   "edgeTtsForNvda": {
-   "summary": "Edge TTS For NVDA"
+   "summary": "Edge TTS (Online)"
   },
   "elevenlabsForNVDA": {
-   "summary": "ElevenLabsForNVDA"
+   "summary": "ElevenLabs"
   },
   "emojiMenu": {
-   "summary": "EmojiMenu"
+   "summary": "Emoji Menu"
   },
   "emoticonosAvanzados": {
    "summary": "Advanced Emoticons, AKA EmoticonosAvanzados"
   },
   "emulateNumpadMode": {
-   "summary": "EmulateNumpadMode"
+   "summary": "Emulate Numpad Mode"
   },
   "engelsiz_mail": {
    "summary": "Accessible Mail, AKA Engelsiz Mail"
   },
   "engelsiz_nota": {
-   "summary": "Available Note, AKA Engelsiz Nota"
+   "summary": "Accessible Music Sheet, AKA Engelsiz Nota"
   },
   "enhanced_weasel_jidian": {
-   "summary": "EnhancedWeaselJidian"
+   "summary": "Enhanced Weasel Support"
   },
   "enterKeySpeak": {
-   "summary": "EnterKeySpeak"
+   "summary": "Enter Key Speak"
   },
   "escritoriosVirtuales": {
-   "summary": "Virtual desktops, AKA EscritoriosVirtuales"
+   "summary": "Virtual Desktops, AKA EscritoriosVirtuales"
   },
   "everything": {
    "summary": "Everything"
   },
   "extendedPotPlayer": {
-   "summary": "ExtendedPotPlayer"
+   "summary": "Extended PotPlayer"
   },
   "extendedWinampPlus": {
-   "summary": "ExtendedWinampPlus"
+   "summary": "Extended WinampPlus"
+  },
+  "fastfinge-Eloquence64": {
+   "summary": "Eloquence 64"
   },
   "favoriteFolders": {
-   "summary": "FavoriteFolders"
+   "summary": "Favorite Folders"
   },
   "favoritos": {
    "summary": "Favorites, AKA Favoritos"
   },
   "ffTools": {
-   "summary": "FfTools"
+   "summary": "FFmpeg Toolkit"
   },
   "fiche": {
    "summary": "Fiche"
@@ -814,97 +820,97 @@
    "summary": "FormatFactory"
   },
   "freeradio": {
-   "summary": "FreeRadio"
+   "summary": "Free Radio"
   },
   "game": {
-   "summary": "Game"
+   "summary": "Games"
   },
   "geminiLive": {
-   "summary": "GeminiLive"
+   "summary": "Gemini Live"
   },
   "gestorDeEnlaces": {
    "summary": "Link Manager, AKA GestorDeEnlaces"
   },
   "getem": {
-   "summary": "GetEm"
+   "summary": "GETEM Electronic Library, AKA GetEm"
   },
   "gitlabManager": {
-   "summary": "GitlabManager"
+   "summary": "GitLab Manager"
   },
   "globalSonicPitch": {
-   "summary": "GlobalSonicPitch"
+   "summary": "Global Sonic Pitch"
   },
   "goldwave": {
    "summary": "GoldWave"
   },
   "googleContactsManager": {
-   "summary": "GoogleContactsManager"
+   "summary": "Google Contacts Manager"
   },
   "googleDocs": {
-   "summary": "GoogleDocs"
+   "summary": "Google Docs"
   },
   "googleQuickSearch": {
-   "summary": "GoogleQuickSearch"
+   "summary": "Google Quick Search"
   },
   "googleTranslateEnhanced": {
-   "summary": "GoogleTranslateEnhanced"
+   "summary": "Google Translate Enhanced"
   },
   "googleTtsForNvda": {
-   "summary": "GoogleTTSForNVDA"
+   "summary": "Google TTS"
   },
   "hangulBlockSplitter": {
-   "summary": "HangulBlockSplitter"
+   "summary": "Hangul Block Splitter"
   },
   "hozosch-Eloquence64": {
    "summary": "Eloquence 64"
   },
   "htmlElementInspector": {
-   "summary": "HTMLElementInspector"
+   "summary": "HTML Element Inspector"
   },
   "idate": {
    "summary": "IDate"
   },
   "imazing": {
-   "summary": "IMazing"
+   "summary": "iMazing"
   },
   "ime_expressive": {
    "summary": "ImeExpressive"
   },
   "indianNumberSystem": {
-   "summary": "IndianNumberSystem"
+   "summary": "Indian Number System"
   },
   "indirTube": {
-   "summary": "YouTube Downloader, AKA IndirTUBE"
+   "summary": "IndirTUBE"
   },
   "invisinote": {
    "summary": "Invisinote"
   },
   "ipInfo": {
-   "summary": "IpInfo"
+   "summary": "IP Info"
   },
   "ipan": {
    "summary": "IpAn"
   },
   "islamicRadio": {
-   "summary": "IslamRadio"
+   "summary": "Islamic Radio"
   },
   "jalaliDateAnnouncer": {
-   "summary": "JalaliDateAnnouncer"
+   "summary": "Jalali Date Announcer"
   },
   "keepAwake": {
    "summary": "KeepAwake"
   },
   "keyboardTrainer": {
-   "summary": "KeyboardTrainer"
+   "summary": "Keyboard Trainer"
   },
   "kgsbraille": {
-   "summary": "KGSBraille"
+   "summary": "KGS Braille"
   },
   "killNVDA": {
-   "summary": "KillNVDA"
+   "summary": "Kill NVDA"
   },
   "killProcess": {
-   "summary": "KillProcess"
+   "summary": "Kill Process"
   },
   "klawiszeschowka": {
    "summary": "Clipboard Keys, AKA KlawiszeSchowka"
@@ -928,7 +934,7 @@
    "summary": "leanCalendar"
   },
   "logViewer": {
-   "summary": "LogViewer"
+   "summary": "Log Viewer"
   },
   "luna": {
    "summary": "Luna"
@@ -940,22 +946,22 @@
    "summary": "Arabic Dictionaries, AKA MaagimAraby"
   },
   "markdown to html converter": {
-   "summary": "MarkdownToHtmlConverter"
+   "summary": "Markdown to HTML Converter"
   },
   "markdown-to-html": {
-   "summary": "MarkdownToHtml"
+   "summary": "Markdown to HTML Converter"
   },
   "markdownForever": {
    "summary": "MarkdownForever"
   },
   "markdownNavigator": {
-   "summary": "MarkdownNavigator"
+   "summary": "Markdown Navigator"
   },
   "maxReaderSleep": {
-   "summary": "MaxReaderSleep"
+   "summary": "MaxReader Sleep"
   },
   "mb408sl-driver": {
-   "summary": "MB408SLDriver"
+   "summary": "MB408SL Driver"
   },
   "meteoFrance": {
    "summary": "Météo-France"
@@ -964,7 +970,7 @@
    "summary": "MlShortener"
   },
   "morse_synthesizer": {
-   "summary": "MorseSynthesizer"
+   "summary": "Morse Synthesizer"
   },
   "mouse": {
    "summary": "Mouse"
@@ -973,40 +979,40 @@
    "summary": "Mp3DirectCut"
   },
   "muslimku": {
-   "summary": "Muslimku"
+   "summary": "My Muslim, AKA Muslimku"
   },
   "myCalculator": {
-   "summary": "MyCalculator"
+   "summary": "My Calculator"
   },
   "nao": {
    "summary": "NAO"
   },
   "navigateTheNumpadWay": {
-   "summary": "NavigateTheNumpadWay"
+   "summary": "NumpadWay"
   },
   "net_speed_counter": {
-   "summary": "NetSpeedCounter"
+   "summary": "Network Speed Counter"
   },
   "newfon": {
    "summary": "NewFon"
   },
   "nibynumpad": {
-   "summary": "NibyNumpad"
+   "summary": "Pseudo-Numpad, AKA NibyNumpad"
   },
   "nordvpn": {
-   "summary": "NordVpn"
+   "summary": "NordVPN"
   },
   "num2words": {
    "summary": "Num2words"
   },
   "numLockManager": {
-   "summary": "NumLockManager"
+   "summary": "NumLock Manager"
   },
   "numlockDisabler": {
-   "summary": "NumlockDisabler"
+   "summary": "Numlock Disabler"
   },
   "nvLogs": {
-   "summary": "NvLogs"
+   "summary": "NV Logs"
   },
   "nvTube": {
    "summary": "NvTube"
@@ -1015,40 +1021,40 @@
    "summary": "NVDAJson"
   },
   "nvdaChatGPT": {
-   "summary": "NvdaChatGPT"
+   "summary": "NVDA ChatGPT"
   },
   "nvdaClipBoard": {
-   "summary": "NVDAClipBoard"
+   "summary": "NVDA ClipBoard"
   },
   "nvdaComposer": {
-   "summary": "NVDAComposer"
+   "summary": "NVDA Composer"
   },
   "nvdaHelper": {
-   "summary": "NvdaHelper"
+   "summary": "NVDA Helper"
   },
   "nvdaKeyMode": {
-   "summary": "NVDAKeyMode"
+   "summary": "NVDA Delayed Key Mode"
   },
   "nvdaRd": {
-   "summary": "NVDARd"
+   "summary": "NVDA Remote Desktop Support"
   },
   "nvda_reminder": {
-   "summary": "NVDAReminder"
+   "summary": "NVDA Reminder"
   },
   "objEnhancer": {
-   "summary": "ObjEnhancer"
+   "summary": "Object Enhancement"
   },
   "objInspector": {
-   "summary": "ObjInspector"
+   "summary": "Object Inspector"
   },
   "objPadMod": {
-   "summary": "ObjPadMod"
+   "summary": "Object Panel - Modification"
   },
   "objWatcher": {
-   "summary": "ObjWatcher"
+   "summary": "Object Watcher"
   },
   "objsounds": {
-   "summary": "ObjSounds"
+   "summary": "Object Sounds"
   },
   "ocr": {
    "summary": "OCR"
@@ -1057,16 +1063,16 @@
    "summary": "Explorer Player, AKA OdtwarzaczEksplorer"
   },
   "ollamaTranslator": {
-   "summary": "OllamaTranslator"
+   "summary": "Ollama Translator"
   },
   "openLinkWith": {
-   "summary": "OpenLinkWith"
+   "summary": "Open Link With"
   },
   "orpheus": {
-   "summary": "Orpheus"
+   "summary": "Orpheus Driver"
   },
   "orpheusLight": {
-   "summary": "OrpheusLight"
+   "summary": "Orpheus Driver - Lightweight"
   },
   "pad2": {
    "summary": "pad2"
@@ -1075,25 +1081,25 @@
    "summary": "PCloud"
   },
   "pdfReader": {
-   "summary": "PdfReader"
+   "summary": "PDF Reader"
   },
   "pdfReaderForNvda": {
-   "summary": "PDFReaderForNVDA"
+   "summary": "PDF Reader"
   },
   "perky": {
    "summary": "Perky"
   },
   "phoneticPunctuation": {
-   "summary": "EarconsAndSpeechRules"
+   "summary": "Earcons and Speech Rules"
   },
   "pinfo": {
-   "summary": "PInfo"
+   "summary": "Process Information"
   },
   "pleasant_progress_bar": {
-   "summary": "PleasantProgressBar"
+   "summary": "Pleasant Progress Bar"
   },
   "poeditMadeEasy": {
-   "summary": "PoeditMadeEasy"
+   "summary": "Poedit Made Easy"
   },
   "polyglot": {
    "summary": "Polyglot"
@@ -1102,16 +1108,16 @@
    "summary": "PotPlayer"
   },
   "powerTools": {
-   "summary": "PowerTools"
+   "summary": "Altergo Power Tools"
   },
   "pravka": {
    "summary": "Pravka TTS"
   },
   "prayerTime": {
-   "summary": "PrayerTime"
+   "summary": "Prayer Time"
   },
   "programResourceReporter": {
-   "summary": "ProgramResourceReporter"
+   "summary": "Program Resource Reporter"
   },
   "promemoria": {
    "summary": "Reminder, AKA ProMemoria"
@@ -1123,76 +1129,76 @@
    "summary": "Legacy Eloquence"
   },
   "qqPatch": {
-   "summary": "QQPatch"
+   "summary": "QQ Patch"
   },
   "qqmusicUWPEnhancement": {
-   "summary": "QqMusicUWPEnhancement"
+   "summary": "QQ Music UWP Improvements"
   },
   "qrvocabulary": {
    "summary": "QRVocabulary"
   },
   "quickNotetaker": {
-   "summary": "QuickNotetaker"
+   "summary": "Quick Notetaker"
   },
   "radioCenter": {
-   "summary": "radioCenter"
+   "summary": "Radio Center"
   },
   "read_insta_message": {
-   "summary": "ReadInstaMessage"
+   "summary": "Read Instagram Message"
   },
   "recordatorios": {
    "summary": "Reminders, AKA Recordatorios"
   },
   "remoteAudioAccess": {
-   "summary": "RemoteAudioAccess"
+   "summary": "Remote Audio Access"
   },
   "reportPasswords": {
-   "summary": "ReportPasswords"
+   "summary": "Report Passwords"
   },
   "reviewCursorFind": {
-   "summary": "ReviewCursorFind"
+   "summary": "Review Cursor Find"
   },
   "roleAnnounce": {
-   "summary": "RoleAnnounce"
+   "summary": "Role Announce"
   },
   "ru_tts": {
    "summary": "RuTTS"
   },
   "sarvamAI": {
-   "summary": "SarvamAI"
+   "summary": "Sarvam AI"
   },
   "say clipBoard": {
-   "summary": "SayClipBoard"
+   "summary": "Say Clipboard"
   },
   "shamela": {
    "summary": "Shamela"
   },
   "showContextMenu": {
-   "summary": "showContextMenu"
+   "summary": "Show Context Menu"
   },
   "showWinKey": {
-   "summary": "ShowWinKey"
+   "summary": "Show Win Key"
   },
   "siamSquare": {
-   "summary": "SiamSquare"
+   "summary": "Siam Square"
   },
   "skype": {
    "summary": "Skype"
   },
   "smartCaptchaSolver": {
-   "summary": "SmartCaptchaSolver"
+   "summary": "Smart Captcha Solver"
   },
   "soat_addoni": {
-   "summary": "Clock Add-on, AKA Soat Addoni"
+   "summary": "Clock, AKA Soat"
   },
   "softvoice": {
    "summary": "SoftVoice"
   },
   "sonataSherpaVoices": {
-   "summary": "SonataSherpaVoices"
+   "summary": "Sonata Sherpa Voices"
   },
   "speechHistoryExplorer": {
-   "summary": "SpeechHistoryExplorer"
+   "summary": "Speech History Explorer"
   },
   "speechPacer": {
    "summary": "SpeechPacer"
@@ -1207,13 +1213,13 @@
    "summary": "Suno"
   },
   "superplusContacts": {
-   "summary": "SuperPlusContacts"
+   "summary": "SuperPlus Contacts"
   },
   "supertonic3": {
    "summary": "Supertonic-3"
   },
   "svox-pico": {
-   "summary": "SvoxPico"
+   "summary": "SVOX Pico"
   },
   "switchSynth": {
    "summary": "SwitchSynth"
@@ -1231,7 +1237,7 @@
    "summary": "TMT"
   },
   "teamviewerQS": {
-   "summary": "TeamviewerQS"
+   "summary": "TeamViewer QS"
   },
   "tencent": {
    "summary": "Tencent"
@@ -1240,40 +1246,40 @@
    "summary": "TextRestore"
   },
   "textTranslator": {
-   "summary": "TextTranslator"
+   "summary": "Text Translator"
   },
   "textnav": {
    "summary": "TextNav"
   },
   "thebat": {
-   "summary": "TheBat"
+   "summary": "The Bat!"
   },
   "thunderbirdPlusG5": {
    "summary": "Thunderbird+ G5.1"
   },
   "tiflotecniaVoices": {
-   "summary": "TiflotecniaVoices"
+   "summary": "Tiflotecnia Voices"
   },
   "tiktokDownloader": {
-   "summary": "TikTokDownloader"
+   "summary": "TikTok Downloader"
   },
   "trackbar_routing": {
-   "summary": "TrackbarRouting"
+   "summary": "Trackbar Routing"
   },
   "ttAnnouncer": {
-   "summary": "TtAnnouncer"
+   "summary": "TT-announcer"
   },
   "tts_converter": {
-   "summary": "TTSConverter"
+   "summary": "TTS Converter"
   },
   "tussimulatoru": {
    "summary": "Key Simulator, AKA Tussimulatoru"
   },
   "txtReader": {
-   "summary": "TxtReader"
+   "summary": "TXT Reader"
   },
   "typingSpellingRate": {
-   "summary": "TypingSpellingRate"
+   "summary": "Typing and Spelling Rate"
   },
   "uTalk": {
    "summary": "UTalk"
@@ -1285,7 +1291,7 @@
    "summary": "UTubeMiniDL"
   },
   "unicodeBrailleReader": {
-   "summary": "UnicodeBrailleReader"
+   "summary": "Unicode Braille Text Reader"
   },
   "unicornNVDA": {
    "summary": "UnicornNVDA"
@@ -1303,7 +1309,7 @@
    "summary": "Unspoken"
   },
   "updateChannel": {
-   "summary": "UpdateChannel"
+   "summary": "Update Channel"
   },
   "verbs": {
    "summary": "Verbs"
@@ -1312,7 +1318,7 @@
    "summary": "VideoMaker"
   },
   "virtualNotesForNVDA": {
-   "summary": "VirtualNotesForNVDA"
+   "summary": "Virtual Notes"
   },
   "virtualbox": {
    "summary": "VirtualBox"
@@ -1321,13 +1327,13 @@
    "summary": "ViyfMirror"
   },
   "vnDict": {
-   "summary": "VnDict"
+   "summary": "VN Dictate"
   },
   "vocalizer_automotive_driver_free": {
-   "summary": "VocalizerAutomotiveDriverFree"
+   "summary": "Vocalizer Automotive Driver Free"
   },
   "voiceOver": {
-   "summary": "VoiceOver"
+   "summary": "VoiceOver Sound Theme"
   },
   "voicepulse": {
    "summary": "VoicePulse"
@@ -1336,34 +1342,34 @@
    "summary": "DOSVOX Native Voice, AKA Voz Nativa do DOSVOX"
   },
   "voz_do_tempo": {
-   "summary": "Time Voice, AKA VozDoTempo"
+   "summary": "Voice of Time, AKA VozDoTempo"
   },
   "webcamHelper": {
-   "summary": "WebcamHelper"
+   "summary": "Webcam Assistant"
   },
   "whatsAppPlus": {
    "summary": "WhatsAppPlus"
   },
   "whatsapp": {
-   "summary": "Whatsapp"
+   "summary": "WhatsApp"
   },
   "whatsapp-normalizer": {
-   "summary": "WhatsAppNormalizer"
+   "summary": "WhatsApp Normalizer"
   },
   "whatsappImageDescriber": {
-   "summary": "WhatsappImageDescriber"
+   "summary": "WhatsApp Image Describer"
   },
   "whisperVoiceInput": {
-   "summary": "WhisperVoiceInput"
+   "summary": "Whisper Voice Input"
   },
   "wholeWordEcho": {
-   "summary": "WholeWordEcho"
+   "summary": "Whole Word Echo"
   },
   "wifiInfo": {
-   "summary": "WiFiInfo"
+   "summary": "WiFi Info"
   },
   "wifiSwitcher": {
-   "summary": "WiFiSwitcher"
+   "summary": "WiFi Switcher"
   },
   "wikiFusion": {
    "summary": "WikiFusion"
@@ -1375,13 +1381,13 @@
    "summary": "WinMag"
   },
   "winWizard": {
-   "summary": "WinWizard"
+   "summary": "Window Wizard"
   },
   "windowState": {
    "summary": "WindowState"
   },
   "windowsOfProcess": {
-   "summary": "WindowsOfProcess"
+   "summary": "Process Windows"
   },
   "wlmail": {
    "summary": "WlMail"
@@ -1390,13 +1396,13 @@
    "summary": "WordLangSwitch"
   },
   "wordNav": {
-   "summary": "WordNav"
+   "summary": "Word Navigation"
   },
   "wordPredictor": {
-   "summary": "WordPredictor"
+   "summary": "Word Predictor"
   },
   "wordpressManager": {
-   "summary": "WordPressManager"
+   "summary": "WordPress Manager"
   },
   "xBlock": {
    "summary": "xBlock"
@@ -1414,19 +1420,19 @@
    "summary": "XyOCR"
   },
   "youtubeDownloadHelper": {
-   "summary": "YoutubeDownloadHelper"
+   "summary": "YouTube Download Helper"
   },
   "youtubeDownloader": {
-   "summary": "YouTubeDownloader"
+   "summary": "YouTube Downloader"
   },
   "youtube_indirici_pro": {
-   "summary": "Pro Downloader from Youtube, AKA YoutubeIndiriciPro"
+   "summary": "YouTube Downloader Pro, AKA YoutubeIndiriciPro"
   },
   "ytdlpDownloader": {
-   "summary": "YtDlpDownloader"
+   "summary": "YT-DLP Downloader"
   },
   "zBackup": {
-   "summary": "ZBackup"
+   "summary": "Z-Backup"
   },
   "zEmoticonos": {
    "summary": "Z-Emoticons, AKA ZEmoticonos"
@@ -1438,16 +1444,16 @@
    "summary": "ZPod"
   },
   "zPodCast": {
-   "summary": "z-Podcasts, AKA ZPodCast"
+   "summary": "Z-Podcasts"
   },
   "zPortapapeles": {
-   "summary": "z-Clipboard, AKA ZPortapapeles"
+   "summary": "Z-Clipboard, AKA ZPortapapeles"
   },
   "zRadio": {
    "summary": "ZRadio"
   },
   "zRadioModern": {
-   "summary": "Modern zRadio, AKA zRadioModerno"
+   "summary": "Modern zRadio"
   },
   "zUtilidades": {
    "summary": "zUtilities, AKA zUtilidades"

@@ -59,24 +59,33 @@ BATCH_SIZE = 20
 #: rather than spent in one. Roughly 3000 strings at the measured rate.
 DEFAULT_BUDGET = int(os.environ.get("AUTO_TRANSLATE_BUDGET", "600"))
 
-_SYSTEM_PROMPT = """You translate NVDA screen-reader add-on metadata into English.
+_SYSTEM_PROMPT = """You clean up NVDA screen-reader add-on metadata for a store listing.
 
-Rules:
-- Translate into natural English. Reply with the translation only.
-- NEVER translate a product name, a brand, a key name (NVDA+F12), a file
-  extension, or a URL. Leave them exactly as they are.
-- For a "name" field whose value is a NON-ENGLISH NAME, answer with the English
-  name, then ", AKA ", then the original name exactly as given.
-  Example: "Betimleyici" -> "Descriptor, AKA Betimleyici".
-- For a "name" field whose value is ALREADY ENGLISH, answer with it unchanged.
-- For a "name" written as "Original (English)" where the parenthetical is an
-  English rendering of a non-English NAME, answer "English, AKA Original".
-  Example: "Betimleyici (Descriptor)" -> "Descriptor, AKA Betimleyici".
-- For a "name" written as "Name (what it does)", where the parenthetical
-  describes the add-on rather than translating its name, answer with the name
-  unchanged. Example: "DECtalk (DECtalk speech synthesizer)" -> "DECtalk".
-- For a "description" field, translate the prose into English and keep the
-  original line breaks. Do not add commentary.
+Never translate a product name, a brand, a key name (NVDA+F12), a file
+extension, or a URL. Leave those exactly as written.
+
+For a "name", answer with ONE short, readable name. Every add-on in this list
+is for NVDA, so never end a name with "for NVDA" or "add-on".
+
+- Non-English words anywhere in the name: translate them into English.
+- The NAME ITSELF is non-English: answer with the English name, then ", AKA ",
+  then the original name copied EXACTLY, character for character.
+  "Betimleyici" -> "Descriptor, AKA Betimleyici".
+  "Betimleyici (Descriptor)" -> "Descriptor, AKA Betimleyici".
+  "YoutubePlus (Rasshirennye vozmozhnosti YouTube)" -> "YouTube Plus".
+  Use ", AKA " ONLY for a genuine second name, never for a description.
+- A parenthetical that just respells the name: keep the more readable spelling
+  and drop the bracket. "2FAGenerator (2FA Generator)" -> "2FA Generator".
+  "AbsoluteFileAndFolder (Absolute files and folders)" ->
+  "Absolute Files and Folders".
+- A parenthetical that describes what the add-on does: drop it and keep the
+  name. "DECtalk (DECtalk speech synthesizer)" -> "DECtalk".
+  "AbsoluteSite (Featured Websites)" -> "AbsoluteSite".
+  "AIAssistant (AI Assistant for NVDA)" -> "AI Assistant".
+- A name that is already short, English and clean: answer with it unchanged.
+
+For a "description", translate the prose into English, keep the original line
+breaks, and add no commentary.
 
 Reply with ONLY a JSON object mapping each input key to its answer string."""
 
@@ -95,6 +104,11 @@ def load_cache(path):
     return data if isinstance(data, dict) else {}
 
 
+#: Bump when the rules below change, so every cached answer is decided again
+#: under the new ones instead of the old ones being served forever.
+PROMPT_VERSION = "v2-names"
+
+
 def _cache_key(field, text):
     """Key a translation by what was translated, not by which add-on it was.
 
@@ -102,7 +116,7 @@ def _cache_key(field, text):
     ids, and an add-on that is renamed keeps its text. Keying on the source text
     means neither costs a second call.
     """
-    return f"{field}:{mirror.translation_key(text, 'en')}"
+    return f"{PROMPT_VERSION}:{field}:{mirror.translation_key(text, 'en')}"
 
 
 def needs_english(entry):
