@@ -1,5 +1,11 @@
 {
  "translations": {
+  "appleMusicSuggestLess": {
+   "summary": "Apple Music"
+  },
+  "taskExplorer": {
+   "summary": "Task Explorer"
+  },
   "NVDABackupManager": {
    "description": "A simple backup add-on for NVDA. It asks what you want to back up (configuration, profiles, dictionaries, add-ons, scratchpad), creates a zip backup with a manifest, and allows restoration with a recommendation to restart NVDA. It also supports automatic backups with a configurable interval."
   },
@@ -2157,6 +2163,7 @@
    "description": "The AVCRuTube add-on saves and converts RuTube videos in MP3 or MP4 format directly from the browser.\nThis is a modification based on the original AVC add-on.\nHaving opened the desired video on RuTube in the browser, click:\nNVDA+Y for saving to MP3.\nNVDA+Shift+Y to save to MP4.\nNVDA+Control+Y open the results folder.\nNVDA+Control+Shift+Y Check YT-DLP update manually.\nThe keyboard shortcut can be changed in input gestures, in the “AVCRuTube (Audio-Video Converter from RuTube)” section.\nNote: This modification uses the same keyboard shortcuts as the original AVC add-on. If you installed this add-on along with AVC, be sure to replace the keyboard shortcuts with others."
   },
   "10dita": {
+   "summary": "10dita",
    "description": "The 10Dita add-on improves the accessibility of the 10dita software of the same name.\n10dita is software developed in the 90s by Flavio Fogarolo and Franco Frascolla to help blind or visually impaired people master the keyboard. The software is only available in Italian."
   },
   "TimerForNVDA": {
@@ -4047,7 +4054,7 @@
    "summary": "NVDA Startup Greeter"
   },
   "nvda_addon_npp_python_cpp": {
-   "summary": "NVDA Addon Npp Python Cpp"
+   "summary": "Notepad++ accessibility for Python and C/C++ development (32 and 64 bits)"
   },
   "nvoice": {
    "summary": "NVoice"
