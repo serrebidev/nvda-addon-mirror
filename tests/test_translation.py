@@ -253,15 +253,57 @@ class MachineTranslationTests(unittest.TestCase):
         provider.assert_not_called()
         self.assertEqual(0, spent)
 
-    def test_unsupported_target_languages_are_left_in_english(self):
-        with mock.patch.object(mirror, "TRANSLATE_PROVIDER", "deepl"):
-            self.assertIsNone(mirror.machine_translation_target("kmr"))
-            self.assertEqual("PT-BR", mirror.machine_translation_target("pt_BR"))
-            self.assertEqual("FR", mirror.machine_translation_target("fr"))
+    def test_every_nvda_locale_can_be_targeted(self):
+        # A general model needs a language, not a code from a provider's
+        # supported list, so no locale falls outside it. "kmr" used to.
+        for lang in ("kmr", "pt_BR", "fr", "my", "ckb", "kok"):
+            with self.subTest(lang=lang):
+                self.assertEqual(lang, mirror.machine_translation_target(lang))
 
-    def test_an_unknown_provider_sends_nothing_anywhere(self):
-        with mock.patch.object(mirror, "TRANSLATE_PROVIDER", "somewhere-else"):
-            self.assertIsNone(mirror.machine_translation_target("fr"))
+    def test_english_is_never_a_translation_target(self):
+        for lang in ("en", "en_GB", "", None):
+            with self.subTest(lang=lang):
+                self.assertIsNone(mirror.machine_translation_target(lang))
+
+    def test_a_short_or_reordered_reply_is_discarded_whole(self):
+        # One answer per input, or nothing: a partial reply would attach one
+        # add-on's text to another add-on's name.
+        body = {"choices": [{"message": {"content": json.dumps({"0": "un"})}}]}
+
+        class FakeResponse:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
+            def read(self_inner):
+                return json.dumps(body).encode()
+
+        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=FakeResponse()):
+            self.assertIsNone(
+                mirror.machine_translate_batch(["one", "two"], "fr")
+            )
+
+    def test_an_aligned_reply_is_returned_positionally(self):
+        body = {"choices": [{"message": {"content":
+                json.dumps({"0": "un", "1": "deux"})}}]}
+
+        class FakeResponse:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
+            def read(self_inner):
+                return json.dumps(body).encode()
+
+        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=FakeResponse()):
+            self.assertEqual(
+                ["un", "deux"],
+                mirror.machine_translate_batch(["one", "two"], "fr"),
+            )
 
 
 class TranslationGapTests(unittest.TestCase):

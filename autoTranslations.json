@@ -1,0 +1,1456 @@
+{
+ "translations": {
+  "10dita": {
+   "summary": "10Dita"
+  },
+  "2FAGenerator": {
+   "summary": "2FAGenerator"
+  },
+  "AIAssistant": {
+   "summary": "AIAssistant"
+  },
+  "AIChatbot": {
+   "summary": "AIChatbot"
+  },
+  "AISummarizer": {
+   "summary": "AISummarizer"
+  },
+  "AVCRuTube": {
+   "summary": "AVCRuTube"
+  },
+  "AbsoluteFileAndFolder": {
+   "summary": "AbsoluteFileAndFolder"
+  },
+  "AbsoluteSite": {
+   "summary": "AbsoluteSite"
+  },
+  "AccessVPad": {
+   "summary": "AccessVPad"
+  },
+  "AccessifyPlay": {
+   "summary": "AccessifyPlay"
+  },
+  "AcortadorURL": {
+   "summary": "URL Shortener, AKA AcortadorURL"
+  },
+  "Add-on Packager by Technology and News": {
+   "summary": "AddonPackagerByTechnologyAndNews"
+  },
+  "AirExplorer": {
+   "summary": "AirExplorer"
+  },
+  "AirLiveDrive": {
+   "summary": "AirLiveDrive"
+  },
+  "Almaany": {
+   "summary": "Almaany"
+  },
+  "AppendText": {
+   "summary": "AppendText"
+  },
+  "AppleDeviceInfo": {
+   "summary": "AppleDeviceInfo"
+  },
+  "AudioThemes3D": {
+   "summary": "AudioThemes3D"
+  },
+  "AutoBeepClipBoard": {
+   "summary": "AutoBeepClipboard"
+  },
+  "AutoMaximize": {
+   "summary": "AutoMaximize"
+  },
+  "AutoWindowMaximizer": {
+   "summary": "AutoWindowMaximizer"
+  },
+  "Autoclip": {
+   "summary": "AutoClip"
+  },
+  "BGT_Lullaby": {
+   "summary": "BGTLullaby"
+  },
+  "BTSync": {
+   "summary": "BTSync"
+  },
+  "BasicYoutubeDownloader": {
+   "summary": "BasicYouTubeDownloader"
+  },
+  "Becky": {
+   "summary": "Becky"
+  },
+  "BeepOnQuotes": {
+   "summary": "BeepOnQuotes"
+  },
+  "BibleAddon": {
+   "summary": "BibleAddon"
+  },
+  "BitChe": {
+   "summary": "BitCheappModule"
+  },
+  "BlueToothBatteryReport": {
+   "summary": "BlueToothBatteryReport"
+  },
+  "BluetoothAudioActive": {
+   "summary": "BluetoothAudioActive"
+  },
+  "Bookmark&Search": {
+   "summary": "BookmarkSearch"
+  },
+  "BraiLab PC Beszédszintetizátor": {
+   "summary": "BraiLab PC Speech Synthesizer, AKA BraiLab PC Beszédszintetizátor"
+  },
+  "BrlIMEHelper": {
+   "summary": "BrlIMEHelper"
+  },
+  "CCBE": {
+   "summary": "CCBE"
+  },
+  "CJKEnhancedUI": {
+   "summary": "CJKEnhancedUI"
+  },
+  "CMDReader": {
+   "summary": "CMDReader"
+  },
+  "Captain": {
+   "summary": "Captain"
+  },
+  "CaptchaSolver": {
+   "summary": "CaptchaSolver"
+  },
+  "CaptvtyAddon": {
+   "summary": "CaptvtyAddon"
+  },
+  "CdBurnerXP": {
+   "summary": "CdBurnerXP"
+  },
+  "CerenceTTSVoiceManager": {
+   "summary": "CerenceTTSVoiceManager"
+  },
+  "ChangeSounds": {
+   "summary": "ChangeSounds"
+  },
+  "ChizhikPizhik": {
+   "summary": "ChizhikPizhik"
+  },
+  "CiscoJabber": {
+   "summary": "CiscoJabber"
+  },
+  "ClauVDA": {
+   "summary": "ClauVDA"
+  },
+  "ClipHistory": {
+   "summary": "ClipHistory"
+  },
+  "ClipboardAssist": {
+   "summary": "ClipboardAssist"
+  },
+  "ClipboardContentEditor": {
+   "summary": "ClipboardContentEditor"
+  },
+  "CloseAll": {
+   "summary": "CloseAll"
+  },
+  "Comodo Dragon": {
+   "summary": "ComodoDragon"
+  },
+  "ContextGestures": {
+   "summary": "ContextGestures"
+  },
+  "Cuckoo": {
+   "summary": "Cuckoo"
+  },
+  "DLEChecker": {
+   "summary": "DLEChecker"
+  },
+  "DdummyKeyboard": {
+   "summary": "DummyKeyboard"
+  },
+  "DesktopFocus": {
+   "summary": "DesktopFocus"
+  },
+  "DictionaryDisplayLite": {
+   "summary": "DictionaryDisplayLite"
+  },
+  "DoctorNVDA": {
+   "summary": "DoctorNVDA"
+  },
+  "ELTEN": {
+   "summary": "Elten"
+  },
+  "EOFbeep": {
+   "summary": "EOFbeep"
+  },
+  "EasySoundRecorder": {
+   "summary": "EasySoundRecorder"
+  },
+  "EloquenceAutoLanguageSwitching": {
+   "summary": "Eloquence"
+  },
+  "EmojiFromIOS": {
+   "summary": "EmojiFromIOS"
+  },
+  "EmptyFolder": {
+   "summary": "EmptyFolder"
+  },
+  "EnhancingWindowInspector": {
+   "summary": "EnhancingWindowInspector"
+  },
+  "ExcelPlus": {
+   "summary": "ExcelPlus"
+  },
+  "Fifteen": {
+   "summary": "Fifteen"
+  },
+  "FirefoxSupport": {
+   "summary": "FirefoxSupport"
+  },
+  "FonixTalk": {
+   "summary": "FonixTalk"
+  },
+  "Format Bilgisi": {
+   "summary": "Format Information, AKA FormatBilgisi"
+  },
+  "GBMRadioStreaming": {
+   "summary": "GBMRadioStreaming"
+  },
+  "GBReader": {
+   "summary": "GBReader"
+  },
+  "GemVDA": {
+   "summary": "GemVDA"
+  },
+  "GestorDePomodoros": {
+   "summary": "Pomodoro Manager, AKA GestorDePomodoros"
+  },
+  "Gregor_nvda": {
+   "summary": "Gregor"
+  },
+  "GroqSpellChecker": {
+   "summary": "GroqSpellChecker"
+  },
+  "HISS": {
+   "summary": "HISS"
+  },
+  "HearthstoneCardLookup": {
+   "summary": "HearthstoneCardLookup"
+  },
+  "HerramientasReaper": {
+   "summary": "Reaper Tools, AKA HerramientasReaper"
+  },
+  "HookManager": {
+   "summary": "HookManager"
+  },
+  "HotkeysPlus": {
+   "summary": "HotkeysPlus"
+  },
+  "IBMTTS": {
+   "summary": "IBMTTS"
+  },
+  "IBMTTS With Serbian Cyrillic Support": {
+   "summary": "IBMTTS"
+  },
+  "IndentNav": {
+   "summary": "IndentNav"
+  },
+  "IntelliJImproved": {
+   "summary": "IntelliJImproved"
+  },
+  "InternetUsageMonitor": {
+   "summary": "InternetUsageMonitor"
+  },
+  "IslamicPedia": {
+   "summary": "IslamicPedia"
+  },
+  "JGT": {
+   "summary": "JGT"
+  },
+  "JadwalKu": {
+   "summary": "My Schedule, AKA Jadwal Ku"
+  },
+  "Keymirror": {
+   "summary": "KeyMirror"
+  },
+  "KoreanHelper": {
+   "summary": "KoreanHelper"
+  },
+  "KoreanSpellChecker": {
+   "summary": "KoreanSpellChecker"
+  },
+  "LHM_Monitor_Addon": {
+   "summary": "LHMMonitorAddon"
+  },
+  "LangReporter": {
+   "summary": "LangReporter"
+  },
+  "LinksHub": {
+   "summary": "LinksHub"
+  },
+  "ListeIconesZoneNotification": {
+   "summary": "Notification Area Icons List, AKA Liste Icones Zone Notification"
+  },
+  "LocalAI": {
+   "summary": "LocalAI"
+  },
+  "MW-word-lexicon": {
+   "summary": "MWWordLexicon"
+  },
+  "Milena_MBROLA": {
+   "summary": "Milena"
+  },
+  "MultiLang": {
+   "summary": "MultiLang"
+  },
+  "My-IP": {
+   "summary": "MyIP"
+  },
+  "NVBox": {
+   "summary": "NVBox"
+  },
+  "NVDA Theems Manager": {
+   "summary": "NVDATheemsManager"
+  },
+  "NVDABatteryReport": {
+   "summary": "NVDABatteryReport"
+  },
+  "NVDAScripts": {
+   "summary": "NVDAScripts"
+  },
+  "NVDASpeedTest": {
+   "summary": "NVDASpeedTest"
+  },
+  "NVDATranslate": {
+   "summary": "Translate"
+  },
+  "NVIDIAMonitor": {
+   "summary": "NVIDIAMonitor"
+  },
+  "NeuralVoiceManager": {
+   "summary": "NeuralVoiceManager"
+  },
+  "Nick-Eloquence64RS": {
+   "summary": "Eloquence64RS Synthesizer"
+  },
+  "Note diary for NVDA": {
+   "summary": "NoteDiaryForNVDA"
+  },
+  "OBS-Studio": {
+   "summary": "OBSStudio"
+  },
+  "OnlineLibrary": {
+   "summary": "OnlineLibrary"
+  },
+  "OpenContextMenu": {
+   "summary": "OpenContextMenu"
+  },
+  "Open_Bible": {
+   "summary": "OpenBible"
+  },
+  "PUREtts": {
+   "summary": "PureTTS"
+  },
+  "PerfectCurrencyConverter": {
+   "summary": "PerfectCurrencyConverter"
+  },
+  "Pomodoro": {
+   "summary": "Pomodoro"
+  },
+  "PowerRequest": {
+   "summary": "PowerRequest"
+  },
+  "ProfileDict": {
+   "summary": "ProfileDict"
+  },
+  "ProfileGestures": {
+   "summary": "ProfileGestures"
+  },
+  "Prueba_de_velocidad_de_internet": {
+   "summary": "Internet speed test, AKA PruebaDeVelocidadDeInternet"
+  },
+  "QuickNav": {
+   "summary": "QuickNav"
+  },
+  "RAT_OCR": {
+   "summary": "RATOCR"
+  },
+  "RHVoice": {
+   "summary": "RHVoice"
+  },
+  "RHVoiceVoiceManager": {
+   "summary": "RHVoiceVoiceManager"
+  },
+  "RayoAI_connector_for_NVDA": {
+   "summary": "RayoAIConnector"
+  },
+  "ReminderApp": {
+   "summary": "ReminderApp"
+  },
+  "Rutas_fav": {
+   "summary": "Favorite Paths, AKA RutasFav"
+  },
+  "SMB": {
+   "summary": "SMB"
+  },
+  "ScreenReaderSounds": {
+   "summary": "ScreenReaderSounds"
+  },
+  "SentenceNav": {
+   "summary": "SentenceNav"
+  },
+  "SessionTimer": {
+   "summary": "SessionTimer"
+  },
+  "Sight-Free-Talon": {
+   "summary": "SightFreeTalon"
+  },
+  "SileroTTS": {
+   "summary": "SileroTTS"
+  },
+  "SiteMarker": {
+   "summary": "SiteMarker"
+  },
+  "SpeechPauseResume": {
+   "summary": "SpeechPauseResume"
+  },
+  "SpellGuard": {
+   "summary": "SpellGuard"
+  },
+  "StayAwake": {
+   "summary": "StayAwake"
+  },
+  "Store": {
+   "summary": "Store"
+  },
+  "Synth Dictionary Editor": {
+   "summary": "SynthDictionaryEditor"
+  },
+  "TCA-Portapapeles": {
+   "summary": "TCA-Clipboard, AKA TCAPortapapeles"
+  },
+  "TCA_SystemUtilities": {
+   "summary": "TCASystemUtilities"
+  },
+  "TabReporter": {
+   "summary": "TabReporter"
+  },
+  "TalkBackSoundEffectForNVDA": {
+   "summary": "TalkBackSoundEffectForNVDA"
+  },
+  "TeamSpeak": {
+   "summary": "TeamSpeak"
+  },
+  "TeleNVDA": {
+   "summary": "TeleNVDA"
+  },
+  "TelegramJusti": {
+   "summary": "TelegramJusti"
+  },
+  "Text Encryptor and Decryptor": {
+   "summary": "TextEncryptorAndDecryptor"
+  },
+  "TextMarksTheSpot": {
+   "summary": "TextMarksTheSpot"
+  },
+  "Texto para telegram": {
+   "summary": "Text for Telegram, AKA TextoParaTelegram"
+  },
+  "TiendaNVDA": {
+   "summary": "NVDA Add-on Store, AKA TiendaNVDA"
+  },
+  "TimeWithSeconds": {
+   "summary": "TimeWithSeconds"
+  },
+  "TreeNav": {
+   "summary": "TreeNav"
+  },
+  "Typing SFX": {
+   "summary": "TypingSFX"
+  },
+  "UIANotificationSwitch": {
+   "summary": "UIANotificationSwitch"
+  },
+  "URLPlayer": {
+   "summary": "URLPlayer"
+  },
+  "UnigramCacheCleaner": {
+   "summary": "UnigramCacheCleaner"
+  },
+  "UnigramHelper": {
+   "summary": "UnigramHelper"
+  },
+  "Unspoken-ng": {
+   "summary": "UnspokenNG"
+  },
+  "VKSmiliesReader": {
+   "summary": "VKSmiliesReader"
+  },
+  "VSU": {
+   "summary": "Voicevox"
+  },
+  "Virtual_explorer": {
+   "summary": "VirtualExplorer"
+  },
+  "VoiceOverSounds": {
+   "summary": "VoiceOverSounds"
+  },
+  "Vol_CTRL": {
+   "summary": "VolCTRL"
+  },
+  "VolumeNotifications": {
+   "summary": "VolumeNotifications"
+  },
+  "VoskTTS": {
+   "summary": "VoskTTS"
+  },
+  "Vscode-line-numbers": {
+   "summary": "VsCodeLineNumbers"
+  },
+  "Whatsapp_simple": {
+   "summary": "WhatsappSimple"
+  },
+  "Winboard": {
+   "summary": "Winboard"
+  },
+  "WindowsMail": {
+   "summary": "WindowsMail"
+  },
+  "WlanReporter": {
+   "summary": "WlanReporter"
+  },
+  "WorldVoice": {
+   "summary": "WorldVoice"
+  },
+  "YYPatch": {
+   "summary": "YYPatch"
+  },
+  "YandexSpeller": {
+   "summary": "YandexSpeller"
+  },
+  "YandexTranslate": {
+   "summary": "YandexTranslate"
+  },
+  "YoutubeAccessPro": {
+   "summary": "YouTubeAccessPro"
+  },
+  "YoutubeChannelManager": {
+   "summary": "YoutubeChannelManager"
+  },
+  "YoutubeChatClientForNVDA": {
+   "summary": "YoutubeChatClientForNVDA"
+  },
+  "ZExplorer": {
+   "summary": "ZExplorer"
+  },
+  "accentManager": {
+   "summary": "Accent Manager, AKA AccentManager"
+  },
+  "accessibleKBBI": {
+   "summary": "AccessibleKBBI"
+  },
+  "addonPackager": {
+   "summary": "AddonPackager"
+  },
+  "addonPacker": {
+   "summary": "Add-on Packer, AKA AddonPacker"
+  },
+  "addonStoreLite": {
+   "summary": "addonStoreLite"
+  },
+  "addonsTools": {
+   "summary": "AddonsTools"
+  },
+  "agendaM": {
+   "summary": "Agenda"
+  },
+  "aiTranslator": {
+   "summary": "AI Translator, AKA AITranslator"
+  },
+  "aidaMenu": {
+   "summary": "AidaMenu"
+  },
+  "akNVDA": {
+   "summary": "AkNVDA"
+  },
+  "androidStudio": {
+   "summary": "AndroidStudio"
+  },
+  "appOn": {
+   "summary": "appOn"
+  },
+  "attribra": {
+   "summary": "Braille Attribute, AKA AttriBra"
+  },
+  "audacity": {
+   "summary": "AudaCity"
+  },
+  "audioLogger": {
+   "summary": "AudioLogger"
+  },
+  "audioManager": {
+   "summary": "Audio Manager, AKA AudioManager"
+  },
+  "audioTranscriber": {
+   "summary": "AudioTranscriber"
+  },
+  "audioVolumeControl": {
+   "summary": "AudioVolumeControl"
+  },
+  "audio_themes_NG": {
+   "summary": "AudioThemesNG"
+  },
+  "audiocinemateca": {
+   "summary": "Audiocinemateca"
+  },
+  "autoOCR": {
+   "summary": "AutoOCR"
+  },
+  "baiduTranslation": {
+   "summary": "BaiduTranslation"
+  },
+  "beefText": {
+   "summary": "BeefText"
+  },
+  "betimleyici": {
+   "summary": "Descriptor, AKA Betimleyici"
+  },
+  "bitChe": {
+   "summary": "BitChe"
+  },
+  "blackHawk": {
+   "summary": "BlackHawk"
+  },
+  "bluetoothaudio": {
+   "summary": "BluetoothAudio"
+  },
+  "bme2NVDASupport": {
+   "summary": "Bme2NvdaSupport"
+  },
+  "boo": {
+   "summary": "Boo"
+  },
+  "bookLibrary": {
+   "summary": "BookLibrary"
+  },
+  "brailleChart": {
+   "summary": "BrailleChart"
+  },
+  "brailleNotDriver": {
+   "summary": "BrailleNoteDriver"
+  },
+  "brlReader": {
+   "summary": "BrlReader"
+  },
+  "brlkey": {
+   "summary": "BrlKey"
+  },
+  "browserHistoryRemover": {
+   "summary": "BrowserHistoryRemover"
+  },
+  "browsernav": {
+   "summary": "BrowserNav"
+  },
+  "btceApi": {
+   "summary": "BtceApi"
+  },
+  "calsci": {
+   "summary": "Calsci"
+  },
+  "cashflow": {
+   "summary": "CashFlow"
+  },
+  "cecitek": {
+   "summary": "Cecitek"
+  },
+  "charInfo": {
+   "summary": "CharInfo"
+  },
+  "chessmart": {
+   "summary": "ChessMart"
+  },
+  "climaspeak": {
+   "summary": "ClimaSpeak"
+  },
+  "clipManager": {
+   "summary": "ClipManager"
+  },
+  "clipSaver": {
+   "summary": "ClipSaver"
+  },
+  "clipboardEnhancement": {
+   "summary": "ClipboardEnhancement"
+  },
+  "cliptools": {
+   "summary": "ClipTools"
+  },
+  "codefactory-py3": {
+   "summary": "CodeFactory"
+  },
+  "compartir_archivos": {
+   "summary": "Share Files, AKA CompartirArchivos"
+  },
+  "consoleLog": {
+   "summary": "ConsoleLog"
+  },
+  "consoleToolkit": {
+   "summary": "ConsoleToolkit"
+  },
+  "contactBook": {
+   "summary": "ContactBook"
+  },
+  "contador": {
+   "summary": "Counter, AKA Contador"
+  },
+  "copyLastSpeech": {
+   "summary": "CopyLastSpeech"
+  },
+  "cpuMon": {
+   "summary": "CpuMon"
+  },
+  "cricricri": {
+   "summary": "CriCriCri"
+  },
+  "crypto_info": {
+   "summary": "CryptoInfo"
+  },
+  "customActions": {
+   "summary": "CustomActions"
+  },
+  "customTextFinder": {
+   "summary": "CustomTextFinder"
+  },
+  "debugHelper": {
+   "summary": "DebugHelper"
+  },
+  "decimal2fraction": {
+   "summary": "Decimal2fraction"
+  },
+  "dectalk": {
+   "summary": "DECtalk"
+  },
+  "devHelper": {
+   "summary": "DevHelper"
+  },
+  "dictionariesAlmaany": {
+   "summary": "DictionariesAlmaany"
+  },
+  "discordMessageHotkeys": {
+   "summary": "DiscordMessageHotkeys"
+  },
+  "displayAddonsChangelog": {
+   "summary": "DisplayAddonsChangelog"
+  },
+  "documentFormattingHelper": {
+   "summary": "DocumentFormattingHelper"
+  },
+  "dosya_arsivim": {
+   "summary": "My File Archive, AKA Dosya Arşivim"
+  },
+  "dual_voice": {
+   "summary": "DualVoice"
+  },
+  "dutchBiblicalStudies": {
+   "summary": "DutchBiblicalStudies"
+  },
+  "ePubLibre": {
+   "summary": "EPubLibre"
+  },
+  "easyTableNavigator": {
+   "summary": "EasyTableNavigator"
+  },
+  "edgeTtsForNvda": {
+   "summary": "Edge TTS For NVDA"
+  },
+  "elevenlabsForNVDA": {
+   "summary": "ElevenLabsForNVDA"
+  },
+  "emojiMenu": {
+   "summary": "EmojiMenu"
+  },
+  "emoticonosAvanzados": {
+   "summary": "Advanced Emoticons, AKA EmoticonosAvanzados"
+  },
+  "emulateNumpadMode": {
+   "summary": "EmulateNumpadMode"
+  },
+  "engelsiz_mail": {
+   "summary": "Accessible Mail, AKA Engelsiz Mail"
+  },
+  "engelsiz_nota": {
+   "summary": "Available Note, AKA Engelsiz Nota"
+  },
+  "enhanced_weasel_jidian": {
+   "summary": "EnhancedWeaselJidian"
+  },
+  "enterKeySpeak": {
+   "summary": "EnterKeySpeak"
+  },
+  "escritoriosVirtuales": {
+   "summary": "Virtual desktops, AKA EscritoriosVirtuales"
+  },
+  "everything": {
+   "summary": "Everything"
+  },
+  "extendedPotPlayer": {
+   "summary": "ExtendedPotPlayer"
+  },
+  "extendedWinampPlus": {
+   "summary": "ExtendedWinampPlus"
+  },
+  "favoriteFolders": {
+   "summary": "FavoriteFolders"
+  },
+  "favoritos": {
+   "summary": "Favorites, AKA Favoritos"
+  },
+  "ffTools": {
+   "summary": "FfTools"
+  },
+  "fiche": {
+   "summary": "Fiche"
+  },
+  "filezilla": {
+   "summary": "FileZilla"
+  },
+  "formatfactory": {
+   "summary": "FormatFactory"
+  },
+  "freeradio": {
+   "summary": "FreeRadio"
+  },
+  "game": {
+   "summary": "Game"
+  },
+  "geminiLive": {
+   "summary": "GeminiLive"
+  },
+  "gestorDeEnlaces": {
+   "summary": "Link Manager, AKA GestorDeEnlaces"
+  },
+  "getem": {
+   "summary": "GetEm"
+  },
+  "gitlabManager": {
+   "summary": "GitlabManager"
+  },
+  "globalSonicPitch": {
+   "summary": "GlobalSonicPitch"
+  },
+  "goldwave": {
+   "summary": "GoldWave"
+  },
+  "googleContactsManager": {
+   "summary": "GoogleContactsManager"
+  },
+  "googleDocs": {
+   "summary": "GoogleDocs"
+  },
+  "googleQuickSearch": {
+   "summary": "GoogleQuickSearch"
+  },
+  "googleTranslateEnhanced": {
+   "summary": "GoogleTranslateEnhanced"
+  },
+  "googleTtsForNvda": {
+   "summary": "GoogleTTSForNVDA"
+  },
+  "hangulBlockSplitter": {
+   "summary": "HangulBlockSplitter"
+  },
+  "hozosch-Eloquence64": {
+   "summary": "Eloquence 64"
+  },
+  "htmlElementInspector": {
+   "summary": "HTMLElementInspector"
+  },
+  "idate": {
+   "summary": "IDate"
+  },
+  "imazing": {
+   "summary": "IMazing"
+  },
+  "ime_expressive": {
+   "summary": "ImeExpressive"
+  },
+  "indianNumberSystem": {
+   "summary": "IndianNumberSystem"
+  },
+  "indirTube": {
+   "summary": "YouTube Downloader, AKA IndirTUBE"
+  },
+  "invisinote": {
+   "summary": "Invisinote"
+  },
+  "ipInfo": {
+   "summary": "IpInfo"
+  },
+  "ipan": {
+   "summary": "IpAn"
+  },
+  "islamicRadio": {
+   "summary": "IslamRadio"
+  },
+  "jalaliDateAnnouncer": {
+   "summary": "JalaliDateAnnouncer"
+  },
+  "keepAwake": {
+   "summary": "KeepAwake"
+  },
+  "keyboardTrainer": {
+   "summary": "KeyboardTrainer"
+  },
+  "kgsbraille": {
+   "summary": "KGSBraille"
+  },
+  "killNVDA": {
+   "summary": "KillNVDA"
+  },
+  "killProcess": {
+   "summary": "KillProcess"
+  },
+  "klawiszeschowka": {
+   "summary": "Clipboard Keys, AKA KlawiszeSchowka"
+  },
+  "klicktel": {
+   "summary": "Klicktel"
+  },
+  "ktts": {
+   "summary": "KTTS"
+  },
+  "kurum_rehberi": {
+   "summary": "Organization Directory, AKA Kurum Rehberi"
+  },
+  "landropPlus": {
+   "summary": "LandropPlus"
+  },
+  "lazarus": {
+   "summary": "Lazarus"
+  },
+  "leanCalendar": {
+   "summary": "leanCalendar"
+  },
+  "logViewer": {
+   "summary": "LogViewer"
+  },
+  "luna": {
+   "summary": "Luna"
+  },
+  "lunar": {
+   "summary": "Lunar"
+  },
+  "maagimAraby": {
+   "summary": "Arabic Dictionaries, AKA MaagimAraby"
+  },
+  "markdown to html converter": {
+   "summary": "MarkdownToHtmlConverter"
+  },
+  "markdown-to-html": {
+   "summary": "MarkdownToHtml"
+  },
+  "markdownForever": {
+   "summary": "MarkdownForever"
+  },
+  "markdownNavigator": {
+   "summary": "MarkdownNavigator"
+  },
+  "maxReaderSleep": {
+   "summary": "MaxReaderSleep"
+  },
+  "mb408sl-driver": {
+   "summary": "MB408SLDriver"
+  },
+  "meteoFrance": {
+   "summary": "Météo-France"
+  },
+  "ml-shortener": {
+   "summary": "MlShortener"
+  },
+  "morse_synthesizer": {
+   "summary": "MorseSynthesizer"
+  },
+  "mouse": {
+   "summary": "Mouse"
+  },
+  "mp3DirectCut": {
+   "summary": "Mp3DirectCut"
+  },
+  "muslimku": {
+   "summary": "Muslimku"
+  },
+  "myCalculator": {
+   "summary": "MyCalculator"
+  },
+  "nao": {
+   "summary": "NAO"
+  },
+  "navigateTheNumpadWay": {
+   "summary": "NavigateTheNumpadWay"
+  },
+  "net_speed_counter": {
+   "summary": "NetSpeedCounter"
+  },
+  "newfon": {
+   "summary": "NewFon"
+  },
+  "nibynumpad": {
+   "summary": "NibyNumpad"
+  },
+  "nordvpn": {
+   "summary": "NordVpn"
+  },
+  "num2words": {
+   "summary": "Num2words"
+  },
+  "numLockManager": {
+   "summary": "NumLockManager"
+  },
+  "numlockDisabler": {
+   "summary": "NumlockDisabler"
+  },
+  "nvLogs": {
+   "summary": "NvLogs"
+  },
+  "nvTube": {
+   "summary": "NvTube"
+  },
+  "nvda-json": {
+   "summary": "NVDAJson"
+  },
+  "nvdaChatGPT": {
+   "summary": "NvdaChatGPT"
+  },
+  "nvdaClipBoard": {
+   "summary": "NVDAClipBoard"
+  },
+  "nvdaComposer": {
+   "summary": "NVDAComposer"
+  },
+  "nvdaHelper": {
+   "summary": "NvdaHelper"
+  },
+  "nvdaKeyMode": {
+   "summary": "NVDAKeyMode"
+  },
+  "nvdaRd": {
+   "summary": "NVDARd"
+  },
+  "nvda_reminder": {
+   "summary": "NVDAReminder"
+  },
+  "objEnhancer": {
+   "summary": "ObjEnhancer"
+  },
+  "objInspector": {
+   "summary": "ObjInspector"
+  },
+  "objPadMod": {
+   "summary": "ObjPadMod"
+  },
+  "objWatcher": {
+   "summary": "ObjWatcher"
+  },
+  "objsounds": {
+   "summary": "ObjSounds"
+  },
+  "ocr": {
+   "summary": "OCR"
+  },
+  "odtwarzaczeksplorer": {
+   "summary": "Explorer Player, AKA OdtwarzaczEksplorer"
+  },
+  "ollamaTranslator": {
+   "summary": "OllamaTranslator"
+  },
+  "openLinkWith": {
+   "summary": "OpenLinkWith"
+  },
+  "orpheus": {
+   "summary": "Orpheus"
+  },
+  "orpheusLight": {
+   "summary": "OrpheusLight"
+  },
+  "pad2": {
+   "summary": "pad2"
+  },
+  "pcloud": {
+   "summary": "PCloud"
+  },
+  "pdfReader": {
+   "summary": "PdfReader"
+  },
+  "pdfReaderForNvda": {
+   "summary": "PDFReaderForNVDA"
+  },
+  "perky": {
+   "summary": "Perky"
+  },
+  "phoneticPunctuation": {
+   "summary": "EarconsAndSpeechRules"
+  },
+  "pinfo": {
+   "summary": "PInfo"
+  },
+  "pleasant_progress_bar": {
+   "summary": "PleasantProgressBar"
+  },
+  "poeditMadeEasy": {
+   "summary": "PoeditMadeEasy"
+  },
+  "polyglot": {
+   "summary": "Polyglot"
+  },
+  "potplayer": {
+   "summary": "PotPlayer"
+  },
+  "powerTools": {
+   "summary": "PowerTools"
+  },
+  "pravka": {
+   "summary": "Pravka TTS"
+  },
+  "prayerTime": {
+   "summary": "PrayerTime"
+  },
+  "programResourceReporter": {
+   "summary": "ProgramResourceReporter"
+  },
+  "promemoria": {
+   "summary": "Reminder, AKA ProMemoria"
+  },
+  "proxy": {
+   "summary": "Proxy"
+  },
+  "pumper42nickel-EloquenceThreshold": {
+   "summary": "Legacy Eloquence"
+  },
+  "qqPatch": {
+   "summary": "QQPatch"
+  },
+  "qqmusicUWPEnhancement": {
+   "summary": "QqMusicUWPEnhancement"
+  },
+  "qrvocabulary": {
+   "summary": "QRVocabulary"
+  },
+  "quickNotetaker": {
+   "summary": "QuickNotetaker"
+  },
+  "radioCenter": {
+   "summary": "radioCenter"
+  },
+  "read_insta_message": {
+   "summary": "ReadInstaMessage"
+  },
+  "recordatorios": {
+   "summary": "Reminders, AKA Recordatorios"
+  },
+  "remoteAudioAccess": {
+   "summary": "RemoteAudioAccess"
+  },
+  "reportPasswords": {
+   "summary": "ReportPasswords"
+  },
+  "reviewCursorFind": {
+   "summary": "ReviewCursorFind"
+  },
+  "roleAnnounce": {
+   "summary": "RoleAnnounce"
+  },
+  "ru_tts": {
+   "summary": "RuTTS"
+  },
+  "sarvamAI": {
+   "summary": "SarvamAI"
+  },
+  "say clipBoard": {
+   "summary": "SayClipBoard"
+  },
+  "shamela": {
+   "summary": "Shamela"
+  },
+  "showContextMenu": {
+   "summary": "showContextMenu"
+  },
+  "showWinKey": {
+   "summary": "ShowWinKey"
+  },
+  "siamSquare": {
+   "summary": "SiamSquare"
+  },
+  "skype": {
+   "summary": "Skype"
+  },
+  "smartCaptchaSolver": {
+   "summary": "SmartCaptchaSolver"
+  },
+  "soat_addoni": {
+   "summary": "Clock Add-on, AKA Soat Addoni"
+  },
+  "softvoice": {
+   "summary": "SoftVoice"
+  },
+  "sonataSherpaVoices": {
+   "summary": "SonataSherpaVoices"
+  },
+  "speechHistoryExplorer": {
+   "summary": "SpeechHistoryExplorer"
+  },
+  "speechPacer": {
+   "summary": "SpeechPacer"
+  },
+  "spellBox": {
+   "summary": "SpellBox"
+  },
+  "streamfab": {
+   "summary": "Streamfab"
+  },
+  "suno": {
+   "summary": "Suno"
+  },
+  "superplusContacts": {
+   "summary": "SuperPlusContacts"
+  },
+  "supertonic3": {
+   "summary": "Supertonic-3"
+  },
+  "svox-pico": {
+   "summary": "SvoxPico"
+  },
+  "switchSynth": {
+   "summary": "SwitchSynth"
+  },
+  "symbols": {
+   "summary": "Symbols"
+  },
+  "tTalk": {
+   "summary": "TTalk"
+  },
+  "tabelaBrasileirao": {
+   "summary": "Brasileirão Table, AKA Tabela Brasileirão"
+  },
+  "talkingMetaTrader": {
+   "summary": "TMT"
+  },
+  "teamviewerQS": {
+   "summary": "TeamviewerQS"
+  },
+  "tencent": {
+   "summary": "Tencent"
+  },
+  "textRestore": {
+   "summary": "TextRestore"
+  },
+  "textTranslator": {
+   "summary": "TextTranslator"
+  },
+  "textnav": {
+   "summary": "TextNav"
+  },
+  "thebat": {
+   "summary": "TheBat"
+  },
+  "thunderbirdPlusG5": {
+   "summary": "Thunderbird+ G5.1"
+  },
+  "tiflotecniaVoices": {
+   "summary": "TiflotecniaVoices"
+  },
+  "tiktokDownloader": {
+   "summary": "TikTokDownloader"
+  },
+  "trackbar_routing": {
+   "summary": "TrackbarRouting"
+  },
+  "ttAnnouncer": {
+   "summary": "TtAnnouncer"
+  },
+  "tts_converter": {
+   "summary": "TTSConverter"
+  },
+  "tussimulatoru": {
+   "summary": "Key Simulator, AKA Tussimulatoru"
+  },
+  "txtReader": {
+   "summary": "TxtReader"
+  },
+  "typingSpellingRate": {
+   "summary": "TypingSpellingRate"
+  },
+  "uTalk": {
+   "summary": "UTalk"
+  },
+  "uTubeDownload": {
+   "summary": "UTubeDownload"
+  },
+  "uTubeMiniDL": {
+   "summary": "UTubeMiniDL"
+  },
+  "unicodeBrailleReader": {
+   "summary": "UnicodeBrailleReader"
+  },
+  "unicornNVDA": {
+   "summary": "UnicornNVDA"
+  },
+  "unigram": {
+   "summary": "Unigram"
+  },
+  "unigramPlus": {
+   "summary": "UnigramPlus"
+  },
+  "unmute": {
+   "summary": "Unmute"
+  },
+  "unspokenPy3": {
+   "summary": "Unspoken"
+  },
+  "updateChannel": {
+   "summary": "UpdateChannel"
+  },
+  "verbs": {
+   "summary": "Verbs"
+  },
+  "videoMaker": {
+   "summary": "VideoMaker"
+  },
+  "virtualNotesForNVDA": {
+   "summary": "VirtualNotesForNVDA"
+  },
+  "virtualbox": {
+   "summary": "VirtualBox"
+  },
+  "viyfMirror": {
+   "summary": "ViyfMirror"
+  },
+  "vnDict": {
+   "summary": "VnDict"
+  },
+  "vocalizer_automotive_driver_free": {
+   "summary": "VocalizerAutomotiveDriverFree"
+  },
+  "voiceOver": {
+   "summary": "VoiceOver"
+  },
+  "voicepulse": {
+   "summary": "VoicePulse"
+  },
+  "vozNativaDoDosvox": {
+   "summary": "DOSVOX Native Voice, AKA Voz Nativa do DOSVOX"
+  },
+  "voz_do_tempo": {
+   "summary": "Time Voice, AKA VozDoTempo"
+  },
+  "webcamHelper": {
+   "summary": "WebcamHelper"
+  },
+  "whatsAppPlus": {
+   "summary": "WhatsAppPlus"
+  },
+  "whatsapp": {
+   "summary": "Whatsapp"
+  },
+  "whatsapp-normalizer": {
+   "summary": "WhatsAppNormalizer"
+  },
+  "whatsappImageDescriber": {
+   "summary": "WhatsappImageDescriber"
+  },
+  "whisperVoiceInput": {
+   "summary": "WhisperVoiceInput"
+  },
+  "wholeWordEcho": {
+   "summary": "WholeWordEcho"
+  },
+  "wifiInfo": {
+   "summary": "WiFiInfo"
+  },
+  "wifiSwitcher": {
+   "summary": "WiFiSwitcher"
+  },
+  "wikiFusion": {
+   "summary": "WikiFusion"
+  },
+  "winExplore": {
+   "summary": "WinExplore"
+  },
+  "winMag": {
+   "summary": "WinMag"
+  },
+  "winWizard": {
+   "summary": "WinWizard"
+  },
+  "windowState": {
+   "summary": "WindowState"
+  },
+  "windowsOfProcess": {
+   "summary": "WindowsOfProcess"
+  },
+  "wlmail": {
+   "summary": "WlMail"
+  },
+  "wordLangSwitch": {
+   "summary": "WordLangSwitch"
+  },
+  "wordNav": {
+   "summary": "WordNav"
+  },
+  "wordPredictor": {
+   "summary": "WordPredictor"
+  },
+  "wordpressManager": {
+   "summary": "WordPressManager"
+  },
+  "xBlock": {
+   "summary": "xBlock"
+  },
+  "xPand": {
+   "summary": "XPand"
+  },
+  "xPlorer": {
+   "summary": "XPlorer"
+  },
+  "xTrack": {
+   "summary": "XTrack"
+  },
+  "xyOCR": {
+   "summary": "XyOCR"
+  },
+  "youtubeDownloadHelper": {
+   "summary": "YoutubeDownloadHelper"
+  },
+  "youtubeDownloader": {
+   "summary": "YouTubeDownloader"
+  },
+  "youtube_indirici_pro": {
+   "summary": "Pro Downloader from Youtube, AKA YoutubeIndiriciPro"
+  },
+  "ytdlpDownloader": {
+   "summary": "YtDlpDownloader"
+  },
+  "zBackup": {
+   "summary": "ZBackup"
+  },
+  "zEmoticonos": {
+   "summary": "Z-Emoticons, AKA ZEmoticonos"
+  },
+  "zKeybase": {
+   "summary": "zKeybase"
+  },
+  "zPod": {
+   "summary": "ZPod"
+  },
+  "zPodCast": {
+   "summary": "z-Podcasts, AKA ZPodCast"
+  },
+  "zPortapapeles": {
+   "summary": "z-Clipboard, AKA ZPortapapeles"
+  },
+  "zRadio": {
+   "summary": "ZRadio"
+  },
+  "zRadioModern": {
+   "summary": "Modern zRadio, AKA zRadioModerno"
+  },
+  "zUtilidades": {
+   "summary": "zUtilities, AKA zUtilidades"
+  }
+ }
+}

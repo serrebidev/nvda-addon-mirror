@@ -622,15 +622,46 @@ def _norm_channel_bestmidi(channel):
     return "stable"
 
 
-def _norm_channel_ru(channel):
+#: alpha/beta/rc/dev/pre markers inside a version string, which is the only
+#: corroboration available for a pre-release label at fetch time.
+#: The marker may sit straight against a digit ("0.5dev", "1.0.0alpha2"), so
+#: only a letter on either side rules it out -- that is what keeps "dev" inside
+#: "development" or a name like "Ardev" from counting as a pre-release.
+_PRERELEASE_VERSION_RE = re.compile(
+    r"(?i)(?:^|[^a-z])(?:alpha|beta|rc|preview|pre|dev|snapshot|nightly)"
+    r"(?:[^a-z]|$)"
+)
+
+
+def version_marks_prerelease(version):
+    """True when a version string says for itself that it is a pre-release."""
+    return bool(_PRERELEASE_VERSION_RE.search((version or "").strip()))
+
+
+def _norm_channel_ru(channel, version=None):
+    """Normalise an nvda-addons.ru channel label, which is mostly noise.
+
+    That feed marks 691 of its 775 links "Dev", including ordinary releases
+    like Acapela TTS Voices 1.9.5 and 4shared 1.0 -- 89% of the catalog, of
+    which only 29 carry any pre-release marker in their own version string.
+    Taken at face value it hides several hundred perfectly normal add-ons from
+    the Stable view that NVDA's Add-on Store shows by default, which is where
+    almost everyone looks.
+
+    So a pre-release label is honoured only when the version string corroborates
+    it. An uncorroborated "Dev" says nothing and is treated as stable, which is
+    also what NVDA assumes for an add-on that declares no channel at all.
+    """
     c = (channel or "").strip().lower()
-    if c in ("dev", "alpha"):
-        return "dev"
-    if c in ("beta", "rcbeta"):
-        return "beta"
+    if c not in ("dev", "alpha", "beta", "rcbeta", "stable"):
+        return "stable"
     if c == "stable":
         return "stable"
-    return "stable"
+    if version is not None and not version_marks_prerelease(version):
+        return "stable"
+    if c in ("dev", "alpha"):
+        return "dev"
+    return "beta"
 
 
 def _norm_channel_es(channel):
@@ -671,34 +702,35 @@ LOCALE_CACHE_PATH = "localeCache.json"
 TRANSLATABLE_FIELDS = ("displayName", "description")
 
 #: Machine translation is the last resort, behind the add-on author's own
-#: words. It is off unless TRANSLATE_API_KEY is set, so the build works
+#: words. It is off unless OPENROUTER_API_KEY is set, so the build works
 #: unchanged with no credentials and simply leaves those entries in English.
-TRANSLATE_PROVIDER = os.environ.get("TRANSLATE_PROVIDER", "deepl").strip().lower()
-TRANSLATE_API_KEY = os.environ.get("TRANSLATE_API_KEY", "").strip()
+#: One provider and one key for both directions: this translates English into
+#: each locale, and auto_translate.py brings non-English metadata back into
+#: English.
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+TRANSLATE_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
+TRANSLATE_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3.8-flash")
 
-#: Characters of source text a single build may send to the provider. The
-#: first full pass over 74 locales is tens of millions of characters, so an
-#: uncapped build could spend a lot of money in one run before anyone noticed.
-#: Work is spread across builds instead: whatever is not translated this hour
-#: stays English and is picked up next hour, newest add-ons first.
+#: Reasoning cannot be disabled on this model, but "low" spends zero reasoning
+#: tokens and answers identically for translation -- measured 5.5x cheaper than
+#: "medium", at roughly $0.0001 per string once batched.
+TRANSLATE_REASONING_EFFORT = "low"
+
+#: Strings per request. Batching amortises the prompt across many translations,
+#: which is where nearly all of the saving comes from.
+TRANSLATE_BATCH_SIZE = 20
+
+#: Characters of source text a single build may send. The first full pass over
+#: 73 locales is tens of millions of characters, so an uncapped build could
+#: spend a lot in one run before anyone noticed. Work is spread across builds
+#: instead: whatever is not translated this hour stays English and is picked up
+#: next hour.
 TRANSLATE_CHAR_BUDGET = int(os.environ.get("TRANSLATE_CHAR_BUDGET", "200000"))
 
 #: Republished with the site and restored next build, like hashcache.json.
 #: Keyed by (sha256 of the source text, target language), so text that has not
 #: changed is never paid for twice.
 TRANSLATION_CACHE_PATH = "translationCache.json"
-
-#: DeepL wants its own spelling of a few languages, and only supports a subset.
-#: Anything not mappable is left in English rather than guessed at.
-_DEEPL_TARGETS = {
-    "bg": "BG", "cs": "CS", "da": "DA", "de": "DE", "el": "EL", "es": "ES",
-    "et": "ET", "fi": "FI", "fr": "FR", "hu": "HU", "id": "ID", "it": "IT",
-    "ja": "JA", "ko": "KO", "lt": "LT", "lv": "LV", "nb_NO": "NB", "nl": "NL",
-    "pl": "PL", "pt_BR": "PT-BR", "pt_PT": "PT-PT", "ro": "RO", "ru": "RU",
-    "sk": "SK", "sl": "SL", "sv": "SV", "tr": "TR", "uk": "UK",
-    "zh_CN": "ZH-HANS", "zh_TW": "ZH-HANT",
-}
-
 
 def _translation_row(addon):
     """Key a translation the way the catalog itself is keyed.
@@ -834,40 +866,51 @@ def translation_key(text, lang):
 
 
 def machine_translation_target(lang):
-    """Provider code for an NVDA locale, or None when it cannot be served."""
-    if TRANSLATE_PROVIDER == "deepl":
-        if lang in _DEEPL_TARGETS:
-            return _DEEPL_TARGETS[lang]
-        # "pt", "zh" and friends arrive without a region from NVDA's list.
-        return _DEEPL_TARGETS.get(lang.split("_")[0])
-    # An unrecognised provider translates nothing rather than guessing at an
-    # API shape and sending the catalog somewhere unintended.
-    return None
+    """Language name to translate into, or None when the locale is unusable.
+
+    Every NVDA locale is served: a general model needs a language, not a code
+    from a provider's supported list, so there is no subset to fall outside of.
+    """
+    code = (lang or "").strip()
+    if not code or code == "en" or code.startswith("en_"):
+        return None
+    return code
 
 
-def machine_translate_batch(texts, target, timeout=60):
+def machine_translate_batch(texts, target, timeout=180):
     """Translate a batch of strings, or return None if the call failed.
 
-    Only DeepL is implemented. The return is positional: index i of the result
-    is the translation of index i of ``texts``, or None for the whole batch on
-    any failure, so a provider hiccup can never silently misalign a catalog.
+    The return is positional: index i of the result is the translation of index
+    i of ``texts``. Anything that does not come back with exactly one answer per
+    input is discarded whole, because a short or reordered reply would attach
+    one add-on's text to another add-on's name.
     """
-    if not texts or not TRANSLATE_API_KEY or TRANSLATE_PROVIDER != "deepl":
+    if not texts or not TRANSLATE_API_KEY:
         return None
-    host = ("api-free.deepl.com" if TRANSLATE_API_KEY.endswith(":fx")
-            else "api.deepl.com")
+    keyed = {str(i): text for i, text in enumerate(texts)}
     payload = json.dumps({
-        "text": list(texts),
-        "target_lang": target,
-        "source_lang": "EN",
-        # Add-on descriptions carry key names and NVDA+F12 style shortcuts.
-        "preserve_formatting": True,
+        "model": TRANSLATE_MODEL,
+        "reasoning": {"effort": TRANSLATE_REASONING_EFFORT},
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": (
+                "You translate NVDA screen-reader add-on metadata from English "
+                f"into the language with code '{target}'.\n"
+                "- Reply with the translation only, no commentary.\n"
+                "- NEVER translate a product name, a brand, a key name such as "
+                "NVDA+F12, a file extension, or a URL. Leave them exactly.\n"
+                "- Keep the original line breaks.\n"
+                "Reply with ONLY a JSON object mapping each input key to its "
+                "translation."
+            )},
+            {"role": "user", "content": json.dumps(keyed, ensure_ascii=False)},
+        ],
     }).encode("utf-8")
     request = Request(
-        f"https://{host}/v2/translate",
+        OPENROUTER_URL,
         data=payload,
         headers={
-            "Authorization": f"DeepL-Auth-Key {TRANSLATE_API_KEY}",
+            "Authorization": f"Bearer {TRANSLATE_API_KEY}",
             "Content-Type": "application/json",
             "User-Agent": USER_AGENT,
         },
@@ -878,12 +921,24 @@ def machine_translate_batch(texts, target, timeout=60):
     except (HTTPError, URLError, OSError, ValueError) as exc:
         log(f"machine translation failed for {target}: {exc}")
         return None
-    translations = body.get("translations")
-    if not isinstance(translations, list) or len(translations) != len(texts):
-        log(f"machine translation returned {len(translations or [])} results "
-            f"for {len(texts)} strings ({target}); discarding the batch")
+    if body.get("error"):
+        log(f"machine translation failed for {target}: {str(body['error'])[:160]}")
         return None
-    return [(item or {}).get("text") or None for item in translations]
+    try:
+        answers = json.loads(body["choices"][0]["message"]["content"])
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        log(f"machine translation returned an unreadable answer ({target}): {exc}")
+        return None
+    if not isinstance(answers, dict) or len(answers) != len(keyed):
+        log(f"machine translation returned {len(answers or [])} results for "
+            f"{len(keyed)} strings ({target}); discarding the batch")
+        return None
+    result = []
+    for index in range(len(texts)):
+        value = answers.get(str(index))
+        result.append(value.strip() if isinstance(value, str) and value.strip()
+                      else None)
+    return result
 
 
 def machine_translate_missing(needed, cache, budget=TRANSLATE_CHAR_BUDGET):
@@ -1787,7 +1842,6 @@ def _release_asset_candidates_from_records(repo, releases):
                 "cache_key": "#".join(
                     str(value or "")
                     for value in (
-                        GITHUB_OWNER_CACHE_VERSION,
                         asset.get("browser_download_url") or asset.get("downloadUrl"),
                         asset.get("updated_at") or asset.get("updatedAt"),
                         asset.get("size"),
@@ -1967,6 +2021,22 @@ def _github_artifact_candidates(spec):
             },
         )
     return [candidate for _version, candidate in selected.values()]
+
+
+def _owner_cache_key(item):
+    """Cache key for one owner asset entry, carrying the schema version.
+
+    The version is applied here rather than where the key is built, because a
+    candidate's key is persisted inside the per-repo state cache and replayed
+    verbatim whenever GitHub answers 304. A version baked in at construction
+    would therefore survive a bump and go on serving entries derived by older
+    code -- which is exactly how add-ons stayed published under a description
+    their manifest had never named them.
+    """
+    return (
+        f"{GITHUB_OWNER_CACHE_VERSION}#"
+        f"{item.get('cache_key') or item.get('download_url') or ''}"
+    )
 
 
 def _github_asset_entry(candidate):
@@ -2389,7 +2459,7 @@ def fetch_github_owners(
     reused_cache = 0
     for item in candidates:
         url = item.get("download_url")
-        cache_key = item.get("cache_key") or url
+        cache_key = _owner_cache_key(item)
         if not url:
             failures.append(f"{item.get('repo')}/{item.get('asset_name')}: no download URL")
             continue
@@ -2432,7 +2502,7 @@ def fetch_github_owners(
             try:
                 entry = future.result()
                 entries.append(entry)
-                new_cache[item.get("cache_key") or item["download_url"]] = entry
+                new_cache[_owner_cache_key(item)] = entry
             except HTTPError as exc:
                 if exc.code not in (404, 410):
                     failures.append(
@@ -2448,7 +2518,7 @@ def fetch_github_owners(
                     "source": "github_owner",
                     "reason": reason,
                 })
-                new_cache[item.get("cache_key") or item["download_url"]] = {
+                new_cache[_owner_cache_key(item)] = {
                     "_invalid": reason,
                     "asset_name": item.get("asset_name"),
                     "_repo": item.get("repo"),
@@ -2460,7 +2530,7 @@ def fetch_github_owners(
                     "source": "github_owner",
                     "reason": reason,
                 })
-                new_cache[item.get("cache_key") or item["download_url"]] = {
+                new_cache[_owner_cache_key(item)] = {
                     "_invalid": reason,
                     "asset_name": item.get("asset_name"),
                     "_repo": item.get("repo"),
@@ -2540,7 +2610,9 @@ def fetch_ru():
                 "description": clean_text(item.get("description")),
                 "author": (item.get("author") or "").strip(),
                 "version": (link.get("version") or "").strip(),
-                "channel": _norm_channel_ru(link.get("channel")),
+                "channel": _norm_channel_ru(
+                    link.get("channel"), (link.get("version") or "").strip()
+                ),
                 "homepage": homepage,
                 "source_url": homepage,
                 "license": "",
@@ -2708,19 +2780,41 @@ def reject_reason(entry):
 #: Static English translations for add-ons whose only available summary /
 #: description is not English. Keyed by addonId. See translations.json.
 TRANSLATIONS_PATH = "translations.json"
+#: Generated by auto_translate.py and published with the site, then restored on
+#: the next build. Merged UNDER translations.json, so a hand-written correction
+#: is never overwritten by the model.
+AUTO_TRANSLATIONS_PATH = "autoTranslations.json"
 TRANSLATIONS = {}
 
 
-def load_translations(path=TRANSLATIONS_PATH):
-    """Load the static English translation map, if present. Never raises."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+def load_translations(path=TRANSLATIONS_PATH, auto_path=AUTO_TRANSLATIONS_PATH):
+    """Load the English overlay: hand-maintained first, generated beneath.
+
+    Merged per field rather than per add-on, so a human who corrected only a
+    summary still gets the generated description, and never loses their summary
+    to the model on the next run.
+    """
+    def read(candidate):
+        try:
+            with open(candidate, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return {}
         if isinstance(data, dict):
-            return data.get("translations", data)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+            inner = data.get("translations", data)
+            return inner if isinstance(inner, dict) else {}
         return {}
-    return {}
+
+    merged = {}
+    for addon_id, fields in read(auto_path).items():
+        if isinstance(fields, dict):
+            merged[addon_id] = dict(fields)
+    for addon_id, fields in read(path).items():
+        if isinstance(fields, dict):
+            merged.setdefault(addon_id, {}).update(fields)
+        else:
+            merged[addon_id] = fields
+    return merged
 
 
 #: addonId -> the best English changelog any source published for it, filled in

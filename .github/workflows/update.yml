@@ -53,6 +53,8 @@ jobs:
             githubOwnerCache.json
             localeCache.json
             translationCache.json
+            autoTranslations.json
+            autoTranslationCache.json
             .bundlecache
           key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: mirror-downloads-v2-
@@ -92,7 +94,7 @@ jobs:
           # translationCache.json holds machine translations already paid for.
           # Losing either is only a cost and latency regression, never a
           # correctness one, so a failed restore is not fatal.
-          for NAME in localeCache translationCache; do
+          for NAME in localeCache translationCache autoTranslations autoTranslationCache; do
             URL="https://${OWNER}.github.io/${REPO}/${NAME}.json"
             echo "Restoring ${NAME} from ${URL}"
             if curl --retry 3 -fsSL "$URL" -o "${NAME}.json.tmp" \
@@ -133,8 +135,22 @@ jobs:
           # Optional. Unset, the build still translates from the official
           # store's per-language views and the add-ons' own bundled
           # translations; only the machine-translated remainder is skipped.
-          TRANSLATE_API_KEY: ${{ secrets.TRANSLATE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python mirror.py --out public
+
+      - name: Translate remaining non-English metadata into English
+        # Report-only in effect: a provider failure, a missing key or an
+        # exhausted budget all leave those add-ons with the text they already
+        # had, which is what they would have had anyway, so this never blocks
+        # the deployment. The overlay is applied by the NEXT build, which is
+        # why it has to reach both the Actions cache and the published site.
+        continue-on-error: true
+        if: steps.mirror-build.outcome == 'success'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python auto_translate.py --addons public/addons.json
+          cp autoTranslations.json autoTranslationCache.json public/
 
       - name: Save build caches even if publication fails
         if: always() && steps.mirror-build.outcome != 'skipped'
@@ -145,6 +161,8 @@ jobs:
             githubOwnerCache.json
             localeCache.json
             translationCache.json
+            autoTranslations.json
+            autoTranslationCache.json
             .bundlecache
           key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
 

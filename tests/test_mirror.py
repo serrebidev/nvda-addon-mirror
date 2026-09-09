@@ -883,7 +883,10 @@ class GitHubOwnerTests(unittest.TestCase):
                     },
                 },
             },
-            "k1": {
+            # Derived, not hardcoded: the key carries a schema version that is
+            # applied at lookup, so a bump must not silently break this test
+            # into passing against a key nothing will ever look up.
+            mirror._owner_cache_key(cached_candidates[0]): {
                 "addonId": "demo",
                 "displayName": "Demo",
                 "download_url": cached_candidates[0]["download_url"],

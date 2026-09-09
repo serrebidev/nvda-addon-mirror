@@ -224,11 +224,12 @@ is now translated, best source first:
    which costs no extra request. Coverage fills in over a day as the ordinary
    recheck TTLs expire — harvesting never forces a re-download.
 3. **Machine translation**, for whatever is still English. Off unless
-   `TRANSLATE_API_KEY` is set; without it those entries stay English, which is
+   `OPENROUTER_API_KEY` is set; without it those entries stay English, which is
    what they were before. `TRANSLATE_CHAR_BUDGET` (default 200 000 characters
    per build) caps the spend, so the first pass is spread across builds rather
    than paid for in one run. Results are cached by `(source text, language)` in
-   `translationCache.json`, so unchanged text is never paid for twice.
+   `translationCache.json`, so unchanged text is never paid for twice. Every
+   NVDA locale can be targeted, not a provider's supported subset.
 
 Anything with no translation at any tier keeps its English string — a gap is
 never worse than the previous behaviour. `--no-translate` publishes English
@@ -236,6 +237,41 @@ everywhere and skips the per-language fetches.
 
 Locale fallback follows NVDA's own: `pt_BR` uses a `pt` translation when there
 is no `pt_BR` one.
+
+## Translating into English automatically
+
+`translations.json` is hand-maintained and decays: every new Spanish, Russian,
+Turkish, French, Portuguese, German or Chinese add-on reaches the store
+untranslated until somebody notices. `audit_translations.py` finds those;
+`auto_translate.py` closes them.
+
+It runs after each build, sends what is still not English to
+`google/gemini-3.8-flash` via OpenRouter, and writes `autoTranslations.json` -
+a generated overlay published with the site and restored on the next build.
+`translations.json` is merged **over** it per field, so a hand-written
+correction is never overwritten by the model, and correcting only a summary
+does not discard a generated description.
+
+It also settles a question no pattern here can: the overlay has 480 names
+ending in a parenthetical, and they are not all the same thing.
+`Betimleyici (Descriptor)` glosses a Turkish *name* and becomes
+`Descriptor, AKA Betimleyici`; `DECtalk (DECtalk speech synthesizer)` describes
+what the add-on *does* and becomes just `DECtalk`. Telling those apart needs to
+know that "Betimleyici" is Turkish while "ClipboardEnhancement" is English.
+
+Guards, because the model is not trusted blindly:
+
+- An answer whose `AKA` half is not verbatim in the input is discarded. A
+  tidied original (respaced, camel-cased, a hyphen dropped) matches nothing the
+  user could have seen elsewhere, so the add-on keeps the text it has.
+- A batch that comes back short or reordered is discarded whole, never
+  partially applied - one add-on's text must never land on another's name.
+- A provider failure, a missing key or an exhausted budget all leave the
+  catalog exactly as it was. It never blocks a deployment.
+
+Reasoning effort is `low`: it spends zero reasoning tokens and answers
+identically for translation, measured 5.5x cheaper than `medium`. Batched, the
+whole 487-string backlog cost $0.10.
 
 ## Keeping the English overlay complete
 

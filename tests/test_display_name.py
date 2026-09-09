@@ -338,3 +338,42 @@ class TransformAkaTests(unittest.TestCase):
                 + "Monitor del Sistema"
             )
         )
+
+
+class RuChannelLabelTests(unittest.TestCase):
+    """nvda-addons.ru marks 89% of its catalog "Dev", which carries no signal.
+
+    Taken at face value it hides several hundred ordinary add-ons from the
+    Stable view NVDA's Add-on Store shows by default.
+    """
+
+    def test_an_uncorroborated_dev_label_is_treated_as_stable(self):
+        for version in ("1.0.0", "2025.1", "1.9.5", "2026.8.5", "3.1.4",
+                        "19.1.3-RS", "1.2.1009.12"):
+            with self.subTest(version=version):
+                self.assertEqual("stable", mirror._norm_channel_ru("Dev", version))
+
+    def test_a_version_that_says_pre_release_keeps_the_label(self):
+        for version, expected in (
+            ("1.0.0-beta", "dev"), ("2.0-rc1", "dev"), ("0.5dev", "dev"),
+            ("1.0.0alpha2", "dev"), ("1.0-preview", "dev"),
+        ):
+            with self.subTest(version=version):
+                self.assertEqual(expected, mirror._norm_channel_ru("Dev", version))
+
+    def test_a_beta_label_needs_the_same_corroboration(self):
+        self.assertEqual("stable", mirror._norm_channel_ru("Beta", "1.0.0"))
+        self.assertEqual("beta", mirror._norm_channel_ru("Beta", "1.0.0-beta"))
+
+    def test_an_explicit_stable_label_is_always_honoured(self):
+        self.assertEqual("stable", mirror._norm_channel_ru("Stable", "1.0.0-beta"))
+
+    def test_without_a_version_the_label_is_taken_at_face_value(self):
+        # Callers that have no version to check with must not be silently
+        # promoted; this keeps the old behaviour for them.
+        self.assertEqual("dev", mirror._norm_channel_ru("Dev", None))
+
+    def test_a_marker_inside_a_word_is_not_a_pre_release(self):
+        for version in ("Ardev 1.0", "1.0 development build", "1.0"):
+            with self.subTest(version=version):
+                self.assertFalse(mirror.version_marks_prerelease(version))

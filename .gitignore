@@ -15,3 +15,6 @@ __pycache__/
 
 localeCache.json
 translationCache.json
+
+# Local agent memory index: every line is an absolute path on one machine.
+AGENTS.md
