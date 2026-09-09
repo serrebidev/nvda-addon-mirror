@@ -16,5 +16,6 @@ __pycache__/
 localeCache.json
 translationCache.json
 
-# Local agent memory index: every line is an absolute path on one machine.
-AGENTS.md
+# The memory sync writes its machine-specific block here when AGENTS.md is
+# tracked, so absolute paths never reach a file the repo pushes.
+AGENTS.local.md
