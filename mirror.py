@@ -19,6 +19,7 @@ Stdlib only (Python 3.11+).
 
 import argparse
 import concurrent.futures
+import copy
 import fnmatch
 import glob
 import hashlib
@@ -698,6 +699,29 @@ OFFICIAL_STORE_LOCALE_URLS = [
 #: English, so an unchanged language costs one 304 rather than 1.7 MB.
 LOCALE_CACHE_PATH = "localeCache.json"
 
+#: Normalized entries from the catalog sources that are not GitHub releases,
+#: with the poll that produced them. These catalogs change less often than an
+#: hourly build, and none of them can be checked cheaply: the NV
+#: Access store answers a conditional request with the whole 9.5 MB body
+#: whenever its CDN last refilled, and nvda-addons.ru, nvda.es and bestmidi
+#: send no ETag and no Last-Modified at all. Re-fetching them every build would
+#: pull ~15 MB per run from four hosts, which is what SOURCE_POLL_SECONDS
+#: exists to prevent; between polls the previous entries are reused verbatim.
+SOURCE_CACHE_PATH = "sourceCache.json"
+
+#: How long a polled catalog stays fresh. One hour is the cadence these sources
+#: were already being read at, held steady while the GitHub-release sources --
+#: which cost nothing but a conditional request -- refresh with every build.
+#: The NV Access store asks for four hours itself (Cache-Control: max-age=14400)
+#: so this is already well inside anything the upstreams request.
+SOURCE_POLL_SECONDS = int(os.environ.get("SOURCE_POLL_SECONDS", str(60 * 60)))
+
+#: A failed poll reuses the last good entries rather than dropping a whole
+#: catalog, and waits this long before trying the host again. Short enough to
+#: recover within an hour, long enough that a host having a bad day is not
+#: retried by every build.
+SOURCE_RETRY_SECONDS = int(os.environ.get("SOURCE_RETRY_SECONDS", str(10 * 60)))
+
 #: Fields the store shows as prose, in the order a reader meets them.
 TRANSLATABLE_FIELDS = ("displayName", "description")
 
@@ -731,6 +755,18 @@ TRANSLATE_CHAR_BUDGET = int(os.environ.get("TRANSLATE_CHAR_BUDGET", "200000"))
 #: Keyed by (sha256 of the source text, target language), so text that has not
 #: changed is never paid for twice.
 TRANSLATION_CACHE_PATH = "translationCache.json"
+
+#: The official store's per-language views are swept for author-written
+#: translations. That is 73 requests to one host, and a language gains a
+#: translation about as often as an add-on is published, not every five
+#: minutes. Between sweeps the cached strings are reused; the ETags in
+#: LOCALE_CACHE_PATH still make each sweep itself nearly free.
+LOCALE_POLL_SECONDS = int(os.environ.get("LOCALE_POLL_SECONDS", str(6 * 60 * 60)))
+
+#: Where the sweep's own timestamp lives inside the locale cache. Not a
+#: language, and deliberately not shaped like one, because every other key in
+#: that file is a locale code.
+LOCALE_POLL_KEY = "__poll__"
 
 def _translation_row(addon):
     """Key a translation the way the catalog itself is keyed.
@@ -1276,6 +1312,11 @@ def _pinned_url_asset(url):
     except (HTTPError, URLError, OSError) as exc:
         log(f"pinned url {url}: HEAD unavailable ({exc}); "
             "a replaced file will not be noticed until the cache is cleared")
+        # HTTPError is also a response object. Close its body here so a host
+        # that rejects HEAD does not leave its temporary response file for the
+        # garbage collector to warn about after the build.
+        if isinstance(exc, HTTPError):
+            exc.close()
     if not (etag or last_modified or length):
         log(f"pinned url {url}: host supplies no validators")
     file_name = unquote(urlsplit(url).path).rsplit("/", 1)[-1]
@@ -3115,6 +3156,91 @@ def load_json_cache(path):
     return {}
 
 
+def polled_source(name, cache, fetch, ttl=None, now=None):
+    """Return one catalog's normalized entries, polling it at most every ``ttl``.
+
+    These catalogs change less often than the hourly build, and none of them
+    can be revalidated cheaply, so a build inside the poll interval reuses the
+    entries the last poll produced instead of pulling the whole catalog again.
+    That decouples how fast the mirror republishes from how hard it leans on
+    four other people's servers.
+
+    A failed poll is not fatal either: a host that is down or slow returns the
+    last entries it did serve, so one bad minute upstream cannot delete a whole
+    source from the catalog. Only a failure with nothing cached propagates,
+    which is the existing behaviour for a first build.
+    """
+    ttl = SOURCE_POLL_SECONDS if ttl is None else ttl
+    now = time.time() if now is None else now
+    record = cache.get(name)
+    if not isinstance(record, dict) or not isinstance(record.get("entries"), list):
+        record = None
+    if record and record.get("next_poll", 0) > now:
+        age = int(now - record.get("polled_at", now))
+        log(f"{name}: reusing the catalog polled {age // 60}m{age % 60:02d}s ago "
+            f"({len(record['entries'])} entries; next poll in "
+            f"{int(record['next_poll'] - now) // 60}m)")
+        return copy.deepcopy(record["entries"])
+    try:
+        entries = fetch()
+    except Exception as exc:  # noqa: BLE001 - any upstream failure, one policy
+        if record is None:
+            raise
+        cache[name] = dict(record, next_poll=now + SOURCE_RETRY_SECONDS)
+        log(f"{name}: poll failed ({exc}); reusing {len(record['entries'])} "
+            "entries from the last good poll")
+        return copy.deepcopy(record["entries"])
+    cache[name] = {
+        "polled_at": now,
+        "next_poll": now + ttl,
+        "entries": copy.deepcopy(entries),
+    }
+    return entries
+
+
+def official_store_translations(locales, locale_cache, ttl=None, now=None):
+    """Return {lang: translations} from the official store, swept on a schedule.
+
+    A sweep is one request per language to a single host. An add-on gains an
+    author-written translation about as often as it is released, so sweeping
+    on every build would spend 73 requests apiece to learn nothing; between
+    sweeps the strings the last one found are reused. The per-language ETags
+    in ``locale_cache`` still make the sweep itself nearly free -- this only
+    decides how often it happens.
+
+    Mutates ``locale_cache`` in place, the way the caller already persists it.
+    """
+    ttl = LOCALE_POLL_SECONDS if ttl is None else ttl
+    now = time.time() if now is None else now
+    poll = locale_cache.get(LOCALE_POLL_KEY)
+    languages = [lang for lang in locales if lang != "en"]
+    if isinstance(poll, dict) and poll.get("next_poll", 0) > now:
+        translations = {}
+        for lang in languages:
+            cached = locale_cache.get(lang)
+            if isinstance(cached, dict) and isinstance(cached.get("translations"), dict):
+                translations[lang] = cached["translations"]
+        due_in = int(poll["next_poll"] - now)
+        log(f"official store translations: reusing "
+            f"{sum(len(t) for t in translations.values())} strings across "
+            f"{len(translations)} languages; next sweep in "
+            f"{due_in // 3600}h{due_in % 3600 // 60:02d}m")
+        return translations
+    baseline, locale_cache["en"] = fetch_official_english_baseline(
+        locale_cache.get("en")
+    )
+    translations = {}
+    for lang in languages:
+        translations[lang], locale_cache[lang] = fetch_official_locale_translations(
+            lang, baseline, locale_cache.get(lang),
+        )
+    locale_cache[LOCALE_POLL_KEY] = {"polled_at": now, "next_poll": now + ttl}
+    log(f"official store translations: "
+        f"{sum(len(t) for t in translations.values())} strings across "
+        f"{len(translations)} languages")
+    return translations
+
+
 def load_hashcache(path):
     if path and os.path.exists(path):
         try:
@@ -4006,30 +4132,42 @@ def main():
     new_hashcache = dict(hashcache)
 
     # 1. Fetch and normalize from each source.
+    #
+    # The four catalog sources below are polled on SOURCE_POLL_SECONDS rather
+    # than read on every build: they are ~15 MB of unconditional downloads from
+    # four other people's servers, and none of them supports a cheap freshness
+    # check. The GitHub sources that follow cost one conditional request per
+    # repository -- a 304 that GitHub does not even charge to the rate limit --
+    # so those do refresh on every build. This keeps the hourly mirror from
+    # repeatedly pulling unchanged catalog bodies from other people's servers.
+    source_cache = load_json_cache(SOURCE_CACHE_PATH)
+    # --no-head-check already means "trust nothing that was cached"; a human
+    # who asks for that is asking for the catalogs too, not only the hashes.
+    source_ttl = 0 if args.no_head_check else SOURCE_POLL_SECONDS
     all_entries = []
     rejected = []
 
     if "official" in sources:
         log("Fetching official NV Access add-on store (Chinese mirror failover)")
-        entries = fetch_official()
+        entries = polled_source("official", source_cache, fetch_official, ttl=source_ttl)
         log(f"official: {len(entries)} add-ons")
         all_entries.extend(entries)
 
     if "bestmidi" in sources:
         log(f"Fetching {BESTMIDI_URL}")
-        entries = fetch_bestmidi()
+        entries = polled_source("bestmidi", source_cache, fetch_bestmidi, ttl=source_ttl)
         log(f"bestmidi: {len(entries)} add-ons")
         all_entries.extend(entries)
 
     if "ru" in sources:
         log(f"Fetching {RU_ADDONS_URL}")
-        entries = fetch_ru()
+        entries = polled_source("ru", source_cache, fetch_ru, ttl=source_ttl)
         log(f"nvda-addons.ru: {len(entries)} add-ons")
         all_entries.extend(entries)
 
     if "es" in sources:
         log("Fetching nvda.es add-on catalog (nvda-addons.org failover)")
-        entries = fetch_es()
+        entries = polled_source("es", source_cache, fetch_es, ttl=source_ttl)
         log(f"Spanish catalog: {len(entries)} add-on/channel candidates")
         all_entries.extend(entries)
 
@@ -4276,20 +4414,9 @@ def main():
     translation_cache = load_json_cache(TRANSLATION_CACHE_PATH)
     official_translations = {}
     if args.translate:
-        english_baseline, locale_cache["en"] = fetch_official_english_baseline(
-            locale_cache.get("en")
+        official_translations = official_store_translations(
+            locales, locale_cache, ttl=0 if args.no_head_check else None,
         )
-        for lang in locales:
-            if lang == "en":
-                continue
-            translations, record = fetch_official_locale_translations(
-                lang, english_baseline, locale_cache.get(lang),
-            )
-            official_translations[lang] = translations
-            locale_cache[lang] = record
-        log(f"official store translations: "
-            f"{sum(len(t) for t in official_translations.values())} strings "
-            f"across {len(official_translations)} languages")
 
     authored_translations = {}
     for e, _digest, _size in results:
@@ -4384,9 +4511,9 @@ def main():
     with open(os.path.join(args.out, "hashcache.json"), "w", encoding="utf-8") as f:
         json.dump(new_hashcache, f)
     if os.path.exists(GITHUB_OWNER_CACHE_PATH):
-        with open(GITHUB_OWNER_CACHE_PATH, "rb") as source_cache:
+        with open(GITHUB_OWNER_CACHE_PATH, "rb") as owner_cache_file:
             with open(os.path.join(args.out, GITHUB_OWNER_CACHE_PATH), "wb") as public_cache:
-                public_cache.write(source_cache.read())
+                public_cache.write(owner_cache_file.read())
     # Publish the merged API-version history the same way as the hash cache, so
     # the next run restores it instead of falling back to whatever was last
     # committed. The bundled copy only has to survive a cold start; without this
@@ -4408,6 +4535,13 @@ def main():
             json.dump(cache_data, f, ensure_ascii=False)
         with open(cache_path, "w", encoding="utf-8") as f:
             json.dump(cache_data, f, ensure_ascii=False)
+    # The polled catalogs are the one cache that is deliberately NOT published
+    # with the site. It is several megabytes of upstream entries that no client
+    # reads, and losing it costs exactly one ordinary poll of each source --
+    # which is what a build did every time before it existed. The workflow
+    # cache carries it between runs; a cold start simply polls.
+    with open(SOURCE_CACHE_PATH, "w", encoding="utf-8") as f:
+        json.dump(source_cache, f, ensure_ascii=False)
     flush_cache()
 
     # Measure the finished output, then rewrite stats.json with the figure in

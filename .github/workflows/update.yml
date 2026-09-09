@@ -6,10 +6,9 @@ on:
       - main
   schedule:
     # One run an hour, offset from the top of the hour when GitHub says
-    # scheduled jobs are most likely to be delayed or dropped. High-frequency
-    # crons get throttled by the platform, so this is the cadence it reliably
-    # honors; hourly builds also stay well inside the GITHUB_TOKEN API budget
-    # of 1000 requests/hour even when every cached ETag has expired.
+    # scheduled jobs are most likely to be delayed or dropped. This keeps the
+    # repository comfortably inside the GITHUB_TOKEN budget and polls add-on
+    # authors no more often than the catalog needs.
     - cron: "7 * * * *"
   workflow_dispatch:
 
@@ -55,6 +54,7 @@ jobs:
             translationCache.json
             autoTranslations.json
             autoTranslationCache.json
+            sourceCache.json
             .bundlecache
           key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: mirror-downloads-v2-
@@ -163,6 +163,7 @@ jobs:
             translationCache.json
             autoTranslations.json
             autoTranslationCache.json
+            sourceCache.json
             .bundlecache
           key: mirror-downloads-v2-${{ github.run_id }}-${{ github.run_attempt }}
 

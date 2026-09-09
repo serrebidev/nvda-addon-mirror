@@ -16,6 +16,10 @@ __pycache__/
 localeCache.json
 translationCache.json
 
+# Polled upstream catalogs. Unlike the caches above this one is never published
+# with the site either: no client reads it, and a cold start just re-polls.
+sourceCache.json
+
 # The memory sync writes its machine-specific block here when AGENTS.md is
 # tracked, so absolute paths never reach a file the repo pushes.
 AGENTS.local.md

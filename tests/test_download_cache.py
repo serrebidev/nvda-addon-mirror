@@ -2,6 +2,7 @@ import io
 import tempfile
 import unittest
 import zipfile
+from email.message import Message
 from unittest import mock
 from urllib.error import HTTPError, URLError
 
@@ -41,7 +42,9 @@ class DownloadCacheTests(unittest.TestCase):
         self.assertIsNone(error)
 
     def test_304_reuses_hash_and_renews_ttl(self):
-        error = HTTPError(self.entry["download_url"], 304, "Not modified", {}, None)
+        error = HTTPError(
+            self.entry["download_url"], 304, "Not modified", Message(), io.BytesIO(),
+        )
         with mock.patch.object(mirror, "sha256_stream", side_effect=error) as download:
             record, failure = mirror.cached_download(self.entry, self.cached, now=201)
         download.assert_called_once_with(self.entry["download_url"], validators=self.cached, capture_limit=0)
@@ -290,3 +293,92 @@ class ManifestVersionRecoveryTests(unittest.TestCase):
                 entry, record, now=200, capture_limit=mirror.MANIFEST_CAPTURE_LIMIT,
             )
             download.assert_called_once()
+
+
+class PolledSourceTests(unittest.TestCase):
+    """The catalog sources that cannot be revalidated cheaply.
+
+    The NV Access store answers a conditional request with the whole 9.5 MB
+    body whenever its CDN last refilled, and nvda-addons.ru, nvda.es and
+    bestmidi send no validators at all. Caching keeps an hourly build from
+    downloading about 15 MB of unchanged catalog data from four other people's
+    servers. The poll interval is what decouples the two.
+    """
+
+    def setUp(self):
+        self.cache = {}
+        self.entries = [{"name": "clock", "version": "1.0"}]
+
+    def _fetch(self, entries=None):
+        return mock.Mock(return_value=self.entries if entries is None else entries)
+
+    def test_first_poll_fetches_and_records_the_entries(self):
+        fetch = self._fetch()
+        entries = mirror.polled_source("ru", self.cache, fetch, ttl=3600, now=100)
+        self.assertEqual(self.entries, entries)
+        fetch.assert_called_once()
+        self.assertEqual(3700, self.cache["ru"]["next_poll"])
+
+    def test_build_inside_the_interval_makes_no_request(self):
+        fetch = self._fetch()
+        mirror.polled_source("ru", self.cache, fetch, ttl=3600, now=100)
+        entries = mirror.polled_source("ru", self.cache, fetch, ttl=3600, now=3699)
+        self.assertEqual(self.entries, entries)
+        fetch.assert_called_once()
+
+    def test_expired_interval_polls_again(self):
+        fetch = self._fetch()
+        mirror.polled_source("ru", self.cache, fetch, ttl=3600, now=100)
+        mirror.polled_source("ru", self.cache, fetch, ttl=3600, now=3700)
+        self.assertEqual(2, fetch.call_count)
+
+    def test_reused_entries_are_isolated_from_the_cache(self):
+        # The build mutates entries in place (version recovery, dedupe), and a
+        # reused catalog must not accumulate one build's edits into the next.
+        mirror.polled_source("ru", self.cache, self._fetch(), ttl=3600, now=100)
+        first = mirror.polled_source("ru", self.cache, self._fetch(), ttl=3600, now=200)
+        first[0]["version"] = "9.9"
+        second = mirror.polled_source("ru", self.cache, self._fetch(), ttl=3600, now=300)
+        self.assertEqual("1.0", second[0]["version"])
+
+    def test_a_failed_poll_reuses_the_last_good_catalog(self):
+        mirror.polled_source("ru", self.cache, self._fetch(), ttl=3600, now=100)
+        failing = mock.Mock(side_effect=RuntimeError("nvda-addons.ru is down"))
+        entries = mirror.polled_source("ru", self.cache, failing, ttl=3600, now=4000)
+        self.assertEqual(self.entries, entries)
+
+    def test_a_failed_poll_backs_off_instead_of_retrying_every_build(self):
+        mirror.polled_source("ru", self.cache, self._fetch(), ttl=3600, now=100)
+        failing = mock.Mock(side_effect=RuntimeError("nvda-addons.ru is down"))
+        mirror.polled_source("ru", self.cache, failing, ttl=3600, now=4000)
+        mirror.polled_source("ru", self.cache, failing, ttl=3600, now=4001)
+        failing.assert_called_once()
+        self.assertEqual(
+            4000 + mirror.SOURCE_RETRY_SECONDS, self.cache["ru"]["next_poll"],
+        )
+
+    def test_a_first_poll_that_fails_still_fails_the_build(self):
+        failing = mock.Mock(side_effect=RuntimeError("nvda-addons.ru is down"))
+        with self.assertRaises(RuntimeError):
+            mirror.polled_source("ru", self.cache, failing, ttl=3600, now=100)
+
+    def test_sources_are_polled_independently(self):
+        ru, es = self._fetch(), self._fetch([{"name": "es-addon"}])
+        mirror.polled_source("ru", self.cache, ru, ttl=3600, now=100)
+        mirror.polled_source("es", self.cache, es, ttl=3600, now=100)
+        self.assertEqual([{"name": "es-addon"}], self.cache["es"]["entries"])
+        self.assertEqual(self.entries, self.cache["ru"]["entries"])
+
+    def test_zero_ttl_polls_every_build(self):
+        # What --no-head-check asks for: trust nothing that was cached.
+        fetch = self._fetch()
+        mirror.polled_source("ru", self.cache, fetch, ttl=0, now=100)
+        mirror.polled_source("ru", self.cache, fetch, ttl=0, now=100)
+        self.assertEqual(2, fetch.call_count)
+
+    def test_a_corrupt_cache_entry_is_treated_as_no_cache(self):
+        self.cache["ru"] = {"entries": "not a list", "next_poll": 1 << 40}
+        fetch = self._fetch()
+        entries = mirror.polled_source("ru", self.cache, fetch, ttl=3600, now=100)
+        self.assertEqual(self.entries, entries)
+        fetch.assert_called_once()

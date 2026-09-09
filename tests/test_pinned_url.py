@@ -94,7 +94,7 @@ class PinnedURLAssetTests(unittest.TestCase):
 
     def test_a_host_refusing_HEAD_still_yields_a_usable_asset(self):
         for failure in (URLError("offline"),
-                        HTTPError(URL, 405, "Method Not Allowed", {}, None)):
+                        HTTPError(URL, 405, "Method Not Allowed", {}, io.BytesIO())):
             with self.subTest(failure=type(failure).__name__):
                 with mock.patch.object(mirror, "urlopen", side_effect=failure):
                     asset, modified = mirror._pinned_url_asset(URL)

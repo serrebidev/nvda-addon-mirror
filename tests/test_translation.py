@@ -179,6 +179,94 @@ class OfficialLocaleFetchTests(unittest.TestCase):
         json.dumps(record)
 
 
+class LocaleSweepScheduleTests(unittest.TestCase):
+    """How often the 73 per-language views are read, not what they say.
+
+    Every sweep is one request per language to a single host. An add-on gains
+    an author-written translation about as often as it is released, so the
+    sweep cadence is decoupled from the hourly mirror build.
+    """
+
+    def setUp(self):
+        self.baseline = mock.patch.object(
+            mirror, "fetch_official_english_baseline",
+            return_value=({}, {"etag": '"en"'}),
+        )
+        self.locale = mock.patch.object(
+            mirror, "fetch_official_locale_translations",
+            side_effect=lambda lang, baseline, cached=None: (
+                {f"{lang}-addon\tstable": {"description": lang}},
+                {"etag": f'"{lang}"',
+                 "translations": {f"{lang}-addon\tstable": {"description": lang}}},
+            ),
+        )
+
+    def test_first_build_sweeps_every_language(self):
+        cache = {}
+        with self.baseline, self.locale as locale:
+            translations = mirror.official_store_translations(
+                ["en", "fr", "de"], cache, ttl=3600, now=100,
+            )
+        self.assertEqual(2, locale.call_count)
+        self.assertEqual({"fr", "de"}, set(translations))
+        self.assertEqual(3700, cache[mirror.LOCALE_POLL_KEY]["next_poll"])
+
+    def test_build_inside_the_interval_makes_no_request(self):
+        cache = {}
+        with self.baseline, self.locale:
+            first = mirror.official_store_translations(
+                ["en", "fr", "de"], cache, ttl=3600, now=100,
+            )
+        with self.baseline as baseline, self.locale as locale:
+            reused = mirror.official_store_translations(
+                ["en", "fr", "de"], cache, ttl=3600, now=3699,
+            )
+        locale.assert_not_called()
+        baseline.assert_not_called()
+        self.assertEqual(first, reused)
+
+    def test_expired_interval_sweeps_again(self):
+        cache = {}
+        with self.baseline, self.locale:
+            mirror.official_store_translations(
+                ["en", "fr"], cache, ttl=3600, now=100,
+            )
+        with self.baseline, self.locale as locale:
+            mirror.official_store_translations(
+                ["en", "fr"], cache, ttl=3600, now=3700,
+            )
+        locale.assert_called_once()
+
+    def test_a_reused_sweep_is_json_serialisable(self):
+        # It rides to the next build inside localeCache.json.
+        cache = {}
+        with self.baseline, self.locale:
+            mirror.official_store_translations(["en", "fr"], cache, ttl=3600, now=100)
+        json.dumps(cache)
+
+    def test_a_language_added_since_the_last_sweep_is_simply_absent(self):
+        # Not an error and not a re-sweep: it fills in at the next one, the
+        # same way a language whose view failed does.
+        cache = {}
+        with self.baseline, self.locale:
+            mirror.official_store_translations(["en", "fr"], cache, ttl=3600, now=100)
+        with self.baseline, self.locale as locale:
+            translations = mirror.official_store_translations(
+                ["en", "fr", "de"], cache, ttl=3600, now=200,
+            )
+        locale.assert_not_called()
+        self.assertEqual({"fr"}, set(translations))
+
+    def test_zero_ttl_sweeps_every_build(self):
+        # What --no-head-check asks for.
+        cache = {}
+        with self.baseline, self.locale:
+            mirror.official_store_translations(["en", "fr"], cache, ttl=0, now=100)
+        with self.baseline, self.locale as locale:
+            mirror.official_store_translations(["en", "fr"], cache, ttl=0, now=100)
+        locale.assert_called_once()
+
+
 class BundleTranslationTests(unittest.TestCase):
     def test_english_locale_directories_are_not_treated_as_translations(self):
         import io
@@ -271,13 +359,13 @@ class MachineTranslationTests(unittest.TestCase):
         body = {"choices": [{"message": {"content": json.dumps({"0": "un"})}}]}
 
         class FakeResponse:
-            def __enter__(self_inner):
-                return self_inner
+            def __enter__(self):
+                return self
 
-            def __exit__(self_inner, *exc):
+            def __exit__(self, *exc):
                 return False
 
-            def read(self_inner):
+            def read(self):
                 return json.dumps(body).encode()
 
         with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=FakeResponse()):
@@ -290,13 +378,13 @@ class MachineTranslationTests(unittest.TestCase):
                 json.dumps({"0": "un", "1": "deux"})}}]}
 
         class FakeResponse:
-            def __enter__(self_inner):
-                return self_inner
+            def __enter__(self):
+                return self
 
-            def __exit__(self_inner, *exc):
+            def __exit__(self, *exc):
                 return False
 
-            def read(self_inner):
+            def read(self):
                 return json.dumps(body).encode()
 
         with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=FakeResponse()):
