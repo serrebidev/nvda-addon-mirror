@@ -1951,6 +1951,7 @@
    "description": "TextEncryptorAndDecryptor Add-on for NVDA - Provides a powerful, accessible, and easy-to-use interface for encoding and decoding text using the Base64 algorithm.\nFeatures:\nEncode plain text to Base64 with a few keystrokes.\nDecoding Base64 strings back into readable text.\nAccessible graphical interface with tabs (Encoder and Decoder).\nCopying results to the clipboard.\nExport results to txt files.\nReset entered data.\nALT-based hotkeys for each control.\nKeyboard shortcut:\nPress NVDA + Control + J to open Base64 Converter.\nOr through the NVDA menu → Tools → Base64 Converter.\nThe keyboard shortcut for opening the converter window can be changed in input gestures."
   },
   "GBReader": {
+   "summary": "GBReader",
    "description": "The GBReader add-on adds news reading in simplified Chinese.\nThe message is presented in simplified Chinese.\nKeyboard shortcut NVDA+G."
   },
   "EOFbeep": {
