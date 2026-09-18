@@ -237,6 +237,29 @@ def translate_batch(items, retries=2):
     return None
 
 
+def with_original_text(addons, sources):
+    """Put back the text the generated overlay replaced in the built catalog.
+
+    ``addons.json`` already carries last build's English. Judged on that, an
+    add-on translated once looks finished, falls out of the next overlay, and
+    is published untranslated the build after -- so the catalog flipped every
+    build. Judging the original text keeps each add-on's answer in the overlay
+    for as long as its text is unchanged, and only new or changed text is sent.
+    """
+    if not sources:
+        return addons
+    restored = []
+    for entry in addons:
+        original = sources.get(entry.get("addonId"))
+        if isinstance(original, dict):
+            entry = dict(entry)
+            for field in ("displayName", "description"):
+                if isinstance(original.get(field), str):
+                    entry[field] = original[field]
+        restored.append(entry)
+    return restored
+
+
 def collect_work(addons, cache):
     """Return {cache key: {field, text}} for everything still to translate."""
     work = {}
@@ -285,6 +308,11 @@ def translate(addons, cache, budget=DEFAULT_BUDGET):
             # already English"), and caching it stops it being asked again.
             cache[key] = english
             done += 1
+        for key, item in batch.items():
+            # A key the model left out of an answer that otherwise worked is
+            # recorded as "leave it as it is"; unrecorded, it would be sent
+            # again every build for as long as the model keeps skipping it.
+            cache.setdefault(key, item["text"])
         log(f"  {min(start + BATCH_SIZE, len(keys))}/{len(keys)} "
             f"(${spent:.4f} so far)")
     log(f"Translated {done} string(s) for ${spent:.4f}.")
@@ -327,13 +355,16 @@ def main(argv=None):
                         help="generated English overlay to write")
     parser.add_argument("--cache", default="autoTranslationCache.json",
                         help="translations already paid for, keyed by source text")
+    parser.add_argument("--sources", default=mirror.AUTO_TRANSLATION_SOURCES_PATH,
+                        help="pre-overlay text written by mirror.py")
     parser.add_argument("--budget", type=int, default=DEFAULT_BUDGET,
                         help="maximum strings to translate in this run")
     parser.add_argument("--dry-run", action="store_true",
                         help="report what would be translated and stop")
     args = parser.parse_args(argv)
 
-    addons = audit_translations.load_addons(args.addons)
+    addons = with_original_text(
+        audit_translations.load_addons(args.addons), load_cache(args.sources))
     cache = load_cache(args.cache)
 
     if args.dry_run:

@@ -2827,6 +2827,53 @@ TRANSLATIONS_PATH = "translations.json"
 AUTO_TRANSLATIONS_PATH = "autoTranslations.json"
 TRANSLATIONS = {}
 
+#: The text each add-on had BEFORE the generated overlay replaced it, written
+#: for auto_translate.py. That script reads the built addons.json, where the
+#: overlay is already applied, so without this it saw the English, found
+#: nothing to translate, and dropped the add-on from the next overlay -- and
+#: the build after that published the original again. Every build flipped
+#: about 200 names between English and the original.
+AUTO_TRANSLATION_SOURCES_PATH = "autoTranslationSources.json"
+#: addonId -> fields whose English comes only from the generated overlay.
+AUTO_ONLY_FIELDS = {}
+#: addonId -> {"displayName"/"description": pre-overlay text}, filled by
+#: transform() and written by main().
+AUTO_TRANSLATION_SOURCES = {}
+
+
+def _read_overlay(candidate):
+    """Read a translations overlay file as {addonId: fields}, or {}."""
+    try:
+        with open(candidate, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    if isinstance(data, dict):
+        inner = data.get("translations", data)
+        return inner if isinstance(inner, dict) else {}
+    return {}
+
+
+def auto_only_fields(path=TRANSLATIONS_PATH, auto_path=AUTO_TRANSLATIONS_PATH):
+    """Return {addonId: {field}} for fields only the generated overlay sets.
+
+    A field the hand-maintained file also sets is left out: the human's English
+    is published whatever the model says, so its original is never worth
+    sending to the model.
+    """
+    human = _read_overlay(path)
+    result = {}
+    for addon_id, fields in _read_overlay(auto_path).items():
+        if not isinstance(fields, dict):
+            continue
+        own = human.get(addon_id)
+        own = own if isinstance(own, dict) else {}
+        auto = {field for field in ("summary", "description")
+                if fields.get(field) and not own.get(field)}
+        if auto:
+            result[addon_id] = auto
+    return result
+
 
 def load_translations(path=TRANSLATIONS_PATH, auto_path=AUTO_TRANSLATIONS_PATH):
     """Load the English overlay: hand-maintained first, generated beneath.
@@ -2835,17 +2882,7 @@ def load_translations(path=TRANSLATIONS_PATH, auto_path=AUTO_TRANSLATIONS_PATH):
     summary still gets the generated description, and never loses their summary
     to the model on the next run.
     """
-    def read(candidate):
-        try:
-            with open(candidate, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
-            return {}
-        if isinstance(data, dict):
-            inner = data.get("translations", data)
-            return inner if isinstance(inner, dict) else {}
-        return {}
-
+    read = _read_overlay
     merged = {}
     for addon_id, fields in read(auto_path).items():
         if isinstance(fields, dict):
@@ -2900,8 +2937,17 @@ def english_changelogs(entries):
 
 
 def _translate_entry(entry):
-    """Overlay configured English metadata onto a catalog entry."""
+    """Overlay configured English metadata onto a catalog entry.
+
+    Returns {field: original text} for the fields the generated overlay
+    replaced, so transform() can record what auto_translate.py should see.
+    """
     tr = TRANSLATIONS.get(entry["name"])
+    replaced = {
+        field: entry.get(field) or ""
+        for field in AUTO_ONLY_FIELDS.get(entry["name"], ())
+        if tr and tr.get(field)
+    }
     if tr:
         for field in ("summary", "description", "author", "changelog"):
             if tr.get(field):
@@ -2914,6 +2960,39 @@ def _translate_entry(entry):
         entry["changelog"] = (
             ENGLISH_CHANGELOGS.get(entry["name"]) or CHANGELOG_UNAVAILABLE
         )
+    return replaced
+
+
+def _display_name(entry, name):
+    """The published displayName for an entry's current summary."""
+    # Authors sometimes put a description in manifest.ini's summary,
+    # which is the field NVDA shows as the add-on's name. Publishing that
+    # verbatim leaves a paragraph where a title belongs, and the real name
+    # nowhere at all -- unusable when arrowing a list of names.
+    # An add-on whose own name is not English gets the English name first
+    # and its real name after "AKA", so it is both understandable and
+    # still recognisable from its own documentation.
+    return compose_display_name(
+        best_display_name(
+            clean_text(entry.get("summary")),
+            clean_text(entry.get("manifest_summary")),
+            name,
+        ) or name,
+        clean_text(entry.get("manifest_summary")),
+    )
+
+
+def _record_auto_source(entry, name, replaced):
+    """Remember the pre-overlay text of fields the generated overlay replaced."""
+    if not replaced:
+        return
+    original = {}
+    if "summary" in replaced:
+        original["displayName"] = _display_name(
+            dict(entry, summary=replaced["summary"]), name)
+    if "description" in replaced:
+        original["description"] = replaced["description"]
+    AUTO_TRANSLATION_SOURCES.setdefault(name, original)
 
 
 def transform(entry, sha256):
@@ -2930,7 +3009,7 @@ def transform(entry, sha256):
     name = entry["name"]
     version = entry["version"]
 
-    _translate_entry(entry)
+    _record_auto_source(entry, name, _translate_entry(entry))
 
     addon_version = sanitize_version(version)
     if addon_version is None:
@@ -2952,21 +3031,7 @@ def transform(entry, sha256):
 
     obj = {
         "addonId": name,
-        # Authors sometimes put a description in manifest.ini's summary,
-        # which is the field NVDA shows as the add-on's name. Publishing that
-        # verbatim leaves a paragraph where a title belongs, and the real name
-        # nowhere at all -- unusable when arrowing a list of names.
-        # An add-on whose own name is not English gets the English name first
-        # and its real name after "AKA", so it is both understandable and
-        # still recognisable from its own documentation.
-        "displayName": compose_display_name(
-            best_display_name(
-                clean_text(entry.get("summary")),
-                clean_text(entry.get("manifest_summary")),
-                name,
-            ) or name,
-            clean_text(entry.get("manifest_summary")),
-        ),
+        "displayName": _display_name(entry, name),
         "description": entry.get("description") or "",
         "publisher": author,
         "channel": entry.get("channel") or "stable",
@@ -4111,8 +4176,10 @@ def main():
     locales = args.locales.split(",") if args.locales else LOCALES
     channels = args.channels.split(",") if args.channels else CHANNELS
 
-    global TRANSLATIONS
+    global TRANSLATIONS, AUTO_ONLY_FIELDS
     TRANSLATIONS = load_translations()
+    AUTO_ONLY_FIELDS = auto_only_fields()
+    AUTO_TRANSLATION_SOURCES.clear()
 
     nvda_api_entries = load_nvda_api_version_entries(refresh=True)
     nvda_api_versions = nvda_api_versions_from_entries(nvda_api_entries)
@@ -4542,6 +4609,11 @@ def main():
     # cache carries it between runs; a cold start simply polls.
     with open(SOURCE_CACHE_PATH, "w", encoding="utf-8") as f:
         json.dump(source_cache, f, ensure_ascii=False)
+    # Read by auto_translate.py in the same job. Neither published nor cached:
+    # every build regenerates it from the catalog it has just built.
+    with open(AUTO_TRANSLATION_SOURCES_PATH, "w", encoding="utf-8") as f:
+        json.dump(AUTO_TRANSLATION_SOURCES, f, ensure_ascii=False,
+                  indent=1, sort_keys=True)
     flush_cache()
 
     # Measure the finished output, then rewrite stats.json with the figure in

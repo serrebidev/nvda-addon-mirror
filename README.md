@@ -121,12 +121,12 @@ https://serrebidev.github.io/nvda-addon-mirror
 Three ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [dist/addonStoreMirror-1.3.0.nvda-addon](dist/addonStoreMirror-1.3.0.nvda-addon)
-   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.3.0.nvda-addon).
+   [dist/addonStoreMirror-1.3.1.nvda-addon](dist/addonStoreMirror-1.3.1.nvda-addon)
+   (raw link: https://raw.githubusercontent.com/serrebidev/nvda-addon-mirror/main/dist/addonStoreMirror-1.3.1.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
-   Version 1.3.0 retains the NVDA 2027.1 compatibility floor. Version 1.2.1
+   Version 1.3.1 retains the NVDA 2027.1 compatibility floor. Version 1.2.1
    corrected the minimum NVDA version to 2025.1 (see
    below) and stopped a failure there from leaving the Add-on Store list
    modified. 1.2.0 added source visibility and source-aware search; 1.1.1
@@ -251,6 +251,13 @@ a generated overlay published with the site and restored on the next build.
 `translations.json` is merged **over** it per field, so a hand-written
 correction is never overwritten by the model, and correcting only a summary
 does not discard a generated description.
+
+Each add-on is translated once. The build writes `autoTranslationSources.json`,
+the text each add-on had before the generated overlay replaced it, and
+`auto_translate.py` judges that original rather than the English already in
+`addons.json`. Answers are cached by source text, so only a new add-on or one
+whose text changed reaches the model; a string the model skips is recorded as
+unchanged instead of being asked again every build.
 
 It also settles a question no pattern here can: the overlay has 480 names
 ending in a parenthetical, and they are not all the same thing.

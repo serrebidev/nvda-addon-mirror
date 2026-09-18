@@ -129,6 +129,60 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual({}, auto_translate.build_overlay(entries, cache))
 
 
+class RepeatBuildTests(unittest.TestCase):
+    """A translated add-on stays translated, and is not sent again."""
+
+    def test_the_overlay_survives_a_build_that_already_applied_it(self):
+        # The built catalog carries last build's English. Judged on that, the
+        # add-on looked finished and fell out of the overlay, so every other
+        # build published the original again.
+        original = "Monitor del Sistema"
+        cache = {auto_translate._cache_key("displayName", original):
+                 "System Monitor"}
+        published = [addon("sysmon", "System Monitor",
+                           "Reports the caret position.")]
+        sources = {"sysmon": {"displayName": original}}
+
+        restored = auto_translate.with_original_text(published, sources)
+        self.assertEqual({}, auto_translate.collect_work(restored, cache))
+        self.assertEqual(
+            {"sysmon": {"summary": "System Monitor"}},
+            auto_translate.build_overlay(restored, cache),
+        )
+
+    def test_changed_original_text_is_translated_again(self):
+        cache = {auto_translate._cache_key("displayName", "Monitor del Sistema"):
+                 "System Monitor"}
+        published = [addon("sysmon", "System Monitor")]
+        sources = {"sysmon": {"displayName": "Monitor del Sistema Plus"}}
+        work = auto_translate.collect_work(
+            auto_translate.with_original_text(published, sources), cache)
+        self.assertEqual(["Monitor del Sistema Plus"],
+                         [item["text"] for item in work.values()])
+
+    def test_the_restore_does_not_modify_the_catalog_it_was_given(self):
+        published = [addon("sysmon", "System Monitor")]
+        auto_translate.with_original_text(
+            published, {"sysmon": {"displayName": "Monitor del Sistema"}})
+        self.assertEqual("System Monitor", published[0]["displayName"])
+
+    def test_a_key_the_model_skipped_is_not_sent_again(self):
+        entries = [addon("a", "Monitor del Sistema"),
+                   addon("b", "Lector de Pantalla Rapido")]
+        cache = {}
+
+        def fake(batch, retries=2):
+            first = next(iter(batch))
+            return {first: "Answered"}, 0.0
+
+        with mock.patch.object(auto_translate, "OPENROUTER_API_KEY", "key"), \
+                mock.patch.object(auto_translate, "translate_batch", fake):
+            auto_translate.translate(entries, cache)
+        self.assertEqual({}, auto_translate.collect_work(entries, cache))
+        # The skipped one is recorded as unchanged, so no overlay entry.
+        self.assertEqual(1, len(auto_translate.build_overlay(entries, cache)))
+
+
 class ProviderFailureTests(unittest.TestCase):
     def test_no_key_translates_nothing_and_does_not_raise(self):
         entries = [addon("x", "Monitor del Sistema")]
@@ -199,6 +253,39 @@ class OverlayMergeTests(unittest.TestCase):
             merged = mirror.load_translations(
                 human, os.path.join(directory, "nope.json"))
         self.assertEqual("Human Name", merged["x"]["summary"])
+
+    def test_only_fields_the_human_file_leaves_alone_are_auto_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            human = os.path.join(directory, "translations.json")
+            auto = os.path.join(directory, "autoTranslations.json")
+            with open(human, "w", encoding="utf-8") as handle:
+                json.dump({"translations": {"x": {"summary": "Human Name"}}}, handle)
+            with open(auto, "w", encoding="utf-8") as handle:
+                json.dump({"translations": {
+                    "x": {"summary": "Model Name", "description": "Model text."},
+                    "y": {"summary": "Other"},
+                }}, handle)
+            self.assertEqual(
+                {"x": {"description"}, "y": {"summary"}},
+                mirror.auto_only_fields(human, auto),
+            )
+
+    def test_the_build_records_text_the_generated_overlay_replaced(self):
+        entry = {"name": "sysmon", "summary": "Monitor del Sistema",
+                 "description": "Texto original.", "changelog": ""}
+        with mock.patch.object(mirror, "TRANSLATIONS", {
+                "sysmon": {"summary": "System Monitor",
+                           "description": "Human text."}}), \
+                mock.patch.object(mirror, "AUTO_ONLY_FIELDS",
+                                  {"sysmon": {"summary"}}), \
+                mock.patch.object(mirror, "AUTO_TRANSLATION_SOURCES", {}):
+            replaced = mirror._translate_entry(entry)
+            mirror._record_auto_source(entry, "sysmon", replaced)
+            sources = dict(mirror.AUTO_TRANSLATION_SOURCES)
+        self.assertEqual({"summary": "Monitor del Sistema"}, replaced)
+        self.assertEqual("System Monitor", entry["summary"])
+        self.assertEqual(
+            {"sysmon": {"displayName": "Monitor del Sistema"}}, sources)
 
     def test_both_missing_yields_an_empty_overlay(self):
         with tempfile.TemporaryDirectory() as directory:

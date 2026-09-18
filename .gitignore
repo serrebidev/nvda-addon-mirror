@@ -23,3 +23,6 @@ sourceCache.json
 # The memory sync writes its machine-specific block here when AGENTS.md is
 # tracked, so absolute paths never reach a file the repo pushes.
 AGENTS.local.md
+
+# Pre-overlay text mirror.py hands to auto_translate.py; rebuilt every build.
+autoTranslationSources.json
