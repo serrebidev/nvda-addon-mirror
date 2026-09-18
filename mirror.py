@@ -733,7 +733,7 @@ TRANSLATABLE_FIELDS = ("displayName", "description")
 #: English.
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 TRANSLATE_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
-TRANSLATE_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3.8-flash")
+TRANSLATE_MODEL = os.environ.get("OPENROUTER_MODEL", "z-ai/glm-5.3-flash")
 
 #: Reasoning cannot be disabled on this model, but "low" spends zero reasoning
 #: tokens and answers identically for translation -- measured 5.5x cheaper than

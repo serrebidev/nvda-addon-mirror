@@ -246,7 +246,7 @@ untranslated until somebody notices. `audit_translations.py` finds those;
 `auto_translate.py` closes them.
 
 It runs after each build, sends what is still not English to
-`google/gemini-3.8-flash` via OpenRouter, and writes `autoTranslations.json` -
+`z-ai/glm-5.3-flash` via OpenRouter, and writes `autoTranslations.json` -
 a generated overlay published with the site and restored on the next build.
 `translations.json` is merged **over** it per field, so a hand-written
 correction is never overwritten by the model, and correcting only a summary

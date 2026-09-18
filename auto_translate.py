@@ -48,7 +48,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 #: Reasoning is mandatory on this model and cannot be turned off, but "low"
 #: spends zero reasoning tokens and answers identically for translation --
 #: 5.5x cheaper than "medium" in measurement, at about $0.00006 per string.
-TRANSLATE_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3.8-flash")
+TRANSLATE_MODEL = os.environ.get("OPENROUTER_MODEL", "z-ai/glm-5.3-flash")
 REASONING_EFFORT = "low"
 
 #: Strings per request. Batching amortises the prompt across many translations,
