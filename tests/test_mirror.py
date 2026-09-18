@@ -1,5 +1,6 @@
 import json
 import io
+import http.client
 import os
 import tempfile
 import unittest
@@ -20,6 +21,23 @@ def httpError(url, code, message):
     error = HTTPError(url, code, message, None, None)
     error.close()
     return error
+
+
+class FakeHTTPResponse:
+    """Minimal urlopen() result: the body and headers the mirror reads."""
+
+    def __init__(self, body=b"[]", headers=None):
+        self._body = body
+        self.headers = headers or {}
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
 
 
 class PinnedVersionTests(unittest.TestCase):
@@ -1036,6 +1054,53 @@ class GitHubOwnerTests(unittest.TestCase):
 
         self.assertEqual([candidate], candidates)
         self.assertIs(state, updated_state)
+
+    def test_dropped_github_connection_is_retried(self):
+        attempts = []
+
+        def open_url(request, timeout=None):
+            attempts.append(request.full_url)
+            if len(attempts) < 3:
+                raise http.client.RemoteDisconnected(
+                    "Remote end closed connection without response"
+                )
+            return FakeHTTPResponse(b'[{"tag_name": "v1.0"}]')
+
+        with mock.patch.object(mirror, "urlopen", side_effect=open_url), \
+                mock.patch.object(mirror.time, "sleep"):
+            releases, _etag, not_modified = mirror._github_json_conditional(
+                "https://api.github.invalid/repos/example/addon/releases"
+            )
+
+        self.assertEqual(3, len(attempts))
+        self.assertFalse(not_modified)
+        self.assertEqual([{"tag_name": "v1.0"}], releases)
+
+    def test_persistent_dropped_connection_still_stops_publication(self):
+        closed = http.client.RemoteDisconnected("Remote end closed connection")
+
+        with mock.patch.object(mirror, "urlopen", side_effect=closed), \
+                mock.patch.object(mirror.time, "sleep"):
+            with self.assertRaises(http.client.RemoteDisconnected):
+                mirror._github_json_conditional(
+                    "https://api.github.invalid/repos/example/addon/releases"
+                )
+
+    def test_unretryable_http_status_is_raised_immediately(self):
+        attempts = []
+
+        def open_url(request, timeout=None):
+            attempts.append(request.full_url)
+            raise httpError(request.full_url, 404, "Not Found")
+
+        with mock.patch.object(mirror, "urlopen", side_effect=open_url), \
+                mock.patch.object(mirror.time, "sleep"):
+            with self.assertRaises(HTTPError):
+                mirror._github_json_conditional(
+                    "https://api.github.invalid/repos/example/addon/releases"
+                )
+
+        self.assertEqual(1, len(attempts))
 
     def test_asset_families_ignore_version_suffixes(self):
         self.assertEqual("brailab", mirror._asset_family("brailab-3.1.5.nvda-addon"))

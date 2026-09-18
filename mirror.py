@@ -23,6 +23,7 @@ import copy
 import fnmatch
 import glob
 import hashlib
+import http.client
 import io
 import json
 import os
@@ -238,6 +239,17 @@ STORE_SOURCE_LABELS = {
 #: not a STORE_SOURCE_LABELS key: it is a provenance label, not a source.
 PINNED_URL_SOURCE_LABEL = "Author's website"
 GITHUB_API = "https://api.github.com"
+# urllib wraps most network faults in URLError, but a connection GitHub drops
+# mid-response escapes as a bare http.client.RemoteDisconnected from
+# getresponse() ("Remote end closed connection without response"), which is
+# not an HTTPError. Every retry loop below reads only, so retrying these is
+# safe, and a failure that outlives the backoff still stops publication.
+GITHUB_TRANSIENT_ERRORS = (
+    ConnectionError,
+    TimeoutError,
+    http.client.HTTPException,
+    URLError,
+)
 GITHUB_OWNER_REJECTIONS = []
 
 # GitHub API token, when present (e.g. GITHUB_TOKEN in Actions). Raises the
@@ -1649,6 +1661,9 @@ def _github_json(url, timeout=120):
                 raise
             if attempt == 3:
                 raise
+        except GITHUB_TRANSIENT_ERRORS:
+            if attempt == 3:
+                raise
     raise RuntimeError(f"GitHub request did not complete: {url}")
 
 
@@ -1670,6 +1685,9 @@ def _github_json_conditional(url, etag=None, timeout=120):
                 return None, etag, True
             if exc.code not in (403, 429) and not 500 <= exc.code < 600:
                 raise
+            if attempt == 3:
+                raise
+        except GITHUB_TRANSIENT_ERRORS:
             if attempt == 3:
                 raise
     raise RuntimeError(f"GitHub conditional request did not complete: {url}")
@@ -1697,6 +1715,10 @@ def _github_graphql(query, timeout=180):
         except HTTPError as exc:
             if exc.code not in (403, 429) and not 500 <= exc.code < 600:
                 raise
+            if attempt == 3:
+                raise
+            continue
+        except GITHUB_TRANSIENT_ERRORS:
             if attempt == 3:
                 raise
             continue
