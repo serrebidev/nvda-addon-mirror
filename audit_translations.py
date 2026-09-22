@@ -190,7 +190,15 @@ def audit(addons):
 
         fields = {}
         for field in CHECKED_FIELDS:
-            reason = classify(entry.get(field), short_name=field == "displayName")
+            text = entry.get(field)
+            if field == "displayName" and text:
+                # "English, AKA Original" is the pipeline's settled form (see
+                # auto_translate.py): the English name is the translation, and
+                # the original stays only so the add-on is recognisable from
+                # its own documentation. Judge the English half; the AKA
+                # suffix is deliberate, not a translation gap.
+                text = text.split(mirror.AKA_SEPARATOR, 1)[0].strip() or text
+            reason = classify(text, short_name=field == "displayName")
             if reason:
                 fields[field] = {"reason": reason, "text": entry.get(field)}
         if fields:

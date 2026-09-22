@@ -129,6 +129,24 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(findings[0]["addonId"], "agenda")
         self.assertEqual(list(findings[0]["fields"]), ["displayName"])
 
+    def test_settled_aka_display_name_is_not_flagged(self):
+        # "English, AKA Original" is the pipeline's settled form: the English
+        # name is the translation, the original stays for recognisability.
+        findings = audit_translations.audit([
+            _entry("audioLogger", "Audio Logger, AKA Аудио-журнал"),
+        ])
+        self.assertEqual(findings, [])
+
+    def test_english_half_of_aka_name_is_still_checked(self):
+        findings = audit_translations.audit([
+            _entry(
+                "addonPackager",
+                "Utilidades para los complementos, AKA Utilidades para los complementos de NVDA",
+            ),
+        ])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(list(findings[0]["fields"]), ["displayName"])
+
     def test_clean_catalog_produces_no_findings(self):
         self.assertEqual(
             audit_translations.audit([
