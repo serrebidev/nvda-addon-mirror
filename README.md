@@ -223,13 +223,13 @@ is now translated, best source first:
    author's own text. Read out of bytes already being streamed for the SHA-256,
    which costs no extra request. Coverage fills in over a day as the ordinary
    recheck TTLs expire — harvesting never forces a re-download.
-3. **Machine translation**, for whatever is still English. Off unless
-   `OPENROUTER_API_KEY` is set; without it those entries stay English, which is
-   what they were before. `TRANSLATE_CHAR_BUDGET` (default 200 000 characters
-   per build) caps the spend, so the first pass is spread across builds rather
-   than paid for in one run. Results are cached by `(source text, language)` in
-   `translationCache.json`, so unchanged text is never paid for twice. Every
-   NVDA locale can be targeted, not a provider's supported subset.
+3. **The maintainer's translation seed** (`translationSeed.json`), for
+   whatever is still English. There is no machine-translation provider:
+   translation is the maintainer's job. Each build merges the committed seed
+   over the restored `translationCache.json` (keyed by `(source text,
+   language)`, so unchanged text is never translated twice) and publishes the
+   remaining gaps as `translationRequests.json` — the maintainer's queue. The
+   seed always wins over the cache: it is newer and hand-checked.
 
 Anything with no translation at any tier keeps its English string — a gap is
 never worse than the previous behaviour. `--no-translate` publishes English
@@ -238,26 +238,28 @@ everywhere and skips the per-language fetches.
 Locale fallback follows NVDA's own: `pt_BR` uses a `pt` translation when there
 is no `pt_BR` one.
 
-## Translating into English automatically
+## Translating into English
 
 `translations.json` is hand-maintained and decays: every new Spanish, Russian,
 Turkish, French, Portuguese, German or Chinese add-on reaches the store
-untranslated until somebody notices. `audit_translations.py` finds those;
-`auto_translate.py` closes them.
+untranslated until somebody notices. `audit_translations.py` finds those; the
+maintainer closes them by adding an English `summary` and `description` for
+each add-on ID to `translations.json`. There is no machine-translation
+provider any more — translation is the maintainer's job.
 
-It runs after each build, sends what is still not English to
-`z-ai/glm-5.3-flash` via OpenRouter, and writes `autoTranslations.json` -
-a generated overlay published with the site and restored on the next build.
+`auto_translate.py` runs after each build and reports the queue: what is still
+not English, for the maintainer to handle. It also rebuilds
+`autoTranslations.json` — a generated overlay published with the site and
+restored on the next build — from the cache of answers already given.
 `translations.json` is merged **over** it per field, so a hand-written
-correction is never overwritten by the model, and correcting only a summary
-does not discard a generated description.
+correction is never overwritten, and correcting only a summary does not
+discard a generated description.
 
 Each add-on is translated once. The build writes `autoTranslationSources.json`,
 the text each add-on had before the generated overlay replaced it, and
 `auto_translate.py` judges that original rather than the English already in
 `addons.json`. Answers are cached by source text, so only a new add-on or one
-whose text changed reaches the model; a string the model skips is recorded as
-unchanged instead of being asked again every build.
+whose text changed needs attention.
 
 It also settles a question no pattern here can: the overlay has 480 names
 ending in a parenthetical, and they are not all the same thing.

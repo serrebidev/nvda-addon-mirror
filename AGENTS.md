@@ -80,3 +80,21 @@ after a version bump. Derive those from the module instead — see
 `audit_catalog()` reads its floors back from the build's own `stats.json`, so
 it cannot catch a wrong floor — only an inconsistent one. Verify compatibility
 changes against NVDA's source, not against the build's own output.
+
+## Translation is the maintainer's job (2026-09-24)
+
+OpenRouter was removed from both directions; there is no provider any more.
+
+- **Into locales:** each build merges the committed `translationSeed.json`
+  over the restored `translationCache.json` (same `lang:sha256` keys; the
+  seed wins) and publishes the remaining gaps as `translationRequests.json`
+  on the site. The maintainer fetches that file, translates, appends to the
+  seed, commits. Untranslated strings stay English — never a missing entry.
+- **Into English:** `audit_translations.py` finds add-ons publishing
+  non-English text; the maintainer adds an English `summary`/`description`
+  per add-on ID to `translations.json`. `auto_translate.py` only reports the
+  queue now (`collect_work()`) and rebuilds `autoTranslations.json` from the
+  existing cache.
+- Never put a provider key back into the workflow or the code. The old
+  `OPENROUTER_API_KEY` secret was deleted; the workflow still references it
+  but the code ignores it (`.github/workflows` is not to be edited).

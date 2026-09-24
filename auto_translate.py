@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Translate the catalog's remaining non-English metadata into English.
+"""Report the catalog's remaining non-English metadata for the maintainer.
 
 ``translations.json`` is hand-maintained, and the catalogs it draws from keep
 growing, so it decays: every new Spanish, Russian, Turkish, French, Portuguese,
 German or Chinese add-on reaches NVDA's Add-on Store untranslated until somebody
-notices. ``audit_translations.py`` finds those; this closes them.
+notices. ``audit_translations.py`` finds those; the maintainer closes them by
+adding an English ``summary`` and ``description`` for each add-on ID to
+``translations.json``, which always wins over the generated overlay below.
 
-Two jobs, both decided by a model because neither is decidable by pattern:
+Two judgments the maintainer makes per item, neither decidable by pattern:
 
 1. Translate a non-English ``displayName`` or ``description`` into English. A
    name is not translated away -- "Betimleyici" becomes
@@ -20,74 +22,25 @@ Two jobs, both decided by a model because neither is decidable by pattern:
    to know that "Betimleyici" is Turkish while "ClipboardEnhancement" is
    English, which no regex here can do.
 
-Output is ``autoTranslations.json``, a generated overlay published with the site
-and restored on the next build. ``translations.json`` always wins over it, so a
-human correction is never overwritten by the model.
+There used to be a machine-translation provider here (OpenRouter). It is gone:
+translation is the maintainer's job now. This script reports the queue --
+``collect_work()`` is what still needs English -- and rebuilds
+``autoTranslations.json``, the generated overlay published with the site and
+restored on the next build, from the cache of answers already given.
 
     python auto_translate.py --addons public/addons.json --out autoTranslations.json
 
-Never raises on a provider failure: an untranslated add-on keeps the text it has
-today, which is what it would have had anyway.
+An untranslated add-on keeps the text it has today, which is what it would
+have had anyway.
 """
 
 import argparse
 import json
-import os
 import sys
-import time
-import urllib.error
-import urllib.request
 
 import mirror
 import audit_translations
 
-#: OpenRouter, so one key covers both this and the per-locale translation.
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
-
-#: Reasoning is mandatory on this model and cannot be turned off, but "low"
-#: spends zero reasoning tokens and answers identically for translation --
-#: 5.5x cheaper than "medium" in measurement, at about $0.00006 per string.
-TRANSLATE_MODEL = os.environ.get("OPENROUTER_MODEL", "z-ai/glm-5.3-flash")
-REASONING_EFFORT = "low"
-
-#: Strings per request. Batching amortises the prompt across many translations,
-#: which is where nearly all of the saving comes from.
-BATCH_SIZE = 20
-
-#: Ceiling per run, so a first pass over a large backlog is spread across builds
-#: rather than spent in one. Roughly 3000 strings at the measured rate.
-DEFAULT_BUDGET = int(os.environ.get("AUTO_TRANSLATE_BUDGET", "600"))
-
-_SYSTEM_PROMPT = """You clean up NVDA screen-reader add-on metadata for a store listing.
-
-Never translate a product name, a brand, a key name (NVDA+F12), a file
-extension, or a URL. Leave those exactly as written.
-
-For a "name", answer with ONE short, readable name. Every add-on in this list
-is for NVDA, so never end a name with "for NVDA" or "add-on".
-
-- Non-English words anywhere in the name: translate them into English.
-- The NAME ITSELF is non-English: answer with the English name, then ", AKA ",
-  then the original name copied EXACTLY, character for character.
-  "Betimleyici" -> "Descriptor, AKA Betimleyici".
-  "Betimleyici (Descriptor)" -> "Descriptor, AKA Betimleyici".
-  "YoutubePlus (Rasshirennye vozmozhnosti YouTube)" -> "YouTube Plus".
-  Use ", AKA " ONLY for a genuine second name, never for a description.
-- A parenthetical that just respells the name: keep the more readable spelling
-  and drop the bracket. "2FAGenerator (2FA Generator)" -> "2FA Generator".
-  "AbsoluteFileAndFolder (Absolute files and folders)" ->
-  "Absolute Files and Folders".
-- A parenthetical that describes what the add-on does: drop it and keep the
-  name. "DECtalk (DECtalk speech synthesizer)" -> "DECtalk".
-  "AbsoluteSite (Featured Websites)" -> "AbsoluteSite".
-  "AIAssistant (AI Assistant for NVDA)" -> "AI Assistant".
-- A name that is already short, English and clean: answer with it unchanged.
-
-For a "description", translate the prose into English, keep the original line
-breaks, and add no commentary.
-
-Reply with ONLY a JSON object mapping each input key to its answer string."""
 
 
 def log(message):
@@ -168,75 +121,6 @@ def answer_is_usable(field, source, english):
     return original in source
 
 
-def _post(payload, timeout=120):
-    request = urllib.request.Request(
-        OPENROUTER_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "User-Agent": mirror.USER_AGENT,
-        },
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def translate_batch(items, retries=2):
-    """Translate {key: {"field":..., "text":...}}; return {key: english} or None.
-
-    None means the whole batch failed. Nothing partial is ever returned: a
-    short or reordered answer would attach one add-on's text to another.
-    """
-    if not items or not OPENROUTER_API_KEY:
-        return None
-    payload = {
-        "model": TRANSLATE_MODEL,
-        "reasoning": {"effort": REASONING_EFFORT},
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": json.dumps(
-                {key: {"field": item["field"], "value": item["text"]}
-                 for key, item in items.items()},
-                ensure_ascii=False,
-            )},
-        ],
-    }
-    for attempt in range(retries + 1):
-        try:
-            body = _post(payload)
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError,
-                ValueError) as exc:
-            log(f"  provider error: {exc}")
-            if attempt == retries:
-                return None
-            time.sleep(2 * (attempt + 1))
-            continue
-        if body.get("error"):
-            log(f"  provider error: {str(body['error'])[:200]}")
-            return None
-        try:
-            content = body["choices"][0]["message"]["content"]
-            answers = json.loads(content)
-        except (KeyError, IndexError, TypeError, ValueError) as exc:
-            log(f"  unreadable answer: {exc}")
-            if attempt == retries:
-                return None
-            continue
-        if not isinstance(answers, dict):
-            return None
-        # Keep only keys that were asked about, and only non-empty strings.
-        cleaned = {
-            key: value.strip()
-            for key, value in answers.items()
-            if key in items and isinstance(value, str) and value.strip()
-        }
-        cost = (body.get("usage") or {}).get("cost")
-        return cleaned, cost
-    return None
-
-
 def with_original_text(addons, sources):
     """Put back the text the generated overlay replaced in the built catalog.
 
@@ -280,43 +164,21 @@ def collect_work(addons, cache):
     return work
 
 
-def translate(addons, cache, budget=DEFAULT_BUDGET):
-    """Fill the cache with English for whatever still needs it. Returns count."""
+def translate(addons, cache, budget=None):
+    """Report what still needs English. Returns 0: nothing is translated here.
+
+    The machine-translation provider is retired; translation is the
+    maintainer's job, worked from the queue this reports and recorded in
+    ``translations.json`` (which always wins over the generated overlay).
+    ``budget`` is accepted and ignored, so older invocations keep running.
+    """
     work = collect_work(addons, cache)
     if not work:
         log("Nothing to translate: every non-English field already has English.")
         return 0
-    log(f"{len(work)} string(s) need English; budget is {budget} this run.")
-    if not OPENROUTER_API_KEY:
-        log("OPENROUTER_API_KEY is unset, so nothing was translated. "
-            "Those add-ons keep the text they have today.")
-        return 0
-
-    keys = list(work)[:budget]
-    done = 0
-    spent = 0.0
-    for start in range(0, len(keys), BATCH_SIZE):
-        batch = {key: work[key] for key in keys[start:start + BATCH_SIZE]}
-        result = translate_batch(batch)
-        if result is None:
-            log("  batch failed; stopping this run rather than retrying blindly")
-            break
-        answers, cost = result
-        spent += cost or 0.0
-        for key, english in answers.items():
-            # An answer identical to the input is a decision too ("this name is
-            # already English"), and caching it stops it being asked again.
-            cache[key] = english
-            done += 1
-        for key, item in batch.items():
-            # A key the model left out of an answer that otherwise worked is
-            # recorded as "leave it as it is"; unrecorded, it would be sent
-            # again every build for as long as the model keeps skipping it.
-            cache.setdefault(key, item["text"])
-        log(f"  {min(start + BATCH_SIZE, len(keys))}/{len(keys)} "
-            f"(${spent:.4f} so far)")
-    log(f"Translated {done} string(s) for ${spent:.4f}.")
-    return done
+    log(f"{len(work)} string(s) still need English from the maintainer; "
+        "add them to translations.json and the next build publishes them.")
+    return 0
 
 
 def build_overlay(addons, cache):
@@ -357,8 +219,6 @@ def main(argv=None):
                         help="translations already paid for, keyed by source text")
     parser.add_argument("--sources", default=mirror.AUTO_TRANSLATION_SOURCES_PATH,
                         help="pre-overlay text written by mirror.py")
-    parser.add_argument("--budget", type=int, default=DEFAULT_BUDGET,
-                        help="maximum strings to translate in this run")
     parser.add_argument("--dry-run", action="store_true",
                         help="report what would be translated and stop")
     args = parser.parse_args(argv)
@@ -374,7 +234,7 @@ def main(argv=None):
             log(f"  [{item['field']}] {item['text'][:90]}")
         return 0
 
-    translate(addons, cache, budget=args.budget)
+    translate(addons, cache)
 
     with open(args.cache, "w", encoding="utf-8") as handle:
         json.dump(cache, handle, ensure_ascii=False, indent=1, sort_keys=True)

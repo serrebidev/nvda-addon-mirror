@@ -166,53 +166,44 @@ class RepeatBuildTests(unittest.TestCase):
             published, {"sysmon": {"displayName": "Monitor del Sistema"}})
         self.assertEqual("System Monitor", published[0]["displayName"])
 
-    def test_a_key_the_model_skipped_is_not_sent_again(self):
+    def test_collect_work_lists_everything_still_needing_english(self):
         entries = [addon("a", "Monitor del Sistema"),
-                   addon("b", "Lector de Pantalla Rapido")]
+                   addon("b", "Monitor del Sistema Plus")]
+        work = auto_translate.collect_work(entries, {})
+        self.assertEqual(2, len(work))
+        texts = sorted(item["text"] for item in work.values())
+        self.assertEqual(["Monitor del Sistema", "Monitor del Sistema Plus"], texts)
+
+    def test_a_cached_answer_is_not_asked_for_again(self):
+        entries = [addon("a", "Monitor del Sistema"),
+                   addon("b", "Monitor del Sistema Plus")]
         cache = {}
-
-        def fake(batch, retries=2):
-            first = next(iter(batch))
-            return {first: "Answered"}, 0.0
-
-        with mock.patch.object(auto_translate, "OPENROUTER_API_KEY", "key"), \
-                mock.patch.object(auto_translate, "translate_batch", fake):
-            auto_translate.translate(entries, cache)
-        self.assertEqual({}, auto_translate.collect_work(entries, cache))
-        # The skipped one is recorded as unchanged, so no overlay entry.
-        self.assertEqual(1, len(auto_translate.build_overlay(entries, cache)))
+        work = auto_translate.collect_work(entries, cache)
+        first = next(iter(work))
+        cache[first] = "System Monitor"
+        remaining = auto_translate.collect_work(entries, cache)
+        self.assertEqual(1, len(remaining))
+        self.assertNotIn(first, remaining)
 
 
-class ProviderFailureTests(unittest.TestCase):
-    def test_no_key_translates_nothing_and_does_not_raise(self):
+class RetiredProviderTests(unittest.TestCase):
+    """The provider is gone: translate() only reports the maintainer's queue."""
+
+    def test_translate_reports_the_queue_and_changes_nothing(self):
         entries = [addon("x", "Monitor del Sistema")]
         cache = {}
-        with mock.patch.object(auto_translate, "OPENROUTER_API_KEY", ""):
-            self.assertEqual(0, auto_translate.translate(entries, cache))
+        self.assertEqual(0, auto_translate.translate(entries, cache))
         self.assertEqual({}, cache)
 
-    def test_a_failed_batch_stops_the_run_without_writing_anything(self):
+    def test_translate_is_quiet_when_nothing_needs_english(self):
+        entries = [addon("x", "System Monitor")]
+        self.assertEqual(
+            0, auto_translate.translate(entries, {}))
+
+    def test_translate_accepts_a_legacy_budget_argument(self):
         entries = [addon("x", "Monitor del Sistema")]
-        cache = {}
-        with mock.patch.object(auto_translate, "OPENROUTER_API_KEY", "key"), \
-                mock.patch.object(
-                    auto_translate, "translate_batch", return_value=None):
-            self.assertEqual(0, auto_translate.translate(entries, cache))
-        self.assertEqual({}, cache)
-
-    def test_the_budget_caps_a_single_run(self):
-        entries = [addon(str(i), f"Monitor del Sistema {i}") for i in range(60)]
-        cache = {}
-        sent = []
-
-        def fake(batch, retries=2):
-            sent.extend(batch)
-            return {key: "System Monitor" for key in batch}, 0.001
-
-        with mock.patch.object(auto_translate, "OPENROUTER_API_KEY", "key"), \
-                mock.patch.object(auto_translate, "translate_batch", fake):
-            auto_translate.translate(entries, cache, budget=10)
-        self.assertLessEqual(len(sent), 10)
+        self.assertEqual(
+            0, auto_translate.translate(entries, {}, budget=10))
 
 
 class OverlayMergeTests(unittest.TestCase):

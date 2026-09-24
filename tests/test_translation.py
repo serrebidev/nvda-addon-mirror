@@ -288,131 +288,65 @@ class BundleTranslationTests(unittest.TestCase):
             self.assertEqual({}, mirror.bundle_locale_translations(raw))
 
 
-class MachineTranslationTests(unittest.TestCase):
-    def test_inert_without_credentials(self):
+class MaintainerTranslationTests(unittest.TestCase):
+    """No provider any more: the seed feeds the cache, gaps become a queue."""
+
+    def test_the_seed_merges_into_the_runtime_cache(self):
         cache = {}
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", ""):
-            spent = mirror.machine_translate_missing([("fr", "A clock.")], cache)
-        self.assertEqual(0, spent)
-        self.assertEqual({}, cache)
-
-    def test_the_character_budget_is_respected(self):
-        cache = {}
-
-        def fake(texts, target, timeout=60):
-            return [f"[{target}] {t}" for t in texts]
-
-        needed = [("fr", "x" * 400), ("fr", "y" * 400), ("fr", "z" * 400)]
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"), mock.patch.object(
-            mirror, "machine_translate_batch", fake
+        seed = {mirror.translation_key("A clock.", "fr"): "Une horloge."}
+        with unittest.mock.patch.object(
+            mirror, "load_json_cache", return_value=seed
         ):
-            spent = mirror.machine_translate_missing(needed, cache, budget=900)
-        self.assertLessEqual(spent, 900)
-        self.assertTrue(cache)
-        self.assertLess(len(cache), len(needed))
-
-    def test_a_failed_batch_is_discarded_rather_than_misaligned(self):
-        # Pairing a short response positionally would publish one add-on's
-        # description under another add-on's name.
-        cache = {}
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"), mock.patch.object(
-            mirror, "machine_translate_batch", lambda *a, **k: None
-        ):
-            mirror.machine_translate_missing([("fr", "A clock.")], cache)
-        self.assertEqual("", cache.get(mirror.translation_key("A clock.", "fr"), ""))
-
-    def test_translated_text_is_cached_under_its_source_and_language(self):
-        cache = {}
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"), mock.patch.object(
-            mirror,
-            "machine_translate_batch",
-            lambda texts, target, timeout=60: ["Une horloge."],
-        ):
-            mirror.machine_translate_missing([("fr", "A clock.")], cache)
+            applied = mirror.merge_translation_seed(cache)
+        self.assertEqual(1, applied)
         self.assertEqual(
             "Une horloge.", cache[mirror.translation_key("A clock.", "fr")]
         )
 
-    def test_already_cached_text_is_never_sent_again(self):
-        cache = {mirror.translation_key("A clock.", "fr"): "Une horloge."}
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"), mock.patch.object(
-            mirror, "machine_translate_batch"
-        ) as provider:
-            spent = mirror.machine_translate_missing([("fr", "A clock.")], cache)
-        provider.assert_not_called()
-        self.assertEqual(0, spent)
+    def test_the_seed_wins_over_a_stale_cache_entry(self):
+        key = mirror.translation_key("A clock.", "fr")
+        cache = {key: "Stale machine text."}
+        with unittest.mock.patch.object(
+            mirror, "load_json_cache", return_value={key: "Une horloge."}
+        ):
+            mirror.merge_translation_seed(cache)
+        self.assertEqual("Une horloge.", cache[key])
 
-    def test_every_nvda_locale_can_be_targeted(self):
-        # A general model needs a language, not a code from a provider's
-        # supported list, so no locale falls outside it. "kmr" used to.
-        for lang in ("kmr", "pt_BR", "fr", "my", "ckb", "kok"):
-            with self.subTest(lang=lang):
-                self.assertEqual(lang, mirror.machine_translation_target(lang))
+    def test_an_empty_seed_changes_nothing(self):
+        cache = {"fr:abc": "x"}
+        with unittest.mock.patch.object(
+            mirror, "load_json_cache", return_value={}
+        ):
+            self.assertEqual(0, mirror.merge_translation_seed(cache))
+        self.assertEqual({"fr:abc": "x"}, cache)
 
-    def test_english_is_never_a_translation_target(self):
-        for lang in ("en", "en_GB", "", None):
-            with self.subTest(lang=lang):
-                self.assertIsNone(mirror.machine_translation_target(lang))
-
-    def test_a_short_or_reordered_reply_is_discarded_whole(self):
-        # One answer per input, or nothing: a partial reply would attach one
-        # add-on's text to another add-on's name.
-        body = {"choices": [{"message": {"content": json.dumps({"0": "un"})}}]}
-
-        class FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
-            def read(self):
-                return json.dumps(body).encode()
-
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=FakeResponse()):
-            self.assertIsNone(
-                mirror.machine_translate_batch(["one", "two"], "fr")
+    def test_requests_list_only_what_the_cache_does_not_cover(self):
+        key = mirror.translation_key("Covered.", "fr")
+        cache = {key: "Couvert."}
+        with unittest.mock.patch(
+            "builtins.open", unittest.mock.mock_open()
+        ) as fake_open:
+            count = mirror.write_translation_requests(
+                [("fr", "Covered."), ("fr", "New string."), ("de", "")],
+                cache,
+                "/tmp/requests.json",
             )
+        self.assertEqual(1, count)
+        payload = "".join(
+            call.args[0]
+            for call in fake_open().write.call_args_list
+            if isinstance(call.args[0], str)
+        )
+        self.assertEqual(
+            [{"lang": "fr", "text": "New string."}], json.loads(payload)
+        )
 
-    def test_an_aligned_reply_is_returned_positionally(self):
-        body = {"choices": [{"message": {"content":
-                json.dumps({"0": "un", "1": "deux"})}}]}
-
-        class FakeResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
-            def read(self):
-                return json.dumps(body).encode()
-
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=FakeResponse()):
-            self.assertEqual(
-                ["un", "deux"],
-                mirror.machine_translate_batch(["one", "two"], "fr"),
+    def test_requests_are_deduplicated(self):
+        with unittest.mock.patch("builtins.open", unittest.mock.mock_open()) as m:
+            count = mirror.write_translation_requests(
+                [("fr", "Same."), ("fr", "Same.")], {}, "/tmp/requests.json"
             )
-
-    def test_a_truncated_body_is_a_failed_call_not_a_crash(self):
-        # A provider that drops a chunked body mid-stream surfaces as
-        # IncompleteRead, which is not an OSError subclass. The batch must
-        # return None (the documented "call failed" signal) instead of
-        # escaping and killing the whole build.
-        class TruncatedResponse:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
-            def read(self):
-                raise http.client.IncompleteRead(b'{"choices":', 8192)
-
-        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=TruncatedResponse()):
-            self.assertIsNone(
-                mirror.machine_translate_batch(["one", "two"], "fr")
-            )
+        self.assertEqual(1, count)
 
 
 class TranslationGapTests(unittest.TestCase):

@@ -737,31 +737,22 @@ SOURCE_RETRY_SECONDS = int(os.environ.get("SOURCE_RETRY_SECONDS", str(10 * 60)))
 #: Fields the store shows as prose, in the order a reader meets them.
 TRANSLATABLE_FIELDS = ("displayName", "description")
 
-#: Machine translation is the last resort, behind the add-on author's own
-#: words. It is off unless OPENROUTER_API_KEY is set, so the build works
-#: unchanged with no credentials and simply leaves those entries in English.
-#: One provider and one key for both directions: this translates English into
-#: each locale, and auto_translate.py brings non-English metadata back into
-#: English.
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-TRANSLATE_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
-TRANSLATE_MODEL = os.environ.get("OPENROUTER_MODEL", "z-ai/glm-5.3-flash")
+#: The maintainer's own translations, committed to the repo. Keyed exactly
+#: like the runtime translation cache ("lang:sha256-of-source-text"), so an
+#: entry here is picked up by the next build. The build merges the seed over
+#: the restored cache, so the seed always wins: it is newer and hand-checked.
+#: There is no machine-translation provider any more -- translation is the
+#: maintainer's job, worked from the queue the build publishes (see
+#: TRANSLATION_REQUESTS_PATH). auto_translate.py covers the other direction,
+#: bringing non-English metadata back into English.
+TRANSLATION_SEED_PATH = "translationSeed.json"
 
-#: Reasoning cannot be disabled on this model, but "low" spends zero reasoning
-#: tokens and answers identically for translation -- measured 5.5x cheaper than
-#: "medium", at roughly $0.0001 per string once batched.
-TRANSLATE_REASONING_EFFORT = "low"
-
-#: Strings per request. Batching amortises the prompt across many translations,
-#: which is where nearly all of the saving comes from.
-TRANSLATE_BATCH_SIZE = 20
-
-#: Characters of source text a single build may send. The first full pass over
-#: 73 locales is tens of millions of characters, so an uncapped build could
-#: spend a lot in one run before anyone noticed. Work is spread across builds
-#: instead: whatever is not translated this hour stays English and is picked up
-#: next hour.
-TRANSLATE_CHAR_BUDGET = int(os.environ.get("TRANSLATE_CHAR_BUDGET", "200000"))
+#: Published with the site each build: the (lang, text) pairs the catalog
+#: still has no translation for, deduplicated. The maintainer works through
+#: this file and commits the results to translationSeed.json; the next build
+#: picks them up. Anything still untranslated stays in English, which is what
+#: a reader gets rather than a missing entry.
+TRANSLATION_REQUESTS_PATH = "translationRequests.json"
 
 #: Republished with the site and restored next build, like hashcache.json.
 #: Keyed by (sha256 of the source text, target language), so text that has not
@@ -913,138 +904,42 @@ def translation_key(text, lang):
     return f"{lang}:{digest}"
 
 
-def machine_translation_target(lang):
-    """Language name to translate into, or None when the locale is unusable.
+def merge_translation_seed(cache, path=TRANSLATION_SEED_PATH):
+    """Merge the maintainer's committed translations into the runtime cache.
 
-    Every NVDA locale is served: a general model needs a language, not a code
-    from a provider's supported list, so there is no subset to fall outside of.
+    Returns the number of seed entries applied. The seed wins over the
+    restored cache: it is newer and hand-checked, so a corrected string
+    replaces whatever the cache held.
     """
-    code = (lang or "").strip()
-    if not code or code == "en" or code.startswith("en_"):
-        return None
-    return code
-
-
-def machine_translate_batch(texts, target, timeout=180):
-    """Translate a batch of strings, or return None if the call failed.
-
-    The return is positional: index i of the result is the translation of index
-    i of ``texts``. Anything that does not come back with exactly one answer per
-    input is discarded whole, because a short or reordered reply would attach
-    one add-on's text to another add-on's name.
-    """
-    if not texts or not TRANSLATE_API_KEY:
-        return None
-    keyed = {str(i): text for i, text in enumerate(texts)}
-    payload = json.dumps({
-        "model": TRANSLATE_MODEL,
-        "reasoning": {"effort": TRANSLATE_REASONING_EFFORT},
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": (
-                "You translate NVDA screen-reader add-on metadata from English "
-                f"into the language with code '{target}'.\n"
-                "- Reply with the translation only, no commentary.\n"
-                "- NEVER translate a product name, a brand, a key name such as "
-                "NVDA+F12, a file extension, or a URL. Leave them exactly.\n"
-                "- Keep the original line breaks.\n"
-                "Reply with ONLY a JSON object mapping each input key to its "
-                "translation."
-            )},
-            {"role": "user", "content": json.dumps(keyed, ensure_ascii=False)},
-        ],
-    }).encode("utf-8")
-    request = Request(
-        OPENROUTER_URL,
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {TRANSLATE_API_KEY}",
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT,
-        },
-    )
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            body = json.loads(response.read().decode("utf-8"))
-    # http.client.HTTPException is not an OSError subclass: a provider that
-    # drops a chunked body mid-stream surfaces as IncompleteRead and used to
-    # escape this handler and kill the whole build. A truncated reply is a
-    # failed call, so it returns None like every other transport fault.
-    except (HTTPError, URLError, OSError, ValueError,
-            http.client.HTTPException) as exc:
-        log(f"machine translation failed for {target}: {exc}")
-        return None
-    if body.get("error"):
-        log(f"machine translation failed for {target}: {str(body['error'])[:160]}")
-        return None
-    try:
-        answers = json.loads(body["choices"][0]["message"]["content"])
-    except (KeyError, IndexError, TypeError, ValueError) as exc:
-        log(f"machine translation returned an unreadable answer ({target}): {exc}")
-        return None
-    if not isinstance(answers, dict) or len(answers) != len(keyed):
-        log(f"machine translation returned {len(answers or [])} results for "
-            f"{len(keyed)} strings ({target}); discarding the batch")
-        return None
-    result = []
-    for index in range(len(texts)):
-        value = answers.get(str(index))
-        result.append(value.strip() if isinstance(value, str) and value.strip()
-                      else None)
-    return result
-
-
-def machine_translate_missing(needed, cache, budget=TRANSLATE_CHAR_BUDGET):
-    """Fill translation gaps from the provider, within one build's budget.
-
-    ``needed`` is an iterable of (lang, text). Returns the number of characters
-    actually sent. The cache is updated in place, including negative results
-    (recorded as an empty string) so a string the provider cannot handle is not
-    retried every hour forever.
-    """
-    if not TRANSLATE_API_KEY:
+    seed = load_json_cache(path)
+    if not seed:
         return 0
-    by_lang = {}
-    for lang, text in needed:
+    cache.update(seed)
+    return len(seed)
+
+
+def write_translation_requests(gaps, cache, path):
+    """Publish the translation queue: (lang, text) pairs with no translation.
+
+    ``gaps`` is the build's (lang, text) pairs lacking a human translation;
+    anything the cache (including the just-merged seed) already covers is
+    dropped, and the rest is written deduplicated for the maintainer.
+    Returns the number of requests written.
+    """
+    seen = set()
+    requests = []
+    for lang, text in gaps:
         if not text or translation_key(text, lang) in cache:
             continue
-        by_lang.setdefault(lang, []).append(text)
-
-    spent = 0
-    # Fewest gaps first, so small languages reach full coverage rather than
-    # every language staying perpetually half-translated.
-    for lang in sorted(by_lang, key=lambda k: len(by_lang[k])):
-        target = machine_translation_target(lang)
-        if target is None:
+        marker = (lang, text)
+        if marker in seen:
             continue
-        batch, batch_chars = [], 0
-        pending = list(dict.fromkeys(by_lang[lang]))
-        while pending or batch:
-            if pending and len(batch) < 40 and batch_chars + len(pending[0]) <= 25000:
-                text = pending.pop(0)
-                if spent + batch_chars + len(text) > budget:
-                    pending.clear()
-                    if not batch:
-                        break
-                else:
-                    batch.append(text)
-                    batch_chars += len(text)
-                    continue
-            if not batch:
-                break
-            results = machine_translate_batch(batch, target)
-            spent += batch_chars
-            for source, translated in zip(batch, results or [None] * len(batch)):
-                cache[translation_key(source, lang)] = translated or ""
-            batch, batch_chars = [], 0
-            if results is None:
-                # The provider is unhappy; stop pestering it this build.
-                break
-        if spent >= budget:
-            log(f"machine translation budget of {budget} characters reached; "
-                f"remaining gaps stay English until the next build")
-            break
-    return spent
+        seen.add(marker)
+        requests.append({"lang": lang, "text": text})
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(requests, handle, ensure_ascii=False, indent=1)
+        handle.write("\n")
+    return len(requests)
 
 
 def fetch_official():
@@ -4503,7 +4398,7 @@ def main():
     # English is the source catalog; every other locale is the same catalog
     # with translated prose overlaid. Best source wins: the official store's
     # own per-language view, then the author's locale/<lang>/manifest.ini out
-    # of the bundle, then machine translation for what is left.
+    # of the bundle, then the maintainer's translation seed for what is left.
     locale_cache = load_json_cache(LOCALE_CACHE_PATH)
     translation_cache = load_json_cache(TRANSLATION_CACHE_PATH)
     official_translations = {}
@@ -4522,7 +4417,11 @@ def main():
         log(f"author-supplied bundle translations: "
             f"{len(authored_translations)} add-ons")
 
-    if args.translate and TRANSLATE_API_KEY:
+    if args.translate:
+        seeded = merge_translation_seed(translation_cache)
+        if seeded:
+            log(f"merged {seeded} maintainer translation(s) from "
+                f"{TRANSLATION_SEED_PATH}")
         gaps = []
         for lang in locales:
             if lang == "en":
@@ -4530,12 +4429,12 @@ def main():
             gaps.extend(translation_gaps(
                 output, lang, official_translations, authored_translations,
             ))
-        spent = machine_translate_missing(gaps, translation_cache)
-        if spent:
-            log(f"machine translation: {spent} characters sent this build")
-    elif args.translate:
-        log("machine translation disabled (TRANSLATE_API_KEY unset); "
-            "untranslated add-ons stay in English")
+        queued = write_translation_requests(
+            gaps, translation_cache,
+            os.path.join(args.out, TRANSLATION_REQUESTS_PATH),
+        )
+        log(f"translation queue: {queued} string(s) still untranslated; "
+            f"published in {TRANSLATION_REQUESTS_PATH}")
 
     def localize(lang):
         return localize_catalog(
@@ -4619,8 +4518,9 @@ def main():
         json.dump(nvda_api_entries, f, indent="	", ensure_ascii=False)
     # Translation caches ride along with the site the same way. The locale
     # cache holds each language's ETag so an unchanged language costs a 304
-    # instead of 1.7 MB; the translation cache holds machine translations, so
-    # text that has not changed is never paid for twice.
+    # instead of 1.7 MB; the translation cache holds previously generated
+    # translations plus the maintainer's seed, so text that has not changed
+    # is never translated twice.
     for cache_path, cache_data in (
         (LOCALE_CACHE_PATH, locale_cache),
         (TRANSLATION_CACHE_PATH, translation_cache),
