@@ -1,5 +1,6 @@
 """Non-English locales must carry translations, not copies of English."""
 
+import http.client
 import json
 import unittest
 from unittest import mock
@@ -391,6 +392,26 @@ class MachineTranslationTests(unittest.TestCase):
             self.assertEqual(
                 ["un", "deux"],
                 mirror.machine_translate_batch(["one", "two"], "fr"),
+            )
+
+    def test_a_truncated_body_is_a_failed_call_not_a_crash(self):
+        # A provider that drops a chunked body mid-stream surfaces as
+        # IncompleteRead, which is not an OSError subclass. The batch must
+        # return None (the documented "call failed" signal) instead of
+        # escaping and killing the whole build.
+        class TruncatedResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                raise http.client.IncompleteRead(b'{"choices":', 8192)
+
+        with mock.patch.object(mirror, "TRANSLATE_API_KEY", "key"),                 mock.patch.object(mirror, "urlopen", return_value=TruncatedResponse()):
+            self.assertIsNone(
+                mirror.machine_translate_batch(["one", "two"], "fr")
             )
 
 

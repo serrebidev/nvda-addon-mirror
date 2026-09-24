@@ -966,7 +966,12 @@ def machine_translate_batch(texts, target, timeout=180):
     try:
         with urlopen(request, timeout=timeout) as response:
             body = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, OSError, ValueError) as exc:
+    # http.client.HTTPException is not an OSError subclass: a provider that
+    # drops a chunked body mid-stream surfaces as IncompleteRead and used to
+    # escape this handler and kill the whole build. A truncated reply is a
+    # failed call, so it returns None like every other transport fault.
+    except (HTTPError, URLError, OSError, ValueError,
+            http.client.HTTPException) as exc:
         log(f"machine translation failed for {target}: {exc}")
         return None
     if body.get("error"):
