@@ -936,6 +936,9 @@ def write_translation_requests(gaps, cache, path):
             continue
         seen.add(marker)
         requests.append({"lang": lang, "text": text})
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(requests, handle, ensure_ascii=False, indent=1)
         handle.write("\n")
