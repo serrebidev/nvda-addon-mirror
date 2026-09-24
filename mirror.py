@@ -737,27 +737,10 @@ SOURCE_RETRY_SECONDS = int(os.environ.get("SOURCE_RETRY_SECONDS", str(10 * 60)))
 #: Fields the store shows as prose, in the order a reader meets them.
 TRANSLATABLE_FIELDS = ("displayName", "description")
 
-#: The maintainer's own translations, committed to the repo. Keyed exactly
-#: like the runtime translation cache ("lang:sha256-of-source-text"), so an
-#: entry here is picked up by the next build. The build merges the seed over
-#: the restored cache, so the seed always wins: it is newer and hand-checked.
-#: There is no machine-translation provider any more -- translation is the
-#: maintainer's job, worked from the queue the build publishes (see
-#: TRANSLATION_REQUESTS_PATH). auto_translate.py covers the other direction,
-#: bringing non-English metadata back into English.
-TRANSLATION_SEED_PATH = "translationSeed.json"
-
-#: Published with the site each build: the (lang, text) pairs the catalog
-#: still has no translation for, deduplicated. The maintainer works through
-#: this file and commits the results to translationSeed.json; the next build
-#: picks them up. Anything still untranslated stays in English, which is what
-#: a reader gets rather than a missing entry.
-TRANSLATION_REQUESTS_PATH = "translationRequests.json"
-
-#: Republished with the site and restored next build, like hashcache.json.
-#: Keyed by (sha256 of the source text, target language), so text that has not
-#: changed is never paid for twice.
-TRANSLATION_CACHE_PATH = "translationCache.json"
+#: (Retired 2026-09-24: the only translation job is non-English -> English,
+#: maintained by hand in translations.json. There is no machine-translation
+#: provider any more, so English -> locale machine translations are no longer
+#: generated, queued, or served.)
 
 #: The official store's per-language views are swept for author-written
 #: translations. That is 73 requests to one host, and a language gains a
@@ -902,47 +885,6 @@ def translation_key(text, lang):
     """Cache key for one string in one language."""
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
     return f"{lang}:{digest}"
-
-
-def merge_translation_seed(cache, path=TRANSLATION_SEED_PATH):
-    """Merge the maintainer's committed translations into the runtime cache.
-
-    Returns the number of seed entries applied. The seed wins over the
-    restored cache: it is newer and hand-checked, so a corrected string
-    replaces whatever the cache held.
-    """
-    seed = load_json_cache(path)
-    if not seed:
-        return 0
-    cache.update(seed)
-    return len(seed)
-
-
-def write_translation_requests(gaps, cache, path):
-    """Publish the translation queue: (lang, text) pairs with no translation.
-
-    ``gaps`` is the build's (lang, text) pairs lacking a human translation;
-    anything the cache (including the just-merged seed) already covers is
-    dropped, and the rest is written deduplicated for the maintainer.
-    Returns the number of requests written.
-    """
-    seen = set()
-    requests = []
-    for lang, text in gaps:
-        if not text or translation_key(text, lang) in cache:
-            continue
-        marker = (lang, text)
-        if marker in seen:
-            continue
-        seen.add(marker)
-        requests.append({"lang": lang, "text": text})
-    parent = os.path.dirname(path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump(requests, handle, ensure_ascii=False, indent=1)
-        handle.write("\n")
-    return len(requests)
 
 
 def fetch_official():
@@ -3132,8 +3074,8 @@ def drop_redundant_channel_duplicates(entries):
 def load_json_cache(path):
     """Load a persisted dict cache, or {} for anything unreadable.
 
-    Used for the caches that ride along with the site (locale ETags, machine
-    translations). A corrupt or missing file costs a rebuild of that cache,
+    Used for the caches that ride along with the site (locale ETags and the
+    like). A corrupt or missing file costs a rebuild of that cache,
     never a failed build.
     """
     if path and os.path.exists(path):
@@ -3685,19 +3627,18 @@ def _locale_fallbacks(lang):
     return (lang,)
 
 
-def localize_catalog(output, lang, official, authored, machine):
+def localize_catalog(output, lang, official, authored):
     """Return the catalog as one language sees it.
 
-    Three sources, best first:
+    Two sources, best first:
 
     1. the official store's own per-language view (the author's words, already
        reviewed by NV Access),
     2. locale/<lang>/manifest.ini inside the add-on bundle (the author's words
-       for everything the official store does not carry),
-    3. machine translation, for whatever is still English.
+       for everything the official store does not carry).
 
-    Anything with no translation at any tier keeps its English string, which is
-    what NVDA shows today, so a missing translation is never worse than now.
+    Anything with no translation at either tier keeps its English string, which
+    is what NVDA shows today, so a missing translation is never worse than now.
     """
     if lang == "en":
         return output
@@ -3714,7 +3655,6 @@ def localize_catalog(output, lang, official, authored, machine):
                 value = (
                     (official.get(candidate, {}).get(row) or {}).get(field)
                     or (authored.get(row, {}).get(candidate) or {}).get(field)
-                    or machine.get(translation_key(english, candidate))
                     or ""
                 )
                 if value:
@@ -3723,23 +3663,6 @@ def localize_catalog(output, lang, official, authored, machine):
                 replacement[field] = value
         localized.append({**addon, **replacement} if replacement else addon)
     return localized
-
-
-def translation_gaps(output, lang, official, authored):
-    """(lang, text) pairs this language still has no human translation for."""
-    for addon in output:
-        row = _translation_row(addon)
-        for field in TRANSLATABLE_FIELDS:
-            english = addon.get(field) or ""
-            if not english:
-                continue
-            if any(
-                (official.get(c, {}).get(row) or {}).get(field)
-                or (authored.get(row, {}).get(c) or {}).get(field)
-                for c in _locale_fallbacks(lang)
-            ):
-                continue
-            yield lang, english
 
 
 def _esc(text):
@@ -4401,9 +4324,10 @@ def main():
     # English is the source catalog; every other locale is the same catalog
     # with translated prose overlaid. Best source wins: the official store's
     # own per-language view, then the author's locale/<lang>/manifest.ini out
-    # of the bundle, then the maintainer's translation seed for what is left.
+    # of the bundle. Anything else stays in English. (There is no
+    # machine-translation tier: the only translation job is non-English ->
+    # English, maintained by hand in translations.json.)
     locale_cache = load_json_cache(LOCALE_CACHE_PATH)
-    translation_cache = load_json_cache(TRANSLATION_CACHE_PATH)
     official_translations = {}
     if args.translate:
         official_translations = official_store_translations(
@@ -4420,29 +4344,9 @@ def main():
         log(f"author-supplied bundle translations: "
             f"{len(authored_translations)} add-ons")
 
-    if args.translate:
-        seeded = merge_translation_seed(translation_cache)
-        if seeded:
-            log(f"merged {seeded} maintainer translation(s) from "
-                f"{TRANSLATION_SEED_PATH}")
-        gaps = []
-        for lang in locales:
-            if lang == "en":
-                continue
-            gaps.extend(translation_gaps(
-                output, lang, official_translations, authored_translations,
-            ))
-        queued = write_translation_requests(
-            gaps, translation_cache,
-            os.path.join(args.out, TRANSLATION_REQUESTS_PATH),
-        )
-        log(f"translation queue: {queued} string(s) still untranslated; "
-            f"published in {TRANSLATION_REQUESTS_PATH}")
-
     def localize(lang):
         return localize_catalog(
             output, lang, official_translations, authored_translations,
-            translation_cache,
         )
 
     # Hash the canonical catalog plus every compatibility-filtered view, so any
@@ -4465,7 +4369,6 @@ def main():
             hasher.update(f"\x00{lang}:{addon_id}:{sorted(fields.items())}".encode())
     for addon_id, langs in sorted(authored_translations.items()):
         hasher.update(f"\x00{addon_id}:{sorted(langs)}".encode())
-    hasher.update(f"\x00mt:{len(translation_cache)}".encode())
     cache_hash = hasher.hexdigest()
 
     stats = {
@@ -4481,7 +4384,6 @@ def main():
                 len(t) for t in official_translations.values()
             ),
             "authored_addons": len(authored_translations),
-            "machine_strings": sum(1 for v in translation_cache.values() if v),
         },
         "sources": sources,
     }
@@ -4521,12 +4423,9 @@ def main():
         json.dump(nvda_api_entries, f, indent="	", ensure_ascii=False)
     # Translation caches ride along with the site the same way. The locale
     # cache holds each language's ETag so an unchanged language costs a 304
-    # instead of 1.7 MB; the translation cache holds previously generated
-    # translations plus the maintainer's seed, so text that has not changed
-    # is never translated twice.
+    # instead of 1.7 MB.
     for cache_path, cache_data in (
         (LOCALE_CACHE_PATH, locale_cache),
-        (TRANSLATION_CACHE_PATH, translation_cache),
     ):
         with open(os.path.join(args.out, cache_path), "w", encoding="utf-8") as f:
             json.dump(cache_data, f, ensure_ascii=False)

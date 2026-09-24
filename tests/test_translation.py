@@ -28,7 +28,7 @@ def addon(addon_id, channel="stable", name="Clock", desc="A clock."):
 class LocalizeCatalogTests(unittest.TestCase):
     def test_english_is_returned_untouched(self):
         output = [addon("clock")]
-        self.assertIs(output, mirror.localize_catalog(output, "en", {}, {}, {}))
+        self.assertIs(output, mirror.localize_catalog(output, "en", {}, {}))
 
     def test_official_translation_is_preferred_over_everything(self):
         output = [addon("clock")]
@@ -38,7 +38,6 @@ class LocalizeCatalogTests(unittest.TestCase):
             "fr",
             {"fr": {row: {"description": "Une horloge."}}},
             {row: {"fr": {"description": "Depuis le paquet."}}},
-            {mirror.translation_key("A clock.", "fr"): "Machine."},
         )
         self.assertEqual("Une horloge.", localized[0]["description"])
 
@@ -50,21 +49,12 @@ class LocalizeCatalogTests(unittest.TestCase):
             "fr",
             {},
             {row: {"fr": {"description": "Depuis le paquet."}}},
-            {mirror.translation_key("A clock.", "fr"): "Machine."},
         )
         self.assertEqual("Depuis le paquet.", localized[0]["description"])
 
-    def test_machine_translation_is_the_last_resort(self):
-        output = [addon("clock")]
-        localized = mirror.localize_catalog(
-            output, "fr", {}, {},
-            {mirror.translation_key("A clock.", "fr"): "Machine."},
-        )
-        self.assertEqual("Machine.", localized[0]["description"])
-
     def test_an_untranslated_addon_keeps_its_english(self):
         # Never worse than today: a gap shows the English string, not a blank.
-        localized = mirror.localize_catalog([addon("clock")], "fr", {}, {}, {})
+        localized = mirror.localize_catalog([addon("clock")], "fr", {}, {})
         self.assertEqual("A clock.", localized[0]["description"])
         self.assertEqual("Clock", localized[0]["displayName"])
 
@@ -76,7 +66,7 @@ class LocalizeCatalogTests(unittest.TestCase):
         official = {
             "fr": {mirror._translation_row(stable): {"description": "Notes stables."}}
         }
-        localized = mirror.localize_catalog([stable, dev], "fr", official, {}, {})
+        localized = mirror.localize_catalog([stable, dev], "fr", official, {})
         self.assertEqual("Notes stables.", localized[0]["description"])
         self.assertEqual("Dev notes.", localized[1]["description"])
 
@@ -85,7 +75,7 @@ class LocalizeCatalogTests(unittest.TestCase):
         output = [addon("clock")]
         row = mirror._translation_row(output[0])
         localized = mirror.localize_catalog(
-            output, "pt_BR", {"pt": {row: {"description": "Um relogio."}}}, {}, {},
+            output, "pt_BR", {"pt": {row: {"description": "Um relogio."}}}, {},
         )
         self.assertEqual("Um relogio.", localized[0]["description"])
 
@@ -99,7 +89,6 @@ class LocalizeCatalogTests(unittest.TestCase):
                 "pt_BR": {row: {"description": "Brasil."}},
                 "pt": {row: {"description": "Portugal."}},
             },
-            {},
             {},
         )
         self.assertEqual("Brasil.", localized[0]["description"])
@@ -286,91 +275,6 @@ class BundleTranslationTests(unittest.TestCase):
     def test_unreadable_bundles_yield_nothing_instead_of_raising(self):
         for raw in (b"", None, b"not a zip"):
             self.assertEqual({}, mirror.bundle_locale_translations(raw))
-
-
-class MaintainerTranslationTests(unittest.TestCase):
-    """No provider any more: the seed feeds the cache, gaps become a queue."""
-
-    def test_the_seed_merges_into_the_runtime_cache(self):
-        cache = {}
-        seed = {mirror.translation_key("A clock.", "fr"): "Une horloge."}
-        with unittest.mock.patch.object(
-            mirror, "load_json_cache", return_value=seed
-        ):
-            applied = mirror.merge_translation_seed(cache)
-        self.assertEqual(1, applied)
-        self.assertEqual(
-            "Une horloge.", cache[mirror.translation_key("A clock.", "fr")]
-        )
-
-    def test_the_seed_wins_over_a_stale_cache_entry(self):
-        key = mirror.translation_key("A clock.", "fr")
-        cache = {key: "Stale machine text."}
-        with unittest.mock.patch.object(
-            mirror, "load_json_cache", return_value={key: "Une horloge."}
-        ):
-            mirror.merge_translation_seed(cache)
-        self.assertEqual("Une horloge.", cache[key])
-
-    def test_an_empty_seed_changes_nothing(self):
-        cache = {"fr:abc": "x"}
-        with unittest.mock.patch.object(
-            mirror, "load_json_cache", return_value={}
-        ):
-            self.assertEqual(0, mirror.merge_translation_seed(cache))
-        self.assertEqual({"fr:abc": "x"}, cache)
-
-    def test_requests_list_only_what_the_cache_does_not_cover(self):
-        key = mirror.translation_key("Covered.", "fr")
-        cache = {key: "Couvert."}
-        with unittest.mock.patch(
-            "builtins.open", unittest.mock.mock_open()
-        ) as fake_open:
-            count = mirror.write_translation_requests(
-                [("fr", "Covered."), ("fr", "New string."), ("de", "")],
-                cache,
-                "/tmp/requests.json",
-            )
-        self.assertEqual(1, count)
-        payload = "".join(
-            call.args[0]
-            for call in fake_open().write.call_args_list
-            if isinstance(call.args[0], str)
-        )
-        self.assertEqual(
-            [{"lang": "fr", "text": "New string."}], json.loads(payload)
-        )
-
-    def test_requests_are_deduplicated(self):
-        with unittest.mock.patch("builtins.open", unittest.mock.mock_open()) as m:
-            count = mirror.write_translation_requests(
-                [("fr", "Same."), ("fr", "Same.")], {}, "/tmp/requests.json"
-            )
-        self.assertEqual(1, count)
-
-
-class TranslationGapTests(unittest.TestCase):
-    def test_gaps_skip_anything_a_human_already_translated(self):
-        stable = addon("clock")
-        row = mirror._translation_row(stable)
-        gaps = list(
-            mirror.translation_gaps(
-                [stable], "fr", {"fr": {row: {"description": "Une horloge."}}}, {}
-            )
-        )
-        # The description is covered by the store; the displayName is not.
-        self.assertEqual([("fr", "Clock")], gaps)
-
-    def test_a_bundle_translation_also_closes_the_gap(self):
-        stable = addon("clock")
-        row = mirror._translation_row(stable)
-        gaps = list(
-            mirror.translation_gaps(
-                [stable], "fr", {}, {row: {"fr": {"description": "Une horloge."}}}
-            )
-        )
-        self.assertEqual([("fr", "Clock")], gaps)
-
 
 if __name__ == "__main__":
     unittest.main()

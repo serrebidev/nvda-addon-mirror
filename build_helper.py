@@ -5,7 +5,7 @@ import os
 import zipfile
 
 NAME = "addonStoreMirror"
-VERSION = "1.3.3"
+VERSION = "1.3.4"
 ADDON_DIR = "helper"
 DIST_DIR = "dist"
 

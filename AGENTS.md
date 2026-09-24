@@ -83,13 +83,14 @@ changes against NVDA's source, not against the build's own output.
 
 ## Translation is the maintainer's job (2026-09-24)
 
-OpenRouter was removed from both directions; there is no provider any more.
+The ONLY translation job is non-English -> English. Never translate English
+into other locales.
 
-- **Into locales:** each build merges the committed `translationSeed.json`
-  over the restored `translationCache.json` (same `lang:sha256` keys; the
-  seed wins) and publishes the remaining gaps as `translationRequests.json`
-  on the site. The maintainer fetches that file, translates, appends to the
-  seed, commits. Untranslated strings stay English — never a missing entry.
+- **Into locales:** nothing. Non-English locales show the official store's own
+  per-language text and author-supplied bundle translations where they exist;
+  everything else stays in English. The old machine-translation tier, the
+  `translationSeed.json` merge, and the `translationRequests.json` queue were
+  removed 2026-09-24 (wrong direction); `translationSeed.json` was deleted.
 - **Into English:** `audit_translations.py` finds add-ons publishing
   non-English text; the maintainer adds an English `summary`/`description`
   per add-on ID to `translations.json`. `auto_translate.py` only reports the

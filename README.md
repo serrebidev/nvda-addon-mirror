@@ -223,17 +223,12 @@ is now translated, best source first:
    author's own text. Read out of bytes already being streamed for the SHA-256,
    which costs no extra request. Coverage fills in over a day as the ordinary
    recheck TTLs expire — harvesting never forces a re-download.
-3. **The maintainer's translation seed** (`translationSeed.json`), for
-   whatever is still English. There is no machine-translation provider:
-   translation is the maintainer's job. Each build merges the committed seed
-   over the restored `translationCache.json` (keyed by `(source text,
-   language)`, so unchanged text is never translated twice) and publishes the
-   remaining gaps as `translationRequests.json` — the maintainer's queue. The
-   seed always wins over the cache: it is newer and hand-checked.
 
-Anything with no translation at any tier keeps its English string — a gap is
-never worse than the previous behaviour. `--no-translate` publishes English
-everywhere and skips the per-language fetches.
+Anything with no translation at either tier keeps its English string — a gap is
+never worse than the previous behaviour. There is no machine-translation tier:
+the only translation job is non-English into English, maintained by hand in
+`translations.json` (see `auto_translate.py`). `--no-translate` publishes
+English everywhere and skips the per-language fetches.
 
 Locale fallback follows NVDA's own: `pt_BR` uses a `pt` translation when there
 is no `pt_BR` one.
