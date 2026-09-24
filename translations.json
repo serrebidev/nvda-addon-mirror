@@ -4256,10 +4256,6 @@
   "yaMusicHelper": {
    "summary": "Ya Music Helper"
   },
-  "youtubeMusicPlayer": {
-   "summary": "YouTube Music Player",
-   "description": "Search for and play music from YouTube and YouTube Music directly in NVDA."
-  },
   "zararadio": {
    "summary": "ZaraRadio",
    "description": "Provides some shortcuts for quick access to relevant information and focus adjustment to cover all controls."
@@ -4323,10 +4319,6 @@
   "bluetoothAudioByFouadSilent": {
    "summary": "Silent Bluetooth Audio Keep-Alive",
    "description": "This add-on uses a silent audio file to keep a Bluetooth headset connection active without producing an audible sound."
-  },
-  "virtualBrailleDisplay": {
-   "summary": "Virtual Braille Display for NVDA",
-   "description": "A virtual braille line for inspecting and debugging NVDA's braille output. It captures exactly what NVDA sends to display(cells) and presents it in a human-readable form."
   },
   "lineDesktop": {
    "summary": "LINE Desktop Accessibility Support"
@@ -4536,17 +4528,17 @@
    "description": "Detects signature fields in the \"Firma grafica\" view of ArubaSign and lets you apply the graphical signature to each field (or all of them) without using the mouse. Press NVDA+Shift+S inside ArubaSign to open the field list; outside ArubaSign the command does not exist and NVDA behaves normally."
   },
   "Conversor de Texto em Áudio": {
-   "summary": "Text to Audio Converter, AKA Conversor De Texto Em Áudio",
+   "summary": "Text to Audio Converter, AKA Conversor de Texto em Áudio",
    "description": "Converts text from PDF files into MP3 files with neural voices in Brazilian Portuguese."
   },
   "Virtual Braille Display": {
-   "description": "Virtual braille line for inspecting and debugging NVDA's braille output,"
+   "description": "Virtual braille line for inspecting and debugging NVDA's braille output."
   },
   "YouTube Music Player": {
    "description": "Search and play songs from YouTube and YouTube Music directly in NVDA."
   },
   "youtube müzik indirici pro": {
-   "summary": "YouTube Music Downloader Pro, AKA Youtube Müzik Indirici Pro",
+   "summary": "YouTube Music Downloader Pro, AKA youtube müzik indirici pro",
    "description": "With this add-on, you can download MP3/video from YouTube."
   }
  }
