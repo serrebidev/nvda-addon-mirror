@@ -4663,6 +4663,22 @@
   },
   "ClipboardHistory": {
    "summary": "Clipboard History"
+  },
+  "Lanzador de dados para NVDA": {
+   "summary": "MG Dados (dice roller for NVDA)"
+  },
+  "Lecture du contenu sous le pointeur après un arrêt": {
+   "summary": "Mouse Read After Stop Delay"
+  },
+  "SoundTub - download acessível de áudio e vídeo": {
+   "summary": "SoundTub - accessible audio and video downloader"
+  },
+  "TelegramJusti_1.2.0 complemento híbrido de accesibilidad para Telegram y Unigram": {
+   "summary": "TelegramJusti: hybrid accessibility add-on for Telegram and Unigram"
+  },
+  "virtualBrailleDisplay": {
+   "summary": "Virtual Braille Display",
+   "description": "Virtual braille line for inspecting and debugging NVDA's braille output. It registers as a braille display and records, byte for byte, everything NVDA sends to the driver, so developers and testers can see what a real display would receive without having one. It captures two levels of information and never mixes them: the exact cells NVDA passes to display(cells), and the text an application asked to be shown through the NVDA Controller Client."
   }
  }
 }
