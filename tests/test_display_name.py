@@ -82,6 +82,13 @@ class HumanizedIdTests(unittest.TestCase):
             with self.subTest(addon_id=addon_id):
                 self.assertEqual(expected, mirror.humanized_addon_id(addon_id))
 
+    def test_an_id_that_is_already_a_title_is_kept_verbatim(self):
+        for addon_id in ("Accessible n8n Workflow Manager",
+                         "Accessible PowerPoint Comment Navigation",
+                         "Axe-Edit III Accessibility"):
+            with self.subTest(addon_id=addon_id):
+                self.assertEqual(addon_id, mirror.humanized_addon_id(addon_id))
+
     def test_empty_id_yields_empty(self):
         self.assertEqual("", mirror.humanized_addon_id(""))
 
@@ -150,6 +157,15 @@ class BestDisplayNameTests(unittest.TestCase):
                 "ailivetranslate",
             ),
         )
+
+    def test_a_placeholder_is_never_published_as_a_name(self):
+        for placeholder in ("NVDA add-on", "Addon for NVDA", "NVDA addon",
+                            "Add-on user visible name",
+                            "addon for the NVDA screen reader"):
+            with self.subTest(placeholder=placeholder):
+                self.assertEqual(
+                    "Ribbon Menu",
+                    mirror.best_display_name(placeholder, "", "Ribbon Menu"))
 
     def test_a_description_is_never_published_as_a_name(self):
         prose = "An NVDA add-on that announces things you care about."

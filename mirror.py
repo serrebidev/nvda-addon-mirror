@@ -3437,6 +3437,14 @@ _PROSE_CLAUSE_RE = re.compile(
     r"you\s+can|designed\s+to|featuring)\b", re.I)
 
 
+#: What an author leaves in the summary when they never named the add-on:
+#: "NVDA add-on", "Addon for NVDA", the template's "Add-on user visible name".
+_PLACEHOLDER_NAME_RE = re.compile(
+    r"^(?:(?:an?\s+)?(?:nvda[\s-]*)?add-?ons?"
+    r"(?:\s+for\s+(?:the\s+)?nvda(?:\s+screen\s+reader)?)?"
+    r"|add-?on\s+user\s+visible\s+name)\.?$", re.I)
+
+
 def looks_like_prose_name(value):
     """True when a display name reads as a sentence rather than a name.
 
@@ -3458,6 +3466,9 @@ def looks_like_prose_name(value):
     # is never mistaken for prose.
     text = text.split(AKA_SEPARATOR, 1)[0].strip() or text
     words = text.split()
+    # "NVDA add-on", "Addon for NVDA": a template placeholder names nothing.
+    if _PLACEHOLDER_NAME_RE.match(text):
+        return True
     # A relative clause or second-person address is decisive at any length.
     if _PROSE_CLAUSE_RE.search(text):
         return True
@@ -3479,6 +3490,11 @@ def humanized_addon_id(addon_id):
     than the author's own, but it is a name, and it is what the add-on is
     called everywhere else in NVDA.
     """
+    # Some catalogs use the add-on's own title as its id ("Accessible n8n
+    # Workflow Manager"). That is already the name; re-casing it only breaks
+    # spellings like "PowerPoint" and "n8n".
+    if re.search(r"\s", (addon_id or "").strip()):
+        return addon_id.strip()
     text = re.sub(r"[_\-.]+", " ", (addon_id or "").strip())
     text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)
     words = [w for w in text.split() if w]
