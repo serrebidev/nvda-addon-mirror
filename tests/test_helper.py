@@ -1458,7 +1458,7 @@ class HelperInitTerminateTests(unittest.TestCase):
         }
         with mock.patch.dict(sys.modules, fakes), mock.patch.object(
             builtins, "_", lambda text: text, create=True,
-        ):
+        ), mock.patch.object(helper.GlobalPlugin, "_enableStorePolicy", return_value=True):
             helper.GlobalPlugin.__init__(plugin)
 
         self.assertTrue(plugin._urlApplied)
