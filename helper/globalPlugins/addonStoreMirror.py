@@ -102,6 +102,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self._settingsPanelRegistered = False
 		self._originalURL = ""
 		self._urlApplied = False
+		self._changelogFeature = None
 		self._removeStaleBundleModule()
 		try:
 			currentURL = config.conf["addonStore"]["baseServerURL"]
@@ -130,6 +131,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		log.info(f"Set the Add-on store mirror to: {MIRROR_STORE_URL}")
 		self._enableSourceSupport()
 		self._enableStoreEnhancements()
+		self._enableChangelogs()
 		self._addToolsMenuItems()
 		self._registerSettingsPanel()
 		self._refreshStore()
@@ -315,6 +317,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def terminate(self):
 		self._discoveryGeneration += 1
+		if self._changelogFeature is not None:
+			self._changelogFeature.terminate()
 		self._removeToolsMenuItems()
 		self._unregisterSettingsPanel()
 		self._restoreSourceSupport()
@@ -894,6 +898,32 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				"cloneFailed": _("Git could not clone the repository."),
 			}.get(error.code, _("The repository could not be cloned."))
 		return _("The repository could not be cloned.")
+	def _enableChangelogs(self):
+		"""Install the optional changelog adapter as one reversible transaction."""
+		try:
+			from ._addonStoreChangelogs import ChangelogFeature
+		except ImportError:
+			# Unit tests load this global plugin as a standalone module; NVDA
+			# normally imports it in the globalPlugins package.
+			try:
+				from _addonStoreChangelogs import ChangelogFeature
+			except ImportError:
+				log.info("Changelog module unavailable")
+				return
+		start = len(self._sourceSupportPatches)
+		feature = ChangelogFeature(self)
+		try:
+			feature.enable()
+		except Exception:
+			# Do not remove preceding feature patches when this optional adapter
+			# meets a future core API it does not understand.
+			for owner, name, original, replacement in reversed(self._sourceSupportPatches[start:]):
+				if owner.__dict__.get(name) is replacement:
+					setattr(owner, name, original)
+			del self._sourceSupportPatches[start:]
+			log.exception("Failed to add changelog support to the Add-on Store")
+			return
+		self._changelogFeature = feature
 
 	def _enableDeferredSearch(self):
 		"""Let the store list filter on demand instead of on every keystroke.
