@@ -1,0 +1,16 @@
+# Family F3: browsing preferences
+
+Record NVDA version, speech and braille separately. Live observations are Not checked until you perform these steps.
+
+1. Open Preferences > Settings > SerrebiRadio add-on store. Find Browsing memory, Remember browsing across restarts, Remember last tab, Remember selected add-on position, and Columns to show in announcement order. Use only Tab, arrows, Space and buttons; record spoken name/role/value/state.
+2. Choose Always use defaults, turn the three remember checkboxes off, save and reopen the store. Existing tab/filter defaults should be used; no new stored selection should appear.
+3. Choose Separate for each tab and enable remembered position/tab. In Available choose a channel, search, scope if present, sort/direction and select an item. Switch to Installed, use different filters/order/item, then switch back. Each tab should restore its own choices and stable selected item, without moving keyboard focus into the list while you are using a filter.
+4. Choose Shared across tabs. Repeat with a search/sort that works in both tabs. Common supported choices should carry across; an unavailable channel should use the tab's valid default. Selected positions remain tab-specific.
+5. Close/reopen immediately at least five times through the normal Store command and the temporary Store menus. When Remember last tab is on, the last tab should open. When position is on, its saved add-on should be selected after data loads. Choose a row well below the first, close without changing filters or tabs, then reopen. Repeat while Available is still loading: closing during the empty loading list must preserve the pending saved item. If it disappeared, selection should fall back normally without an exception. Opening must never fail because a destroyed Store instance still exists.
+6. With restart persistence off, restart NVDA when you choose to: memory should reset. With persistence on, save NVDA configuration and restart: restore should survive. Defaults mode should continue using defaults even with stored old data.
+7. Open Filter sources. Show all sources should include new/unknown sources. Uncheck All and check individual sources; only those sources should appear. Uncheck every source: list should be empty. Recheck All: restore contents. Test a manually installed add-on under Unknown source. Test checkbox names/states and OK/Cancel using keyboard.
+8. In settings select Source in the column checklist and use Move up/down. Check/uncheck columns. Name must stay visible even if unchecked. Reopen the store and record speech/braille announcement order. Click a moved native column header: it must sort that field, not the old column at that index. Hidden columns should not produce duplicate Source text. Source header remains informational.
+9. Test normal mirror and temporary official-store browsing separately; stored filters/tabs/items must not leak between their catalogs. Return to the default store and check restoration.
+10. Disable/restart the helper using normal core UI when you choose. Core controls and original column handling should return. No settings or add-on data should be deleted.
+
+For every failure record exact step, version, expected/actual speech, braille or Not checked, focused control, filter values and selected add-on ID. Do not supply private full logs.

@@ -341,6 +341,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self._enableDuplicateInstallWarning,
 			self._enableSharingAndScopedSearch,
 			self._enableDiscovery,
+			self._enableBrowsingPreferences,
 		):
 			try:
 				enable()
@@ -924,6 +925,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			log.exception("Failed to add changelog support to the Add-on Store")
 			return
 		self._changelogFeature = feature
+	def _enableBrowsingPreferences(self):
+		try:
+			from . import _addonStoreBrowsing
+		except ImportError:
+			return
+		_addonStoreBrowsing.enable(self, SerrebiStoreSettingsPanel)
 
 	def _enableDeferredSearch(self):
 		"""Let the store list filter on demand instead of on every keystroke.
