@@ -95,6 +95,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
 		self._sourceSupportPatches = []
+		self._discoveryGeneration = 0
 		self._toolsMenuItems = []
 		self._movedStoreItem = None
 		self._bundleMenu = None
@@ -313,6 +314,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			log.exception("Failed to refresh the add-on store data manager")
 
 	def terminate(self):
+		self._discoveryGeneration += 1
 		self._removeToolsMenuItems()
 		self._unregisterSettingsPanel()
 		self._restoreSourceSupport()
@@ -329,11 +331,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return True
 
 	def _enableStoreEnhancements(self):
-		"""Backported store UX fixes: deferred search and duplicate warnings."""
+		"""Backported store UX fixes and optional discovery actions."""
 		for enable in (
 			self._enableDeferredSearch,
 			self._enableDuplicateInstallWarning,
 			self._enableSharingAndScopedSearch,
+			self._enableDiscovery,
 		):
 			try:
 				enable()
@@ -477,6 +480,420 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			if owner.__dict__.get(name) is replacement:
 				setattr(owner, name, original)
 		del self._sourceSupportPatches[start:]
+	def _isSecureDesktop(self):
+		try:
+			import globalVars
+			return bool(globalVars.appArgs.secure)
+		except (AttributeError, ImportError):
+			return True
+
+	def _enableDiscovery(self):
+		"""Add single-item discovery actions using NVDA's native action VMs."""
+		try:
+			storeModule = importlib.import_module("gui.addonStoreGui.viewModels.store")
+			actionModule = importlib.import_module("gui.addonStoreGui.viewModels.action")
+			discovery = importlib.import_module("globalPlugins._addonStoreDiscovery")
+		except ImportError:
+			return
+		vmClass = getattr(storeModule, "AddonStoreVM", None)
+		actionClass = getattr(actionModule, "AddonActionVM", None)
+		original = getattr(vmClass, "_makeActionsList", None) if vmClass else None
+		if original is None or actionClass is None:
+			return
+		plugin = self
+
+		class AuthorAction(actionClass):
+			"""An action whose label follows NVDA's currently selected item."""
+			def __init__(self, *args, **kwargs):
+				self._serrebiStaticDisplayName = ""
+				super().__init__(*args, **kwargs)
+				self._serrebiAuthorAction = True
+
+			@property
+			def displayName(self):
+				item = self.actionTarget
+				model = getattr(item, "model", None)
+				catalogAuthor = discovery.catalogAuthor(model)
+				author = catalogAuthor or discovery.authorName(model)
+				if not author:
+					# Translators: Displayed when an Add-on Store entry has neither
+					# author/publisher metadata nor a verified GitHub repository owner.
+					author = _("Unknown author")
+				elif not catalogAuthor:
+					# Translators: An Add-on Store action label where the listed author
+					# is inferred from the verified GitHub repository owner.
+					author = _("{owner} (repository owner)").format(owner=author)
+				# Ampersand is a wx menu mnemonic marker. Escape author metadata so
+				# it is always spoken and displayed literally.
+				author = author.replace("&", "&&")
+				# Translators: Add-on Store context-menu command, followed by its
+				# selected author or publisher.
+				return _("More by author, {author}").format(author=author)
+
+			@displayName.setter
+			def displayName(self, value):
+				self._serrebiStaticDisplayName = value
+
+		class SimilarAction(actionClass):
+			"""An action whose label follows NVDA's currently selected item."""
+			def __init__(self, *args, **kwargs):
+				self._serrebiStaticDisplayName = ""
+				super().__init__(*args, **kwargs)
+				self._serrebiSimilarAction = True
+
+			@property
+			def displayName(self):
+				item = self.actionTarget
+				name = discovery.displayName(getattr(item, "model", None))
+				name = name.replace("&", "&&")
+				# Translators: Add-on Store context-menu command, followed by its
+				# selected add-on name.
+				return _("More like {name}").format(name=name)
+
+			@displayName.setter
+			def displayName(self, value):
+				self._serrebiStaticDisplayName = value
+
+		def makeActionsList(storeVM):
+			actions = original(storeVM)
+			selected = storeVM.listVM.getSelection()
+			def valid(aVM):
+				return not plugin._isSecureDesktop() and aVM is not None
+			actions.extend((
+				AuthorAction(
+					# The dynamic property supplies the selected author at popup time.
+					displayName=_("More by author"),
+					actionHandler=lambda aVM: plugin._showAuthorMatches(storeVM, aVM, discovery),
+					validCheck=valid,
+					actionTarget=selected,
+				),
+				SimilarAction(
+					# The dynamic property supplies the selected name at popup time.
+					displayName=_("More like this"),
+					actionHandler=lambda aVM: plugin._showSimilarMatches(storeVM, aVM, discovery),
+					validCheck=valid,
+					actionTarget=selected,
+				),
+				actionClass(
+					# Translators: Opens the installed add-on's folder in File Explorer.
+					displayName=_("Open installed &folder"),
+					actionHandler=plugin._openInstalledFolder,
+					validCheck=lambda aVM: valid(aVM) and plugin._installedPath(aVM) is not None,
+					actionTarget=selected,
+				),
+				actionClass(
+					# Translators: Opens the selected add-on's verified GitHub repository page.
+					displayName=_("Open &repository page"),
+					actionHandler=lambda aVM: os.startfile(discovery.repositoryURL(aVM.model)),
+					validCheck=lambda aVM: valid(aVM) and discovery.repositoryURL(aVM.model) is not None,
+					actionTarget=selected,
+				),
+				actionClass(
+					# Translators: Clones the selected add-on's verified GitHub repository to a chosen folder.
+					displayName=_("Clone &repository..."),
+					actionHandler=lambda aVM: plugin._cloneRepository(aVM, discovery),
+					validCheck=lambda aVM: valid(aVM) and discovery.repositoryURL(aVM.model) is not None,
+					actionTarget=selected,
+				),
+			))
+			return actions
+
+		self._rememberPatch(vmClass, "_makeActionsList", makeActionsList)
+		try:
+			controls = importlib.import_module("gui.addonStoreGui.controls.actions")
+			contextMenuClass = controls._MonoActionsContextMenu
+			originalPopulate = contextMenuClass._populateContextMenu
+
+			def populateContextMenu(menu):
+				originalPopulate(menu)
+				for action, menuItem in menu._actionMenuItemMap.items():
+					if getattr(action, "_serrebiAuthorAction", False) or getattr(
+						action, "_serrebiSimilarAction", False,
+					):
+						menuItem.SetItemLabel(action.displayName)
+
+			self._rememberPatch(contextMenuClass, "_populateContextMenu", populateContextMenu)
+		except (AttributeError, ImportError):
+			# Discovery remains useful on builds where NVDA changed this private
+			# context-menu class; its action will use its first generated label.
+			getattr(log, "debug", lambda _message: None)(
+				"Could not refresh the dynamic discovery author menu label",
+			)
+
+	def _loadedItems(self, storeVM):
+		"""Return live Store list items rather than copies of their models."""
+		addons = getattr(getattr(storeVM, "listVM", None), "_addons", {})
+		return [item for item in addons.values() if getattr(item, "model", None) is not None]
+
+	def _loadedModels(self, storeVM):
+		return [item.model for item in self._loadedItems(storeVM)]
+
+	def _storeDialog(self, storeVM):
+		"""Find the displayed Store dialog without retaining a destroyed dialog."""
+		try:
+			for window in wx.GetTopLevelWindows():
+				if getattr(window, "_storeVM", None) is storeVM:
+					return window
+		except Exception:
+			log.exception("Could not locate the Add-on Store window")
+		return None
+
+	def _focusDiscoveryResult(self, storeVM, model):
+		"""Select a discovery result in the native Store list and focus it."""
+		listVM = getattr(storeVM, "listVM", None)
+		if listVM is None:
+			return False
+		item = next((candidate for candidate in self._loadedItems(storeVM)
+			if candidate.model is model), None)
+		if item is None:
+			return False
+		# A pending search can hide the chosen result. Clear it so the native
+		# list, details pane and action menu receive its original list item VM.
+		wasHidden = item.Id not in getattr(listVM, "_addonsFilteredOrdered", ())
+		if wasHidden:
+			listVM.applyFilter("")
+			dialog = self._storeDialog(storeVM)
+			filterCtrl = getattr(dialog, "searchFilterCtrl", None)
+			if filterCtrl is not None:
+				filterCtrl.ChangeValue("")
+		# Browsing preferences can apply a source filter after the Store's own
+		# search. A result must not disappear merely because it came from another
+		# source, so clear that explicit filter and tell the user why.
+		if item.Id not in getattr(listVM, "_addonsFilteredOrdered", ()) \
+				and getattr(listVM, "_serrebiSources", None) is not None:
+			listVM._serrebiSources = None
+			listVM.applyFilter("")
+			wasHidden = True
+			self._showDiscoveryNotice(_("The source filter was cleared to show the selected add-on."))
+		try:
+			index = listVM._addonsFilteredOrdered.index(item.Id)
+		except (AttributeError, ValueError):
+			return False
+		dialog = self._storeDialog(storeVM)
+		listControl = getattr(dialog, "addonListView", None)
+		if listControl is None:
+			return False
+		# applyFilter notifies the virtual list on NVDA's next main-loop tick.
+		# Refresh it now before selecting a row that had been hidden, otherwise
+		# wx can reject the new index while its old item count is still visible.
+		if wasHidden:
+			refresh = getattr(listControl, "_doRefresh", None)
+			if callable(refresh):
+				refresh()
+		# AddonVirtualList permits multiple selections. Clear its prior rows
+		# first; otherwise Enter opens the Store's batch action menu instead of
+		# the selected add-on's normal single-item actions.
+		getFirstSelected = getattr(listControl, "GetFirstSelected", None)
+		while callable(getFirstSelected):
+			selectedIndex = getFirstSelected()
+			if selectedIndex < 0:
+				break
+			listControl.Select(selectedIndex, on=False)
+		# Set the view-model selection explicitly as well as the native control.
+		# This immediately updates Store details/actions even if wx coalesces a
+		# selection event during the preceding deselection.
+		listVM.setSelection(index)
+		listControl.SetFocus()
+		listControl.Select(index)
+		listControl.Focus(index)
+		ensureVisible = getattr(listControl, "EnsureVisible", None)
+		if callable(ensureVisible):
+			ensureVisible(index)
+		return True
+
+	def _showDiscoveryNotice(self, message):
+		try:
+			import ui
+			ui.message(message)
+		except Exception:
+			log.exception("Could not announce Add-on Store discovery results")
+
+	def _resultColumns(self, model, evidence, discovery):
+		"""Return complete, spoken cell values for one discovery result."""
+		repository = discovery.repositoryDisplay(model)
+		author = discovery.catalogAuthor(model) or _("Unknown author")
+		owner = repository[0] if repository else _("Unknown repository owner")
+		repositoryName = "/".join(repository) if repository else _("Unknown repository")
+		return (
+			discovery.displayName(model),
+			author,
+			owner,
+			repositoryName,
+			self._discoveryReasonText(evidence),
+		)
+
+	def _discoveryReasonText(self, evidence):
+		"""Translate symbolic discovery evidence at the UI boundary."""
+		if not evidence:
+			return _("No match reason available")
+		if isinstance(evidence, str):
+			return evidence
+		parts = []
+		for kind, terms in evidence:
+			if kind == "authorPublisher":
+				parts.append(_("Author/publisher"))
+			elif kind == "repositoryOwner":
+				parts.append(_("Repository owner"))
+			elif kind == "title":
+				parts.append(_("Title: {terms}").format(terms=", ".join(terms)))
+			elif kind == "description":
+				parts.append(_("Description: {terms}").format(terms=", ".join(terms)))
+			elif kind == "titleDescriptionTerms":
+				parts.append(_("Title or description terms: {terms}").format(
+					terms=", ".join(terms),
+				))
+			elif kind == "score":
+				parts.append(_("Score: {score}").format(score=terms))
+		return "; ".join(parts) if parts else _("No match reason available")
+
+	def _showResults(self, storeVM, title, prompt, results, discovery):
+		"""Enter returns the selected result to its normal native Store UI."""
+		available = [(model, evidence) for model, evidence in results
+			if any(item.model is model for item in self._loadedItems(storeVM))]
+		if not available:
+			self._showDiscoveryNotice(_("No matching add-ons are available in the current Store list."))
+			return
+		picker = wx.Dialog(self._storeDialog(storeVM), title=title)
+		result = None
+		try:
+			dip = getattr(picker, "FromDIP", lambda value: value)
+			sizer = wx.BoxSizer(wx.VERTICAL)
+			sizer.Add(wx.StaticText(picker, label=prompt), 0, wx.ALL, dip(8))
+			sizer.Add(wx.StaticText(picker, label=_("&Results:")), 0, wx.LEFT | wx.RIGHT, dip(8))
+			listCtrl = wx.ListCtrl(
+				picker,
+				style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.BORDER_SUNKEN,
+				name=_("Discovery results"),
+			)
+			columns = (
+				_("Name"), _("Author/publisher"), _("Repository owner"),
+				_("Repository"), _("Match reason"),
+			)
+			for column, label in enumerate(columns):
+				listCtrl.InsertColumn(column, label, width=dip(160))
+			for row, (model, evidence) in enumerate(available):
+				values = self._resultColumns(model, evidence, discovery)
+				listCtrl.InsertItem(row, values[0])
+				for column, value in enumerate(values[1:], 1):
+					listCtrl.SetItem(row, column, value)
+			listCtrl.Select(0)
+			listCtrl.Focus(0)
+			listCtrl.SetFocus()
+			listCtrl.Bind(
+				wx.EVT_LIST_ITEM_ACTIVATED,
+				lambda _event: picker.EndModal(wx.ID_OK),
+			)
+			sizer.Add(listCtrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, dip(8))
+			buttons = picker.CreateSeparatedButtonSizer(wx.OK | wx.CANCEL)
+			if buttons is not None:
+				sizer.Add(buttons, 0, wx.EXPAND | wx.ALL, dip(8))
+			picker.SetSizerAndFit(sizer)
+			picker.SetSize((dip(920), dip(360)))
+			picker.CentreOnParent()
+			if picker.ShowModal() != wx.ID_OK:
+				return
+			selection = listCtrl.GetFirstSelected()
+			if not 0 <= selection < len(available):
+				return
+			result = available[selection][0]
+		finally:
+			picker.Destroy()
+		if result is not None and not self._focusDiscoveryResult(storeVM, result):
+			self._showDiscoveryNotice(_("The selected add-on is no longer available in the Store list."))
+
+	def _showAuthorMatches(self, storeVM, item, discovery):
+		if self._isSecureDesktop():
+			return
+		matches = discovery.authorMatches(item.model, self._loadedModels(storeVM))
+		if not matches:
+			# Translators: Catalog metadata cannot identify the selected add-on's author.
+			self._showDiscoveryNotice(_("Author identity is unavailable in the loaded catalog."))
+			return
+		self._showResults(
+			storeVM,
+			_("More by author, {author}").format(
+				author=discovery.authorName(item.model) or _("Unknown author"),
+			),
+			_("Choose an add-on. Results are limited to the loaded catalog. "
+			  "Press Enter to return to it in the Add-on Store."),
+			matches,
+			discovery,
+		)
+
+	def _showSimilarMatches(self, storeVM, item, discovery):
+		if self._isSecureDesktop():
+			return
+		matches = discovery.similarMatches(item.model, self._loadedModels(storeVM))
+		if not matches:
+			self._showDiscoveryNotice(_("No similar add-ons in the loaded catalog."))
+			return
+		self._showResults(
+			storeVM,
+			_("More like {name}").format(name=discovery.displayName(item.model)),
+			_("Choose an add-on. Results are limited to the loaded catalog. "
+			  "Press Enter to return to it in the Add-on Store."),
+			[(model, reasons + (("score", score),)) for model, reasons, score in matches],
+			discovery,
+		)
+
+	def _installedPath(self, item):
+		path = getattr(getattr(item.model, "_addonHandlerModel", None), "path", None)
+		return path if isinstance(path, str) and os.path.isdir(path) else None
+
+	def _openInstalledFolder(self, item):
+		if self._isSecureDesktop():
+			return
+		path = self._installedPath(item)
+		if path:
+			os.startfile(path)
+
+	def _cloneRepository(self, item, discovery):
+		if self._isSecureDesktop():
+			return
+		try:
+			import gui
+			import ui
+			parentDialog = gui.mainFrame
+			picker = wx.DirDialog(parentDialog, message=_("Choose a folder for the repository clone"))
+			try:
+				if picker.ShowModal() != wx.ID_OK:
+					return
+				parent = picker.GetPath()
+			finally:
+				picker.Destroy()
+			repository = discovery.githubRepository(discovery.repositoryURL(item.model))[1]
+			destination = os.path.join(parent, repository)
+			if os.path.exists(destination):
+				ui.message(_("The selected repository folder already exists."))
+				return
+		except Exception:
+			log.exception("Could not choose a repository clone destination")
+			return
+		generation = self._discoveryGeneration
+		ui.message(_("Cloning repository."))
+		def work():
+			try:
+				discovery.cloneRepository(discovery.repositoryURL(item.model), destination)
+				message = _("Repository cloned to {path}.").format(path=destination)
+			except (RuntimeError, ValueError) as error:
+				message = self._cloneFailureMessage(error, discovery)
+			def complete():
+				if generation == self._discoveryGeneration and not self._isSecureDesktop():
+					import ui
+					ui.message(message)
+			wx.CallAfter(complete)
+		threading.Thread(target=work, name="cloneAddonRepository", daemon=True).start()
+
+	def _cloneFailureMessage(self, error, discovery):
+		"""Translate only typed clone failures; never speak subprocess text."""
+		failureClass = getattr(discovery, "CloneFailure", ())
+		if isinstance(error, failureClass):
+			return {
+				"timeout": _("Cloning the repository timed out."),
+				"gitUnavailable": _("Git could not start. Ensure Git is installed."),
+				"cloneFailed": _("Git could not clone the repository."),
+			}.get(error.code, _("The repository could not be cloned."))
+		return _("The repository could not be cloned.")
 
 	def _enableDeferredSearch(self):
 		"""Let the store list filter on demand instead of on every keystroke.
