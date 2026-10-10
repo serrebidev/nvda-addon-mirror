@@ -4337,7 +4337,8 @@
       "summary": "WCAG Reporter"
     },
     "whatsappWebPlusCompanion": {
-      "summary": "WhatsApp Web Plus Companion"
+      "summary": "WhatsApp Web Plus Companion",
+      "description": "NVDA add-on for the WhatsApp app from the Microsoft Store (WhatsApp Stable and WhatsApp Beta on Windows 10 and 11). Brings the WhatsApp Web Plus accessibility features to the Store app. Launch WhatsApp from the NVDA Tools menu and run a one-time WebView2 permission repair from the same menu. No Tampermonkey or programming knowledge is needed."
     },
     "winGlulxe": {
       "summary": "Win Glulxe",
@@ -4807,6 +4808,10 @@
     "offlineAI": {
       "summary": "Offline AI",
       "description": "Offline AI is an NVDA add-on that brings local artificial intelligence to your computer. All computation runs on the processor, so text, audio, and images never leave your device. An internet connection is only needed to download models. The add-on supports chat with local language models, quick actions on selected text, dictation, and audio and video transcription. OCR and image descriptions, speech synthesis, and voice cloning are also available. The built-in catalog contains Qwen, Llama, Gemma, Phi, Mistral, and DeepSeek-R1 models. You can search for models on HuggingFace or add your own GGUF files. The interface follows the NVDA language, supports translation into approximately 100 languages and speech recognition in 100 languages. Settings and chat history are preserved between updates. No Python, command line, or account is needed. No default hotkeys are assigned, so there will be no conflicts with other add-ons. All features are described in the user guide."
+    },
+    "powerManagerAccess": {
+      "summary": "PowerManagerII Access",
+      "description": "NVDA add-on for Richcomm PowerManagerII, a Windows application for monitoring and managing an uninterruptible power supply (UPS). Adds keyboard navigation, names controls that NVDA otherwise cannot identify, and presents UPS readings as text. Read connection status, battery charge, load, voltage and frequency, and use menus, settings, notifications, UPS task schedules and history dialogs from the keyboard. Note: the add-on's spoken labels and dialogs are in Russian."
     }
   }
 }
