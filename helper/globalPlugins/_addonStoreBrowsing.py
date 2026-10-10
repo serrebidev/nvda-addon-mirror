@@ -117,6 +117,11 @@ def _sortFields(vm: Any) -> list:
 	return list(getattr(vm, "sortableFields", vm.presentedFields))
 
 
+def _tabName(dialog: Any) -> str:
+	logical = getattr(dialog, "_serrebiLogicalTab", None)
+	return logical() if callable(logical) else dialog._storeVM._filteredStatusKey.name
+
+
 class SourceFilterDialog(wx.Dialog):
 	def __init__(self, parent: Any, viewModel: Any):
 		# Translators: Dialog for choosing which catalog sources to display.
@@ -216,13 +221,16 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		store = dialog._storeVM
 		vm = store.listVM
 		storeState = states.get(keyFor(dialog), {})
-		tab = store._filteredStatusKey.name
+		tab = _tabName(dialog)
 		mode = _getSetting("browseMemory")
 		state = storeState.get("shared", {}) if mode == "shared" else storeState.get("tabs", {}).get(tab, {})
 		if not isinstance(state, dict):
 			state = {}
 		dialog._serrebiRestoring = True
 		try:
+			applyDefaults = getattr(dialog, "_serrebiApplyTabDefaults", None)
+			if callable(applyDefaults):
+				applyDefaults()
 			if mode != "default":
 				channels = list(channelModule._channelFilters)
 				for index, channel in enumerate(channels):
@@ -251,16 +259,20 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 					if field.name == state.get("sort"):
 						vm.setSortField(field, bool(state.get("reverse")))
 						dialog.columnFilterCtrl.SetSelection(index * 2 + bool(state.get("reverse")))
-				dateSort = state.get("dateSort")
-				dateSort = dateSort if type(dateSort) is bool else None
-				if dialog.columnFilterCtrl.GetCount() >= len(sortFields) * 2 + 2:
-					vm._serrebiDateSort = dateSort
-					if dateSort is not None:
-						dialog.columnFilterCtrl.SetSelection(len(sortFields) * 2 + int(dateSort))
+				if "dateSort" in state:
+					dateSort = state["dateSort"]
+					dateSort = dateSort if type(dateSort) is bool else None
+					if dialog.columnFilterCtrl.GetCount() >= len(sortFields) * 2 + 2:
+						vm._serrebiDateSort = dateSort
+						if dateSort is not None:
+							dialog.columnFilterCtrl.SetSelection(len(sortFields) * 2 + int(dateSort))
 				dialog._setListLabels()
 			if _getSetting("rememberPosition"):
 				positionState = storeState.get("tabs", {}).get(tab, {})
 				vm._serrebiPendingSelection = positionState.get("selected")
+			syncSort = getattr(dialog, "_serrebiSyncSortChoice", None)
+			if callable(syncSort):
+				syncSort()
 			refresh()
 			if _getSetting("rememberPosition"):
 				if tab not in ("AVAILABLE", "UPDATE"):
@@ -307,6 +319,10 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 				for tab in statusModule._statusFilters:
 					if tab.name == name:
 						kwargs["openToTab"] = tab
+		resolver = getattr(dialog, "_serrebiResolveInitialTab", None)
+		if callable(resolver) and len(args) <= 2 and kwargs.get("openToTab") is None:
+			name = states.get(key, {}).get("lastTab") if _getSetting("rememberTab") else None
+			kwargs["openToTab"] = resolver(name)
 		originalInit(dialog, *args, **kwargs)
 		dialogs.add(dialog)
 		dialog._storeVM.listVM._serrebiBrowsingDialogRef = dialogRef
@@ -336,7 +352,7 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 				del store.refresh
 			else:
 				store.refresh = ownRefresh
-		dialog._serrebiCurrentTab = dialog._storeVM._filteredStatusKey.name
+		dialog._serrebiCurrentTab = _tabName(dialog)
 		restore(dialog, refresh)
 
 	def saveAfter(original):
@@ -400,15 +416,24 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		control._serrebiColumnMap = _layoutFields(
 			control._addonsListVM.presentedFields, _getSetting("columnOrder"), _getSetting("hiddenColumns"),
 		)
+		layout = getattr(control.GetParent(), "_serrebiContextualLayout", None)
+		if callable(layout):
+			control._serrebiColumnMap = layout(control._serrebiColumnMap)
 		control.ClearAll()
 		for field in control._serrebiColumnMap:
 			if field == "source":
 				# Translators: The upstream catalog source column in the Add-on Store.
 				label, width = _("Source"), 140
+			elif field == "lastUpdated":
+				label, width = _("Last updated"), 150
 			else:
-				label, width = field.displayString, field.width
+				label, width = field.displayString, field.width or 100
 			control.InsertColumn(control.GetColumnCount(), label, width=control.scaleSize(width))
 		control.Layout()
+		# ClearAll also clears a virtual list's item count. Column-only settings
+		# changes must keep the existing native rows and selection visible.
+		if hasattr(control, "_doRefresh"):
+			control._doRefresh()
 
 	def itemText(control, row, col):
 		try:
@@ -416,8 +441,16 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 			if field == "source":
 				item = control._addonsListVM.getAddonAtIndex(row)
 				return getattr(item.model, "_serrebiStoreSource", "")
+			if field == "lastUpdated":
+				from ._addonStoreChangelogs import updatedTime
+				from datetime import datetime
+				stamp = updatedTime(control._addonsListVM.getAddonAtIndex(row).model)
+				return datetime.fromtimestamp(stamp / 1000).strftime("%Y-%m-%d") if stamp else _("Unknown")
+			if getattr(field, "name", None) == "searchRank":
+				item = control._addonsListVM.getAddonAtIndex(row)
+				return str(item.searchRank(control._addonsListVM._filterString or ""))
 			return originalText(control, row, control._addonsListVM.presentedFields.index(field))
-		except (IndexError, KeyError, AssertionError, ValueError):
+		except (IndexError, KeyError, AssertionError, ValueError, OverflowError, OSError):
 			return ""
 
 	def columnClick(control, evt):
@@ -499,33 +532,43 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		panel._columnsList = wx.CheckListBox(panel, choices=[byName[name] for name in panel._columnNames])
 		for index, name in enumerate(panel._columnNames):
 			panel._columnsList.Check(index, name not in _getSetting("hiddenColumns") or name == "displayName")
+		panelRef = weakref.ref(panel)
 		def onColumnCheck(evt):
+			current = panelRef()
+			if current is None:
+				evt.Skip()
+				return
 			index = evt.GetInt()
-			if panel._columnNames[index] == "displayName" and not panel._columnsList.IsChecked(index):
-				panel._columnsList.Check(index, True)
+			if current._columnNames[index] == "displayName" and not current._columnsList.IsChecked(index):
+				current._columnsList.Check(index, True)
 				import ui
 				# Translators: Status spoken when the required Name column is unchecked.
 				ui.message(_("The Name column must remain visible."))
 		panel._columnsList.Bind(wx.EVT_CHECKLISTBOX, onColumnCheck)
 		helper.addItem(panel._columnsList)
 		def move(delta):
-			index = panel._columnsList.GetSelection()
+			current = panelRef()
+			if current is None:
+				return
+			index = current._columnsList.GetSelection()
 			other = index + delta
-			if index < 0 or not 0 <= other < len(panel._columnNames):
+			if index < 0 or not 0 <= other < len(current._columnNames):
 				return
 			checked = {
-				panel._columnNames[i] for i in range(len(panel._columnNames)) if panel._columnsList.IsChecked(i)
+				current._columnNames[i] for i in range(len(current._columnNames)) if current._columnsList.IsChecked(i)
 			}
-			panel._columnNames[index], panel._columnNames[other] = panel._columnNames[other], panel._columnNames[index]
-			panel._columnsList.Set([byName[name] for name in panel._columnNames])
-			for i, name in enumerate(panel._columnNames):
-				panel._columnsList.Check(i, name in checked)
-			panel._columnsList.SetSelection(other)
+			current._columnNames[index], current._columnNames[other] = (
+				current._columnNames[other], current._columnNames[index]
+			)
+			current._columnsList.Set([byName[name] for name in current._columnNames])
+			for i, name in enumerate(current._columnNames):
+				current._columnsList.Check(i, name in checked)
+			current._columnsList.SetSelection(other)
 			import ui
 			# Translators: Spoken after moving a store column. The first value is the column name,
 			# the second its one-based position and the third the total number of columns.
 			ui.message(_("{column}, position {position} of {total}").format(
-				column=byName[panel._columnNames[other]], position=other + 1, total=len(panel._columnNames),
+				column=byName[current._columnNames[other]], position=other + 1, total=len(current._columnNames),
 			))
 		for delta, label in (
 			# Translators: Moves the selected column earlier in spoken/visual order.

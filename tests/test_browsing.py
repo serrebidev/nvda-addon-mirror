@@ -406,6 +406,66 @@ class BrowsingTests(unittest.TestCase):
             dialog.onListTabPageChange(None)
             self.assertEqual(["refresh"], calls)
 
+    def test_adapter_restores_date_sort_only_when_saved_state_has_it(self):
+        modules, plugin, Dialog, ListVM, Settings, Field, Channel, Enabled, Action = self._makeAdapter()
+
+        class Choice:
+            def __init__(self, count=1):
+                self.count = count
+                self.selection = None
+
+            def GetCount(self):
+                return self.count
+
+            def SetSelection(self, value):
+                self.selection = value
+
+        class Text:
+            def ChangeValue(self, value):
+                self.value = value
+
+        class Check:
+            def SetValue(self, value):
+                self.value = value
+
+        def run(state):
+            self.config.conf["serrebiStore"].update({
+                "browseMemory": "perTab", "browseAcrossRestarts": bool(state),
+                "browseState": json.dumps({"stores": {"mirror": {"tabs": {"AVAILABLE": state}}}}),
+            })
+            with mock.patch.dict(sys.modules, modules):
+                self.module.enable(plugin, Settings)
+                vm = ListVM()
+                vm._addonsFilteredOrdered = []
+                vm._addons = {}
+                vm.updated = Action()
+                vm._sortByModelField = Field.displayName
+                vm._reverseSort = False
+                vm._filterString = None
+                vm._serrebiSources = None
+                vm._serrebiDateSort = True
+                vm._serrebiSearchScope = "all"
+                store = types.SimpleNamespace(
+                    listVM=vm, _filteredStatusKey=types.SimpleNamespace(name="AVAILABLE"),
+                    _filterChannelKey=Channel.STABLE, _filterEnabledDisabled=Enabled.ALL,
+                    _filterIncludeIncompatible=False,
+                    refresh=lambda: None,
+                )
+                dialog = object.__new__(Dialog)
+                dialog._storeVM = store
+                dialog._serrebiApplyTabDefaults = lambda: setattr(vm, "_serrebiDateSort", True)
+                dialog.channelFilterCtrl = Choice(len(modules["addonStore.models.channel"]._channelFilters))
+                dialog.enabledFilterCtrl = Choice(len(Enabled))
+                dialog.includeIncompatibleCtrl = Check()
+                dialog.searchFilterCtrl = Text()
+                dialog.columnFilterCtrl = Choice(len(vm.sortableFields) * 2 + 2)
+                dialog._setListLabels = lambda: None
+                dialog.onListTabPageChange(None)
+                return vm._serrebiDateSort
+
+        self.assertTrue(run({}))
+        self.assertIsNone(run({"dateSort": None}))
+
     def test_adapter_source_filter_composes_with_native_order(self):
         modules, plugin, _, ListVM, Settings, _, _, _, _ = self._makeAdapter()
         with mock.patch.dict(sys.modules, modules):

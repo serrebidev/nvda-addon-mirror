@@ -225,6 +225,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self._enableSourceSupport()
 		self._enableStoreEnhancements()
 		self._enableChangelogs()
+		self._enableCustomization()
 		self._addToolsMenuItems()
 		self._registerSettingsPanel()
 		self._refreshStore()
@@ -473,14 +474,17 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 					(shareLabel, lambda model: _getShareText(model)),
 					(downloadLabel, lambda model: _getSafeWebURL(getattr(model, "URL", ""))),
 				):
-					actionList.append(actions.AddonActionVM(
+					action = actions.AddonActionVM(
 						displayName=label,
 						actionHandler=lambda item, getText=getText: plugin._copyStoreText(getText(item.model)),
 						validCheck=lambda item, getText=getText: (
 							not _isSecureContext() and bool(getText(item.model))
 						),
 						actionTarget=selected,
-					))
+					)
+					if label == shareLabel:
+						action._serrebiShareAction = True
+					actionList.append(action)
 				return actionList
 
 			def getFilteredSortedIds(viewModel):
@@ -994,12 +998,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def _enableChangelogs(self):
 		"""Install the optional changelog adapter as one reversible transaction."""
 		try:
-			from ._addonStoreChangelogs import ChangelogFeature
+			from ._addonStoreChangelogs import ChangelogFeature, enableSettings
 		except ImportError:
 			# Unit tests load this global plugin as a standalone module; NVDA
 			# normally imports it in the globalPlugins package.
 			try:
-				from _addonStoreChangelogs import ChangelogFeature
+				from _addonStoreChangelogs import ChangelogFeature, enableSettings
 			except ImportError:
 				log.info("Changelog module unavailable")
 				return
@@ -1007,6 +1011,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		feature = ChangelogFeature(self)
 		try:
 			feature.enable()
+			enableSettings(self, SerrebiStoreSettingsPanel)
 		except Exception:
 			# Do not remove preceding feature patches when this optional adapter
 			# meets a future core API it does not understand.
@@ -1017,6 +1022,21 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			log.exception("Failed to add changelog support to the Add-on Store")
 			return
 		self._changelogFeature = feature
+	def _enableCustomization(self):
+		try:
+			from ._addonStoreCustomization import CustomizationFeature
+		except ImportError:
+			return
+		start = len(self._sourceSupportPatches)
+		try:
+			CustomizationFeature(self).enable(SerrebiStoreSettingsPanel)
+		except Exception:
+			for owner, name, original, replacement in reversed(self._sourceSupportPatches[start:]):
+				if owner.__dict__.get(name) is replacement:
+					setattr(owner, name, original)
+			del self._sourceSupportPatches[start:]
+			log.exception("Failed to add Store customization")
+
 	def _enableBrowsingPreferences(self):
 		try:
 			from . import _addonStoreBrowsing
