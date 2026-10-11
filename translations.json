@@ -2663,6 +2663,10 @@
       "summary": "Poedit More Accessible",
       "description": "The PoeditMoreAccessible add-on reports the actions performed when pressing hot commands in the PoEdit program.\nThe addition indicates different categories of messages using special sounds or asterics.\nAdds commands that allow you to find out the original and translated text of a message, as well as a lot of other useful information."
     },
+    "podcastRecorder": {
+      "summary": "Podcast Recorder",
+      "description": "Podcast Recorder is a multifunctional podcast recorder that works directly from NVDA.\nThe add-on records Windows system audio via WASAPI loopback and optionally mixes the microphone into the same MP3 file.\nShift+NVDA+Space — start or stop recording.\nCtrl+Shift+NVDA+Space — pause or resume recording.\nCtrl+NVDA+Space — enable or disable the microphone.\nAlt+Shift+NVDA+Space — open settings.\nIn settings you can choose the MP3 save folder, bitrate 128/160/192/256/320 kbps, system audio device and microphone.\nYou can separately adjust the volume of system audio and microphone, as well as the volume of notification sounds.\nMicrophone gain adjustment from 0 to +30 dB with a built-in limiter is available.\nOn first recording, the add-on downloads audio components from PyPI and stores them inside itself.\nAll commands can be reassigned under Input Gestures, Podcast Recorder."
+    },
     "networkStrenght": {
       "summary": "Network Strenght",
       "description": "A simple NetworkStrenght add-on to determine the strength of a wireless network.\nThe keyboard shortcut NVDA+Control+N will tell you the wireless network strength on your device.\nChanging the keyboard shortcuts in the add-on is not implemented."
