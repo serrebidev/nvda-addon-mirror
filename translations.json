@@ -1985,6 +1985,7 @@
       "description": "Pactos add-on is Pactos braille display drivers for NoteTaker, Barjastenegar 2, 4."
     },
     "WindowsMail": {
+      "summary": "Windows Mail",
       "author": "Unknown",
       "description": "The WindowsMail add-on adds various commands to make it easier to work with the Windows Mail email client of the same name.\nCompatible with Windows 7-10, NVDA 2019.3 and later.\nAll keyboard shortcuts are described in detail in the add-on help."
     },
@@ -1997,6 +1998,7 @@
       "description": "The Pausing Information Add-on for NVDA is an extension that provides more detailed and paused reading of state and control information when focus changes between interface elements.\nThis feature was inspired by the Brazilian screen reader \"Virtual Vision\", known for its paused way of announcing information, which improves user comprehension.\nThis add-on is designed for use with the DeltaTalk synthesizer to provide a full reading experience similar to Virtual Vision, but is fully compatible with any other synthesizer used by NVDA.\nImportant note: Paused reading is based solely on the character level. Hyphens are added to pause the reading of information. If the character level is set above \"some\", hyphens will be spoken.\nLikewise, if characters (specifically the hyphen) are not set up correctly in the Pronounce Punctuation/Symbols dialog, pauses may not work.\nTo ensure pauses work correctly, go to the Pronounce Punctuation/Characters dialog and make sure the hyphen is set to be sent to the synthesizer when it is below the character level.\nFeatures:\nDeclaring Control Types and States: The add-on declares the control type (e.g., checkbox, radio button, menu, input field) and its state (e.g., checked, pressed, unavailable, busy).\nThe announcement is made with pauses, similar to how it was done in the Virtual Vision screen reader.\nYou can read about how to use this add-on in the help section."
     },
     "googleTranslateEnhanced": {
+      "summary": "Google Translate Enhanced",
       "description": "The GoogleTranslateEnhanced add-on translates the contents of the clipboard or recognized speech via the Google Translate API according to the language set in NVDA.\nIf you have selected a large amount of text (for example, an entire document), a beep will sound during translation.\nIf the translation result exceeds 1500 characters, NVDA will report the total number of characters and will only announce the first 1500.\nYou can use the “Speak out latest translation result” function (double-click copies to clipboard) to paste the full translation into another editor (for example, Notepad).\nKeyboard shortcut:\nTranslation of the current voiced text: NVDA+J.\nTranslate selected text or clipboard contents: NVDA+Control+J.\nEnable/disable automatic translation: NVDA+Shift+Control+J.\nVoice the latest translation result: NVDA+Alt+J.\nTranslation log optimization: NVDA+Windows+J.\nComplete clearing of the translation history: NVDA+Shift+Windows+J.\nAll hotkeys can be changed in input gestures, in the “Enhanced Google Translate” category.\nNote: If the language is set to \"Default\", the translation will be in Chinese. To translate into your language, select a specific NVDA interface language, such as Russian."
     },
     "audioDuckingEnabler": {
@@ -2023,6 +2025,7 @@
       "description": "The GBReader add-on adds news reading in simplified Chinese.\nThe message is presented in simplified Chinese.\nKeyboard shortcut NVDA+G."
     },
     "EOFbeep": {
+      "summary": "End of File Beep",
       "author": "Quark unofficial",
       "description": "The EOFbeep add-on adds the following functionality:\nWhen the cursor reaches the end or beginning of the file, a signal sounds.\nNote: Disabled in Unigram.\nThe add-on does not have settings or keyboard shortcuts."
     },
@@ -2072,6 +2075,7 @@
       "description": "The KeepAwake add-on provides a tool to enable or disable power saving and keep your computer awake.\nThere are two options in the Power Options submenu:\nKeep computer awake: Temporarily disables power saving mode and keeps the computer awake while the current instance of NVDA remains active. If NVDA is closed or restarted, the power saving settings will be restored.\nAllow the computer to sleep: Restores system settings, allowing the computer to go into power-saving mode."
     },
     "AccessVPad": {
+      "summary": "AccessVPad",
       "description": "AccessVPad is an add-on that provides an accessible, virtual 2D read/write notepad based on a grid concept and equipped with various interactive features controlled from a speech keyboard.\nCurrently available word processors only allow horizontal editing, which limits the readability and expression of mathematical operations, especially when representing two-dimensional computational procedures in vertical form, making communication and learning ineffective for people with visual impairments.\nAccessVPad is designed to overcome the limitations of existing text editors by allowing you to perform calculations that require vertical alignment. For example, when calculating conversions of units or polynomials, AccessVPad allows users to learn and express arithmetic concepts (such as carry) or any other cases where vertical alignment helps convey information more intuitively and efficiently. AccessVPad's GUI is located in the Tools -> AccessVPad menu.\nThe AccessVPad graphical interface is located in the Tools -> AccessVPad menu.\nYou can read about the add-on's other features, as well as keyboard shortcuts, in the detailed help."
     },
     "AutoFocus": {
@@ -2086,6 +2090,7 @@
       "description": "AI Image Generator is an add-on for NVDA that allows users to generate images using artificial intelligence based on text queries. It fully integrates with NVDA, providing an accessible interface for visually impaired users to create and download AI-generated images.\nFeatures:\n🎧 Accessible Interface: Fully compatible with NVDA Narrator.\n🖼️ Generating images from text: Creating images based on text descriptions.\n💾 Image upload: Save generated images in PNG, JPEG or BMP formats.\n🛠️Customizable Interface: Includes a cleanup button, About dialog box, and hotkeys for easy navigation.\n⚙️ Multi-threaded processing: Prevents the interface from freezing by generating images in the background.\n🎨 Theme support: Customizable color scheme for improved visibility.\nKeyboard shortcut:\nOpen generator: NVDA+Shift+A.\nOr through the NVDA Menu, Tools, Artificial Intelligence Image Generator."
     },
     "PerfectCurrencyConverter": {
+      "summary": "Perfect Currency Converter",
       "description": "The PerfectCurrencyConverter add-on for NVDA is a professional tool designed to make currency conversion more accessible to NonVisual Desktop Access (NVDA) screen reader users.\nThis add-on provides a user-friendly interface for converting between multiple currencies, optimized for accessibility.\nKey features:\nSupports conversion between a wide range of world currencies.\nAccessible dialog interface for selecting currencies and entering amounts. Customizable default currency pair (for example, USD to NPR).\nIntegration with NVDA Tools menu and custom hotkey (default: NVDA+Alt+C).\nError handling for incorrect input or network problems during conversion.\nKeyboard shortcut:\nOpen Currency Converter: NVDA+Alt+C.\nOr go to the submenu “Service”, “Ideal currency converter”.\nAn Internet connection is required for the add-on to work."
     },
     "EasySoundRecorder": {
@@ -2108,6 +2113,7 @@
       "description": "ProfileGestures addition for assigning different keyboard shortcuts to the same commands in different configuration profiles.\nAfter installing the add-on, all manipulations in the “Input Gestures” dialog will be saved in a separate file, the name of which depends on the name of the active configuration profile.\nAnd switching profiles will cause an update of all user gestures loaded from this file.\nAccordingly, in different configuration profiles it will be possible to assign different keyboard shortcuts to the same commands.\nThe add-on does not have settings or keyboard shortcuts."
     },
     "whatsapp": {
+      "summary": "WhatsApp",
       "description": "The Whatsapp Unlabeled Button Labeling Add-on adds keyboard shortcuts for core app functions and a focus feature for a better experience with the Windows store WhatsApp app of the same name.\nAll keyboard shortcuts are described in the add-on help and can also be changed in input gestures."
     },
     "textnormalizer": {
