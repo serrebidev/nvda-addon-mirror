@@ -4870,6 +4870,10 @@
     "powerManagerAccess": {
       "summary": "PowerManagerII Access",
       "description": "NVDA add-on for Richcomm PowerManagerII, a Windows application for monitoring and managing an uninterruptible power supply (UPS). Adds keyboard navigation, names controls that NVDA otherwise cannot identify, and presents UPS readings as text. Read connection status, battery charge, load, voltage and frequency, and use menus, settings, notifications, UPS task schedules and history dialogs from the keyboard. Note: the add-on's spoken labels and dialogs are in Russian."
+    },
+    "audioEqualizer": {
+      "summary": "Audio Equalizer",
+      "description": "31-band audio equalizer for NVDA with profiles, bass and treble control, balance, stereo effects, and headphone filters. Requires Equalizer APO."
     }
   }
 }
