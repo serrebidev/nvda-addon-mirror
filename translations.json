@@ -4250,7 +4250,8 @@
       "summary": "No Out of Spelling Error"
     },
     "nokiaKlatt": {
-      "summary": "Nokia Klatt"
+      "summary": "Nokia Klatt",
+      "description": "Speech synthesis based on the Klatt formant engine from Nokia S60 phones. The NokiaKlatt engine is genuine ARM code from a phone ROM, run under emulation; nothing is rewritten. Requires NVDA 2026.1 or later. Select \"Nokia TTS\" in NVDA's synthesizer dialog. Each installed phone ROM adds its languages to a single voice list, and each voice states in brackets which phone it comes from. Voices are chosen by language, like any other synthesizer, not by picking a phone first; the phone matters only when several builds speak the same language. Five phone builds are included — Nokia 5320, Nokia E65, Nokia N95 8GB, Nokia 6650 and Nokia N85 — providing 99 verified language and profile combinations, with matched ROM and speech data sets for all five, so no extra files are needed. Your own EKA2L1 dump can be placed in %APPDATA%\\nvda\\nokiaKlatt\\<build>\\ and takes priority over the built-in one. All four NVDA sliders — rate, pitch, volume and inflection — are applied to the audio after synthesis: rate uses the Sonic library shipped with NVDA and changes speed without shifting pitch, pitch shifts the fundamental frequency and formants together, and inflection mixes in a ring-modulated copy of the voice. Short utterances are fully buffered and passed to NVDA's WavePlayer in one block, while longer text stays streamed for low latency. Changing voice rebuilds the engine in a background thread, so NVDA stays responsive."
     },
     "nvdaCli": {
       "summary": "NVDA CLI"
@@ -4918,6 +4919,10 @@
     "translatorGPT": {
       "summary": "Translator GPT",
       "description": "TranslatorGPT is an add-on for the NVDA screen reader that translates speech output in real time.\nIt uses OpenAI's GPT-4o-mini model to provide high-quality translations into various languages.\nMain features:\nTranslation of all NVDA speech output in real time.\nSupport for Korean, English, Japanese, Chinese, Spanish, French, German, Russian and Arabic.\nEasily turn the feature on or off with the NVDA+Control+Shift+T hotkey, which can be changed in Input Gestures.\nConvenient settings interface.\nNote: An OpenAI API key is required for the add-on to work."
+    },
+    "RemotePlusPlusBackup": {
+      "summary": "Remote PlusPlus Backup",
+      "description": "Add-on for creating and restoring backups of connections for the Remote PlusPlus remote access manager in NVDA. It adds export and import items for connections to the Backup submenu, plus a separate settings dialog for save paths. Two export formats are supported: a full backup with all groups and settings, and a connections-only export without parameters. The file name can be appended automatically with a timestamp. All actions are available through the Remote menu and by hotkeys, and results are spoken by NVDA."
     }
   }
 }
