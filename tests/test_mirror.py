@@ -1724,5 +1724,41 @@ class ManifestParsingTests(unittest.TestCase):
         self.assertEqual("renamedId", mirror._manifest_name(manifest))
 
 
+class BlockedEntriesTests(unittest.TestCase):
+    BLOCKED = [{"name": "Hacking by addon", "reason": "troll bundle"}]
+
+    def test_blocked_addon_is_dropped_from_every_source(self):
+        entries = [
+            {"name": "Hacking by addon", "source": "ru"},
+            {"name": "Hacking by addon", "source": "pinned"},
+            {"name": "Innocent", "source": "ru"},
+        ]
+        kept, rejected = mirror.drop_blocked_entries(entries, self.BLOCKED)
+        self.assertEqual([e["name"] for e in kept], ["Innocent"])
+        self.assertEqual(len(rejected), 2)
+        self.assertIn("blocked (safety): troll bundle", rejected[0]["reason"])
+
+    def test_matching_ignores_case(self):
+        entries = [{"name": "HACKING BY ADDON", "source": "bestmidi"}]
+        kept, rejected = mirror.drop_blocked_entries(entries, self.BLOCKED)
+        self.assertEqual(kept, [])
+        self.assertEqual(len(rejected), 1)
+
+    def test_empty_blocklist_keeps_everything(self):
+        entries = [{"name": "Hacking by addon", "source": "ru"}]
+        kept, rejected = mirror.drop_blocked_entries(entries, [])
+        self.assertEqual(kept, entries)
+        self.assertEqual(rejected, [])
+
+    def test_loader_reads_specs_and_tolerates_a_missing_file(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "blocked.json"
+            self.assertEqual(mirror._load_blocked(str(path)), [])
+            path.write_text(json.dumps({"blocked": self.BLOCKED}), encoding="utf-8")
+            self.assertEqual(mirror._load_blocked(str(path)), self.BLOCKED)
+
+
 if __name__ == "__main__":
     unittest.main()

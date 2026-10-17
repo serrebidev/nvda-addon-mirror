@@ -196,6 +196,7 @@ SOURCE_PRIORITY = {
     "es": 0,
 }
 PINNED_CONFIG_PATH = "pinned.json"
+BLOCKED_CONFIG_PATH = "blocked.json"
 GITHUB_OWNERS_PATH = "githubOwners.json"
 GITHUB_OWNER_CACHE_PATH = "githubOwnerCache.json"
 #: Bump when a change alters how a cached entry is derived from a bundle. The
@@ -1065,6 +1066,48 @@ def _load_excluded(path):
             return json.load(f).get("exclude", [])
     except FileNotFoundError:
         return []
+
+
+def _load_blocked(path):
+    """Return the safety blocklist from blocked.json: add-ons never served.
+
+    Each spec names a manifest `name` and the `reason` it is blocked.
+    Unlike the pinned-variant exclusion above, a blocked add-on is dropped
+    from every source, pinned included: safety outranks curation.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f).get("blocked", [])
+    except FileNotFoundError:
+        return []
+
+
+def drop_blocked_entries(entries, blocked):
+    """Split out entries whose add-on is on the safety blocklist.
+
+    Matching is on the manifest name, case-insensitively, so a blocked
+    add-on stays blocked if a source republishes it with different
+    casing. Returns (kept, rejected) like the other drop_* passes.
+    """
+    reasons = {
+        (spec.get("name") or "").strip().casefold(): (spec.get("reason") or "")
+        for spec in blocked
+        if (spec.get("name") or "").strip()
+    }
+    if not reasons:
+        return entries, []
+    kept, rejected = [], []
+    for e in entries:
+        name = (e.get("name") or e.get("addonId") or "").strip()
+        if name.casefold() in reasons:
+            rejected.append({
+                "addonId": e.get("name") or e.get("addonId"),
+                "source": e.get("source"),
+                "reason": "blocked (safety): " + reasons[name.casefold()],
+            })
+            continue
+        kept.append(e)
+    return kept, rejected
 
 
 def fetch_pinned(config_path=PINNED_CONFIG_PATH):
@@ -4398,6 +4441,16 @@ def main():
         todo = kept
         if excluded_count:
             log(f"Excluded {excluded_count} community entries replaced by pinned variants")
+
+    # 2c. Drop anything on the safety blocklist (blocked.json), from every
+    # source. These are add-ons the mirror must never serve at all, e.g.
+    # troll bundles that present themselves as malware.
+    todo, blocked_rejected = drop_blocked_entries(
+        todo, _load_blocked(BLOCKED_CONFIG_PATH)
+    )
+    if blocked_rejected:
+        rejected.extend(blocked_rejected)
+        log(f"Blocked {len(blocked_rejected)} entries on the safety blocklist")
 
     # 3. Dedupe across sources.
     todo = dedupe(todo)
