@@ -36,6 +36,13 @@ Sources:
   and are published with unique IDs and display names so installing one cannot
   overwrite another.
 
+- **Global GitHub search** — once a day the mirror searches GitHub
+  repositories for `nvda`, most recently updated first, and queues matches
+  that are not already known. A queued repository is catalogued only when
+  a release ships a `.nvda-addon` asset, through the same validation as
+  author-discovered repositories; checked repositories are remembered by
+  their last-updated stamp and are not re-queued until they change.
+
 - **Add-ons published from an author's own website** — some authors distribute
   a `.nvda-addon` from their own site and never appear in a catalog or on
   GitHub, so nothing else in the build can reach them. A `pinned.json` entry

@@ -9,6 +9,10 @@ Sources:
 - https://nvda.es/files/get.php?addonslist (Spanish community catalog, with
   nvda-addons.org as its byte-identical failover; originals only)
 - configured GitHub owners (validated direct `.nvda-addon` release assets)
+- global GitHub repository search for "nvda", most recently updated first;
+  matches join the same pending queue and `.nvda-addon` release validation
+  as owner-discovered repositories, so the mirror no longer depends on an
+  external crawler to notice brand-new add-on repositories
 
 Fetch -> filter (reject "rejected candidates") -> download + sha256 -> transform
 to the NVDA add-on store schema -> emit a static site consumable by NVDA's
@@ -226,6 +230,18 @@ PINNED_BUNDLE_CACHE_PATH = ".bundlecache"
 # otherwise spend the whole hourly budget in a single run, so first-time checks
 # are rationed and the remainder is carried in the cache for the next run.
 GITHUB_NEW_REPOSITORY_BUDGET = 120
+#: Global search discovery (Brandon, 2026-10-16): once a day, search GitHub
+#: repositories for the query below, most recently updated first, and queue
+#: matches that are not already scanned, queued or catalogued. Queuing only
+#: earns a repository the ordinary first-time check -- it is catalogued
+#: solely when a release actually ships a `.nvda-addon` asset. A checked
+#: repository is remembered by its `updated_at` stamp and is not queued
+#: again until the stamp advances, so the search costs a few requests a
+#: day and never re-checks the same noise every build.
+GITHUB_SEARCH_DISCOVERY_QUERY = "nvda"
+GITHUB_SEARCH_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
+GITHUB_SEARCH_DISCOVERY_PAGES = 2
+GITHUB_SEARCH_DISCOVERY_BUDGET = 100
 NVDA_API_VERSIONS_PATH = "nvdaAPIVersions.json"
 NVDA_API_VERSIONS_URL = (
     "https://raw.githubusercontent.com/nvaccess/addon-datastore/"
@@ -2156,6 +2172,54 @@ def _filter_fork_candidates(
     return kept, states, rejected
 
 
+def _github_search_repository_stamps():
+    """Return {full_name: updated_at} for the repositories matching the
+    search discovery query, most recently updated first."""
+    stamps = {}
+    query = quote(GITHUB_SEARCH_DISCOVERY_QUERY, safe="")
+    for page in range(1, GITHUB_SEARCH_DISCOVERY_PAGES + 1):
+        data = _github_json(
+            f"{GITHUB_API}/search/repositories?q={query}"
+            f"&sort=updated&order=desc&per_page=100&page={page}"
+        )
+        items = data.get("items") if isinstance(data, dict) else None
+        if not items:
+            break
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            full_name = (item.get("full_name") or "").strip()
+            if "/" in full_name:
+                stamps[full_name] = (item.get("updated_at") or "").strip()
+        if len(items) < 100:
+            break
+    return stamps
+
+
+def _search_discovery_updates(stamps, known_folded, seen):
+    """Decide which searched repositories join the pending queue.
+
+    `known_folded` holds the casefolded names already scanned, queued or
+    catalogued; those are skipped and dropped from the remembered stamps.
+    Any other repository is queued only when it is new or its `updated_at`
+    stamp advanced since the search last checked it, so a repository that
+    was validated and rejected is left alone until it changes.
+    """
+    queued = set()
+    new_seen = {}
+    for full_name, stamp in stamps.items():
+        folded = full_name.casefold()
+        if folded in known_folded:
+            continue
+        new_seen[folded] = stamp
+        if (
+            seen.get(folded) != stamp
+            and len(queued) < GITHUB_SEARCH_DISCOVERY_BUDGET
+        ):
+            queued.add(full_name)
+    return queued, new_seen
+
+
 def fetch_github_owners(
     config_path=GITHUB_OWNERS_PATH,
     cache_path=GITHUB_OWNER_CACHE_PATH,
@@ -2213,6 +2277,15 @@ def fetch_github_owners(
         or repo.casefold() in scanned_folded
     }
     last_owner_scan = discovery.get("last_owner_scan") or 0
+    last_search_scan = discovery.get("last_search_scan") or 0
+    search_seen = discovery.get("search_seen")
+    if not isinstance(search_seen, dict):
+        search_seen = {}
+    search_seen = {
+        repo: stamp
+        for repo, stamp in search_seen.items()
+        if isinstance(repo, str) and isinstance(stamp, str)
+    }
     configured_owners = sorted(
         [
             {
@@ -2294,6 +2367,36 @@ def fetch_github_owners(
                     f"GitHub owners: discovered {len(discovered_repositories)} total "
                     "repositories; new repositories were added to this update check"
                 )
+        if (
+            time.time() - last_search_scan
+            >= GITHUB_SEARCH_DISCOVERY_TTL_SECONDS
+        ):
+            try:
+                search_stamps = _github_search_repository_stamps()
+            except Exception as exc:  # noqa: BLE001 - search is auxiliary
+                # Search discovery only ever adds candidates; a failure
+                # keeps the previous state, leaves the scan due so the
+                # next build retries, and never blocks publication.
+                log(
+                    "GitHub search discovery failed; keeping the previous "
+                    f"search state and retrying next run: {str(exc)[:300]}"
+                )
+            else:
+                known_folded = (
+                    scanned_folded
+                    | {repo.casefold() for repo in pending_repositories}
+                    | {repo.casefold() for repo in addon_repositories}
+                )
+                search_queued, search_seen = _search_discovery_updates(
+                    search_stamps, known_folded, search_seen
+                )
+                if search_queued:
+                    pending_repositories.update(search_queued)
+                    log(
+                        f"GitHub search: queued {len(search_queued)} new or "
+                        "changed repositories for .nvda-addon validation"
+                    )
+                last_search_scan = int(time.time())
         candidates = []
     else:
         for spec in owners:
@@ -2429,6 +2532,8 @@ def fetch_github_owners(
     GITHUB_OWNER_REJECTIONS.extend(fork_rejections)
     discovery_snapshot = {
         "last_owner_scan": last_owner_scan,
+        "last_search_scan": last_search_scan,
+        "search_seen": search_seen,
         "configured_owners": configured_owners,
         "fork_policy": "newer-release-only-v1",
         "scanned_repositories": sorted(scanned_repositories, key=str.casefold),

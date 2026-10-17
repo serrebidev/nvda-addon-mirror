@@ -826,6 +826,124 @@ class GitHubOwnerTests(unittest.TestCase):
             ["example/c"], written["__discovery__"]["pending_repositories"]
         )
 
+    def test_search_discovery_updates_queue_only_new_or_changed(self):
+        stamps = {
+            "Example/Known": "2026-10-16T00:00:00Z",
+            "example/fresh": "2026-10-16T01:00:00Z",
+            "example/quiet": "2026-10-15T01:00:00Z",
+            "example/changed": "2026-10-16T02:00:00Z",
+        }
+        seen = {
+            "example/known": "2026-10-16T00:00:00Z",
+            "example/quiet": "2026-10-15T01:00:00Z",
+            "example/changed": "2026-10-15T02:00:00Z",
+        }
+        queued, new_seen = mirror._search_discovery_updates(
+            stamps, {"example/known"}, seen
+        )
+        self.assertEqual({"example/fresh", "example/changed"}, queued)
+        self.assertEqual(
+            {
+                "example/fresh": "2026-10-16T01:00:00Z",
+                "example/quiet": "2026-10-15T01:00:00Z",
+                "example/changed": "2026-10-16T02:00:00Z",
+            },
+            new_seen,
+        )
+
+    def test_search_discovery_queues_new_repositories(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": [],
+                "scanned_repositories": [],
+                "pending_repositories": [],
+            }
+        }
+        checked = []
+
+        def release_state(repo, previous_state=None):
+            checked.append(repo)
+            return [], {"etag": None, "candidates": [], "latest_version": None}
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"logins": ["example"]}, config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with (
+                mock.patch.object(mirror, "GITHUB_TOKEN", "token"),
+                mock.patch.object(
+                    mirror,
+                    "_github_owner_repository_names",
+                    return_value=(set(), {}),
+                ),
+                mock.patch.object(
+                    mirror,
+                    "_github_search_repository_stamps",
+                    return_value={"example/found": "2026-10-16T00:00:00Z"},
+                ),
+                mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ),
+            ):
+                mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        self.assertEqual(["example/found"], checked)
+        discovery = written["__discovery__"]
+        self.assertEqual(
+            {"example/found": "2026-10-16T00:00:00Z"}, discovery["search_seen"]
+        )
+        self.assertGreater(discovery["last_search_scan"], 0)
+
+    def test_search_discovery_failure_keeps_previous_state(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": [],
+                "scanned_repositories": [],
+                "pending_repositories": [],
+                "last_search_scan": 0,
+                "search_seen": {"example/old": "2026-10-01T00:00:00Z"},
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"logins": ["example"]}, config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with (
+                mock.patch.object(mirror, "GITHUB_TOKEN", "token"),
+                mock.patch.object(
+                    mirror,
+                    "_github_owner_repository_names",
+                    return_value=(set(), {}),
+                ),
+                mock.patch.object(
+                    mirror,
+                    "_github_search_repository_stamps",
+                    side_effect=RuntimeError("search unavailable"),
+                ),
+            ):
+                mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        discovery = written["__discovery__"]
+        self.assertEqual(
+            {"example/old": "2026-10-01T00:00:00Z"}, discovery["search_seen"]
+        )
+        self.assertEqual(0, discovery["last_search_scan"])
+
     def test_rate_limited_first_time_check_waits_for_the_next_run(self):
         cache = {
             "__discovery__": {
