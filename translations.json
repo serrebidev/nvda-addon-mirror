@@ -2443,6 +2443,7 @@
       "description": "The DLEChecker add-on looks up the definition of the selected word in the dictionary of the Royal Spanish Academy.\nIt is the highest advisory body on matters of spelling and grammar and is responsible for ensuring a uniform standard and ensuring that the changes it undergoes do not disrupt the essential unity that it maintains throughout the Spanish-speaking world.\nYou can also find out synonyms and antonyms of the term you are looking for thanks to the Wordreference thesaurus.\nThe only keyboard shortcut currently available in this add-on is NVDA + Shift + C. It is responsible for displaying an input dialog box for entering a search term, as well as for querying the Diccionario de la Lengua Española de la RAE (RAE Spanish Dictionary) web page.\nThe NVDA + Shift + C keyboard shortcut can be configured through the Input Gestures dialog in the NVDA Settings option in the DLEChecker (Spanish Language Dictionary Checker) category."
     },
     "kgsbraille": {
+      "summary": "KGS Braille Memo Driver, AKA Драйвер KGS Braille Memo",
       "description": "The KGSBraille add-on is a Driver for KGS Braille Memo devices.\nKGS Driver supporting BM Smart, Braille Memo, Braille Memo Pocket and Braille Tender series."
     },
     "lambda": {
