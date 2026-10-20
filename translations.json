@@ -5029,6 +5029,10 @@
     "whatsAppUnified": {
       "summary": "WhatsApp Unified",
       "description": "The WhatsAppUnified add-on is designed to improve the accessibility of the WhatsApp messenger in the NVDA screen reader. It combines the functionality of two popular add-ons: whatsAppNG and whatsAppEnhancer. It works with both the WhatsApp Desktop application and the WhatsApp Web version, and its scope can be chosen in settings: desktop app only, web version only, or both. Key features include fast navigation of the interface using hotkeys, easy switching between the chat list, message area and text input field, playing voice and video messages, opening the message context menu, copying messages, reading them in full, and quick reactions. The desktop version provides a convenient menu for managing calls. Powerful filters clean up the interface, automatically removing phone numbers from message text and the chat list and removing hints, and a feature automatically keeps focus mode in the right areas of the application, which can be fully disabled in settings if needed."
+    },
+    "startallback": {
+      "summary": "StartAllBack Accessibility Enhancement",
+      "description": "Improves how NVDA reads the StartAllBack settings interface, including list check states, display modes, Start button styles, panes and combo box names. Supports the verified StartAllBack 3.9.28.5423 x64."
     }
   }
 }
