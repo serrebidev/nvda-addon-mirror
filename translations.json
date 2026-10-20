@@ -5034,6 +5034,10 @@
     "startallback": {
       "summary": "StartAllBack Accessibility Enhancement",
       "description": "Improves how NVDA reads the StartAllBack settings interface, including list check states, display modes, Start button styles, panes and combo box names. Supports the verified StartAllBack 3.9.28.5423 x64."
+    },
+    "qbrailleXLWinUSB": {
+      "summary": "QBraille XL / Braille EDGE Braille Display Driver, AKA QBraille XL / Braille EDGE 點字顯示器驅動程式",
+      "description": "Supports NVDA 2026.1 to 2026.2, automatically connecting to the QBraille XL / Braille EDGE via USB WinUSB or Bluetooth SPP. NVDA 2026.3 already includes a built-in braille display driver, so this add-on does not need to be installed for that version."
     }
   }
 }
