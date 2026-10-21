@@ -4641,7 +4641,8 @@
       "description": "Prevents applications from automatically lowering the microphone volume during calls or while recording voice messages."
     },
     "tdkSozluk": {
-      "summary": "TDK and Dictionaries"
+      "summary": "TDK and Dictionaries",
+      "description": "Search Turkish dictionaries from NVDA, with combined single, paired or multi-source searches across TDK, the Language Association, Wiktionary, the Nisanyan Dictionary and the Kubbealti Dictionary. Includes the TDK personal names dictionary, a collective search of the TDK special dictionaries (science and art, compilation, western-origin words, scanning, etymology, dialects, historical dictionaries and more, selectable in settings), an offline music terms dictionary with over 4,700 entries, an offline slang dictionary with over 5,200 entries, word listing by starting or ending letters, anagram and word list searches, a smart proverb and idiom search, built-in offline idiom, proverb, synonym, antonym and rhyme dictionaries, Tureng English-Turkish integration, an English-to-English dictionary, text analysis, IP and ISBN lookup, automatic searches in the browser, search history, a cached word of the day, and an interactive key list from the layer menu."
     },
     "ailivetranslate": {
       "summary": "AILiveTranslate",
