@@ -5038,6 +5038,46 @@
     "qbrailleXLWinUSB": {
       "summary": "QBraille XL / Braille EDGE Braille Display Driver, AKA QBraille XL / Braille EDGE 點字顯示器驅動程式",
       "description": "Supports NVDA 2026.1 to 2026.2, automatically connecting to the QBraille XL / Braille EDGE via USB WinUSB or Bluetooth SPP. NVDA 2026.3 already includes a built-in braille display driver, so this add-on does not need to be installed for that version."
+    },
+    "Access TV: Siaran TV Streaming Aksesibel": {
+      "summary": "Access TV: Accessible Streaming TV, AKA Access TV: Siaran TV Streaming Aksesibel",
+      "description": "Access TV is an NVDA add-on for listening to live streaming television broadcasts (audio-first) that is 100% accessible for blind users. It comes with national and international TV channels, the ability to add your own personal custom channels, auto-reconnect, instant search, country filters, favorites management, and a screen-reader-friendly volume slider."
+    },
+    "Accessible Bible Blind": {
+      "summary": "Accessible Bible Blind",
+      "description": "Bible with fully accessible reading so you can grow closer to the Word of God."
+    },
+    "Alessa Effects Sounds Prophetic - efeitos sonoros para o NVDA": {
+      "summary": "Alessa Effects Sounds Prophetic",
+      "description": "Original sound effects for NVDA with sound sets to choose from: prophetic (piano and pads with echo), pads only, piano with intense reverb, classic cell phone (electronic beeps) and modern smartphone (soft tones). Sounds when opening programs, loading pages, typing, pressing Enter and moving focus by element type. Settings window with volume and options per sound group. Free and open source."
+    },
+    "Czytelnia": {
+      "summary": "Audiobook Library, AKA Czytelnia",
+      "description": "Audiobook library with import of ZIP, RAR and 7z archives and folders, remembering your place, and playback controls. Shortcut NVDA+Shift+C."
+    },
+    "devoult_catholic": {
+      "summary": "Catholic Devotional",
+      "description": "Catholic devotional containing different Bible versions, daily liturgy, the Catechism of the Catholic Church, saint of the day, meditations and a notebook. Activate the application with the shortcut NVDA+Ctrl+L. May the peace of Christ and the love of Mary always be with you and your family."
+    },
+    "LION 修改版": {
+      "summary": "LION Modified Version, AKA LION 修改版",
+      "description": "Modified version of the LION NVDA screen OCR add-on: external PaddleOCR HTTP service, multi-region recognition, region deduplication, and queued reading (GPL-2.0-or-later). Does live OCR for the whole screen, refreshing at a specified interval."
+    },
+    "MiCrucigramaAccesible": {
+      "summary": "My Accessible Crossword, AKA MiCrucigramaAccesible",
+      "description": "Accessible crosswords in Spanish for NVDA, for all ages. Solve crosswords cell by cell and word by word: the cursor follows the words, and you hear each clue and how the words cross. Small, medium and large crosswords in three difficulty levels, and small children's crosswords in six themes, all generated on the spot from about 3,500 words with clues written for the game. Play with or without aids; learn with Learn to Play, a guided course of 14 lessons designed also for children; solve the crossword of the day; and check your statistics."
+    },
+    "QBraille XL / Braille EDGE 點字顯示器驅動程式": {
+      "summary": "QBraille XL / Braille EDGE Braille Display Driver, AKA QBraille XL / Braille EDGE 點字顯示器驅動程式",
+      "description": "Supports NVDA 2026.1 to 2026.2, automatically connecting to the QBraille XL / Braille EDGE via USB WinUSB or Bluetooth SPP. NVDA 2026.3 already includes a built-in braille display driver, so this add-on does not need to be installed for that version."
+    },
+    "StartAllBack 無障礙增強": {
+      "summary": "StartAllBack Accessibility Enhancement",
+      "description": "Improves how NVDA reads the StartAllBack settings interface, including list check states, display modes, Start button styles, panes and combo box names. Supports the verified StartAllBack 3.9.28.5423 x64."
+    },
+    "TV Player": {
+      "summary": "TV Player",
+      "description": "TVP VOD, TVP Sport and test support for CANAL+, Polsat Box Go and Player. Catalogs, channels and accounts; the scope of operation depends on the provider. Checks for and, if needed, installs the Microsoft Edge WebView2 Runtime. Does not require mpv."
     }
   }
 }
