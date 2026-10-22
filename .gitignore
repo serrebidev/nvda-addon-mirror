@@ -26,3 +26,6 @@ AGENTS.local.md
 
 # Pre-overlay text mirror.py hands to auto_translate.py; rebuilt every build.
 autoTranslationSources.json
+
+# Built helper add-on packages
+dist/
