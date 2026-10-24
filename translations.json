@@ -8,6 +8,10 @@
       "summary": "TV Player",
       "description": "TVP VOD, TVP Sport and test support for CANAL+, Polsat Box Go and Player. Catalogs, channels and accounts; the scope of operation depends on the provider. Checks for and, if needed, installs the Microsoft Edge WebView2 Runtime. Does not require mpv."
     },
+    "Auto Calc Avanzada y Liquidación": {
+      "summary": "Advanced Auto Calc and Settlement",
+      "description": "Standalone accessible calculator by Navaja Suiza, with advanced operations, converters, sounds, history, settlements and inventory."
+    },
     "Aprendizaje de Python con NVDA": {
       "summary": "Learning Python with NVDA",
       "description": "Training tool and accessible code editor for programming in Python with NVDA. Provides a structured learning path of 32 conceptual and practical chapters (128 lessons), complemented by a dual-mode work environment: guided tutor mode and standalone editor mode. Includes navigation by code elements such as functions and classes, audio cues for indentation and structure, delimiter checking, and simplified error messages."
