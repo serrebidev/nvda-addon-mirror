@@ -4858,7 +4858,7 @@
     "Noor Quran": {
       "summary": "Noor Quran"
     },
-    "Notepad++ accessibility for Python and C/C++ development (32 and 64 bits)": {
+    "Notepad++ accessibility for Python and C-C++ development (32 and 64 bits)": {
       "summary": "Notepad++ Accessibility for Python and C/C++"
     },
     "OpenCC Chinese Converter": {
@@ -4888,7 +4888,7 @@
     "Telegram Desktop Accessibility": {
       "summary": "Telegram Desktop Accessibility"
     },
-    "Thunderbird+ G5.1 (TB >= 140)": {
+    "Thunderbird+ G5.1 (TB -= 140)": {
       "summary": "Thunderbird+ G5.1"
     },
     "Web Access for NVDA": {
@@ -4968,7 +4968,7 @@
       "summary": "Accessible system resource monitor",
       "description": "Accessible resource monitor for NVDA. Based on Resource Monitor by Joseph Lee and contributors. Check CPU usage, memory, graphics card load, hard drive and SSD status, battery level, Bluetooth devices, Wi-Fi network, internet speed, and configurable thermal alerts in real time."
     },
-    "قادرين: الإدارة السحابية المتقدمة والمزامنة المركزية للبرامج": {
+    "قادرين- الإدارة السحابية المتقدمة والمزامنة المركزية للبرامج": {
       "summary": "Qadreen: Advanced Cloud Management and Central Software Sync",
       "description": "Advanced add-on for the Qadreen community that manages and organizes programs and links through a non-blocking atomic cloud sync engine, with automatic conflict handling and full protection of pending data across restarts."
     },
@@ -5044,7 +5044,7 @@
       "summary": "QBraille XL / Braille EDGE Braille Display Driver, AKA QBraille XL / Braille EDGE 點字顯示器驅動程式",
       "description": "Supports NVDA 2026.1 to 2026.2, automatically connecting to the QBraille XL / Braille EDGE via USB WinUSB or Bluetooth SPP. NVDA 2026.3 already includes a built-in braille display driver, so this add-on does not need to be installed for that version."
     },
-    "Access TV: Siaran TV Streaming Aksesibel": {
+    "Access TV- Siaran TV Streaming Aksesibel": {
       "summary": "Access TV: Accessible Streaming TV, AKA Access TV: Siaran TV Streaming Aksesibel",
       "description": "Access TV is an NVDA add-on for listening to live streaming television broadcasts (audio-first) that is 100% accessible for blind users. It comes with national and international TV channels, the ability to add your own personal custom channels, auto-reconnect, instant search, country filters, favorites management, and a screen-reader-friendly volume slider."
     },
@@ -5072,7 +5072,7 @@
       "summary": "My Accessible Crossword, AKA MiCrucigramaAccesible",
       "description": "Accessible crosswords in Spanish for NVDA, for all ages. Solve crosswords cell by cell and word by word: the cursor follows the words, and you hear each clue and how the words cross. Small, medium and large crosswords in three difficulty levels, and small children's crosswords in six themes, all generated on the spot from about 3,500 words with clues written for the game. Play with or without aids; learn with Learn to Play, a guided course of 14 lessons designed also for children; solve the crossword of the day; and check your statistics."
     },
-    "QBraille XL / Braille EDGE 點字顯示器驅動程式": {
+    "QBraille XL - Braille EDGE 點字顯示器驅動程式": {
       "summary": "QBraille XL / Braille EDGE Braille Display Driver, AKA QBraille XL / Braille EDGE 點字顯示器驅動程式",
       "description": "Supports NVDA 2026.1 to 2026.2, automatically connecting to the QBraille XL / Braille EDGE via USB WinUSB or Bluetooth SPP. NVDA 2026.3 already includes a built-in braille display driver, so this add-on does not need to be installed for that version."
     },

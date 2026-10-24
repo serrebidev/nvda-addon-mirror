@@ -353,6 +353,31 @@ def sanitize_version(version):
     return (nums[0], nums[1], nums[2])
 
 
+#: Characters Windows forbids in a file name, plus control characters.
+#: NVDA's store client saves a download as "<addonId>-<version>.nvda-addon",
+#: so a published ID carrying one of these makes the add-on uninstallable:
+#: the final rename fails with WinError 87 (seen 2026-10-23 on the BestMidi
+#: entry "Access TV: Siaran TV Streaming Aksesibel").
+_ILLEGAL_ID_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
+
+
+def sanitize_addon_id(name):
+    """Make a source-supplied add-on name safe to publish as the store ID.
+
+    Sources (BestMidi especially) use the add-on's display name as its ID,
+    punctuation and all. Illegal characters become "-", so the ID stays
+    recognisable while forming a legal Windows file name. Applied to every
+    entry at collection time, so translations, the blocklist, dedupe and the
+    published catalog all key on the same sanitized ID.
+    """
+    cleaned = _ILLEGAL_ID_CHARS_RE.sub("-", (name or "").strip())
+    # No trailing strip: the ID sits mid-file-name ("<id>-<version>.nvda-addon"),
+    # so a source name ending in "." or "-" is harmless there, and stripping
+    # it would orphan that add-on's translations/blocklist keys.
+    cleaned = re.sub(r"-{2,}", "-", cleaned)
+    return cleaned or (name or "").strip()
+
+
 def _release_tag_version(tag):
     """Parse a version-shaped GitHub tag without treating incidental digits as versions."""
     if not tag:
@@ -4376,6 +4401,12 @@ def main():
         entries = fetch_pinned()
         log(f"pinned: {len(entries)} add-ons")
         all_entries.extend(entries)
+
+    # Every later stage -- translations, blocklist, dedupe, the published
+    # catalog -- keys on the entry name, and NVDA turns that name into a
+    # download file name, so sanitize once here (see sanitize_addon_id).
+    for e in all_entries:
+        e["name"] = sanitize_addon_id(e.get("name"))
 
     global ENGLISH_CHANGELOGS
     ENGLISH_CHANGELOGS = english_changelogs(all_entries)
