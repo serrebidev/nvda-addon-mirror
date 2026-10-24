@@ -21,13 +21,18 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  # Group renamed 2026-10-23: run 39595733136 is stuck "waiting" on a
+  # github-pages deployment record that no longer exists (its environment
+  # was deleted and recreated), nothing can approve or cancel it, and
+  # GitHub Support declined to clear it (ticket 4899595). It holds the old
+  # "pages" group forever; runs under this new group proceed normally.
+  group: pages-mirror
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # The whole workflow shares the "pages" concurrency group, so a hung build
+    # The whole workflow shares the "pages-mirror" concurrency group, so a hung build
     # would hold every later refresh behind it for GitHub's 6-hour default. A
     # full run takes minutes; give it room and then let the next cron retry.
     timeout-minutes: 60
