@@ -4369,7 +4369,8 @@
       "summary": "Quick Notes"
     },
     "remoteAudioClient": {
-      "summary": "Remote Audio Client"
+      "summary": "Remote Audio Client",
+      "description": "Secure, low-latency remote audio alongside NVDA Remote. Supports per-application isolation, AES-GCM encryption, Opus or PCM quality modes, playback device selection, equalizer, balance, WAV recording, connection profiles, and peer-to-peer RemSound connections with its apps for Windows, iPhone and Android."
     },
     "replyToSenderOutlook": {
       "summary": "Reply to Sender Outlook"
