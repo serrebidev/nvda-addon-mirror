@@ -33,9 +33,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     # The whole workflow shares the "pages-mirror" concurrency group, so a hung build
-    # would hold every later refresh behind it for GitHub's 6-hour default. A
-    # full run takes minutes; give it room and then let the next cron retry.
-    timeout-minutes: 60
+    # would hold every later refresh behind it for GitHub's 6-hour default.
+    # A routine hourly run takes minutes, but after a multi-day gap every
+    # add-on's 24h download recheck comes due at once and a full-catalog
+    # revalidation needs longer: on 2026-10-24 run 40062477367 was cancelled
+    # at the old 60-minute cap, still building, and the site stayed frozen.
+    # 120 minutes lets one post-gap build finish and deploy in a single run.
+    timeout-minutes: 120
     steps:
       - name: Configure Git defaults
         run: git config --global init.defaultBranch main
