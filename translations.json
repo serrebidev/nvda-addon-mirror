@@ -5136,6 +5136,10 @@
     "miCrucigramaAccesible": {
       "summary": "My Accessible Crossword",
       "description": "Accessible crosswords in Spanish for NVDA, for all ages. Solve crosswords cell by cell and word by word: the cursor follows the words, and you hear each clue and how they cross. Small, medium and large crosswords in three difficulty levels, and small children's crosswords on six themes, all generated on the spot from about 3,500 words with clues written for the game. Play with or without aids; learn with Learn to Play, a guided course of 14 lessons also designed for girls and boys; solve the crossword of the day; and check your statistics."
+    },
+    "Lausu- suomen lukujen avaus": {
+      "summary": "Lausu: Finnish Numbers and Abbreviations Spoken in Full",
+      "description": "Writes numbers, abbreviations and set phrases out in full, in the correct inflected form, before they reach the speech synthesizer (for example 5:een becomes 'viiteen', 2. kerrokseen becomes 'toiseen kerrokseen', and 12,90 € becomes 'kaksitoista euroa yhdeksänkymmentä senttiä' — twelve euros ninety cents). Works with any Finnish voice."
     }
   }
 }
