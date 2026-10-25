@@ -5140,6 +5140,10 @@
     "Lausu- suomen lukujen avaus": {
       "summary": "Lausu: Finnish Numbers and Abbreviations Spoken in Full",
       "description": "Writes numbers, abbreviations and set phrases out in full, in the correct inflected form, before they reach the speech synthesizer (for example 5:een becomes 'viiteen', 2. kerrokseen becomes 'toiseen kerrokseen', and 12,90 € becomes 'kaksitoista euroa yhdeksänkymmentä senttiä' — twelve euros ninety cents). Works with any Finnish voice."
+    },
+    "Der Die Das Plus Deutsche Verben": {
+      "summary": "German Articles and Verbs Plus, AKA Der Die Das Plus Deutsche Verben",
+      "description": "Would you like to look up German articles and verb forms easily offline? Look up the correct article for a noun and its verb forms without an internet connection."
     }
   }
 }
