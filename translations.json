@@ -5130,6 +5130,9 @@
       "summary": "Catholic Devotional",
       "description": "Catholic devotional containing different Bible versions, daily liturgy, the Catechism of the Catholic Church, saint of the day, meditations and a notebook. Activate the application with the shortcut NVDA+CTRL+L. May the peace of Christ and the love of Mary always be with you and your family."
     },
+    "Braille Table Switcher": {
+      "description": "NVDA+Alt+B cycles through output braille tables; NVDA+Alt+I cycles through input braille tables; NVDA+Alt+O announces the current braille table; NVDA+Alt+P selects the braille tables to cycle through. Includes a contracted braille reading table with tone marks incorporated into dots 7 and 8."
+    },
     "miCrucigramaAccesible": {
       "summary": "My Accessible Crossword",
       "description": "Accessible crosswords in Spanish for NVDA, for all ages. Solve crosswords cell by cell and word by word: the cursor follows the words, and you hear each clue and how they cross. Small, medium and large crosswords in three difficulty levels, and small children's crosswords on six themes, all generated on the spot from about 3,500 words with clues written for the game. Play with or without aids; learn with Learn to Play, a guided course of 14 lessons also designed for girls and boys; solve the crossword of the day; and check your statistics."
