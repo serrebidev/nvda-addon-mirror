@@ -5144,6 +5144,9 @@
     "Der Die Das Plus Deutsche Verben": {
       "summary": "German Articles and Verbs Plus, AKA Der Die Das Plus Deutsche Verben",
       "description": "Would you like to look up German articles and verb forms easily offline? Look up the correct article for a noun and its verb forms without an internet connection."
+    },
+    "Menu Access Key Filter": {
+      "description": "Stops NVDA from reading menu access keys that cannot be typed, such as a Chinese character appearing in a shortcut label like Ctrl+O or Alt plus a character that is not on the keyboard."
     }
   }
 }
