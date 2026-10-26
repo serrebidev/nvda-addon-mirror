@@ -5147,6 +5147,10 @@
     },
     "Menu Access Key Filter": {
       "description": "Stops NVDA from reading menu access keys that cannot be typed, such as a Chinese character appearing in a shortcut label like Ctrl+O or Alt plus a character that is not on the keyboard."
+    },
+    "التاريخ الهجري لدار الإفتاء المصرية": {
+      "summary": "Hijri Date from the Egyptian Dar al-Ifta, AKA التاريخ الهجري لدار الإفتاء المصرية",
+      "description": "NVDA screen reader add-on that fetches the officially approved Hijri date directly from the Egyptian Dar al-Ifta website via the keyboard shortcut NVDA+Shift+H."
     }
   }
 }
