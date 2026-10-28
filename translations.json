@@ -5159,6 +5159,10 @@
     "teamsChat": {
       "summary": "Teams Chat: Quick Reading of Messages, AKA Teams Chat: lectura rápida de mensajes",
       "description": "Improvements for the new Microsoft Teams desktop app. Alt+0 to Alt+9 (top row or numeric keypad) read the latest messages in the open chat: 0 is the most recent. Pressing twice copies the message. NVDA+Alt+0 to Alt+9 show the message actions: copy, the Teams menu, links and attachments. NVDA+Alt+E takes you to the compose box."
+    },
+    "Brok po polsku": {
+      "summary": "Brok in Polish, AKA Brok po polsku",
+      "description": "Reads the clipboard narration of the game Brok the InvestiGator: accessibility texts are played using the Polish recordings from the game, and dubbed lines are read by NVDA. NVDA+Shift+B toggles it on and off."
     }
   }
 }
