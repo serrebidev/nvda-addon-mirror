@@ -5151,6 +5151,14 @@
     "التاريخ الهجري لدار الإفتاء المصرية": {
       "summary": "Hijri Date from the Egyptian Dar al-Ifta, AKA التاريخ الهجري لدار الإفتاء المصرية",
       "description": "NVDA screen reader add-on that fetches the officially approved Hijri date directly from the Egyptian Dar al-Ifta website via the keyboard shortcut NVDA+Shift+H."
+    },
+    "chiensGuides": {
+      "summary": "My Guide Dog NVDA, AKA Mon chien-guide NVDA",
+      "description": "My Guide Dog for NVDA, an information and tracking centre for blind guide dog handlers: news from schools and associations, veterinary advice, fact sheets on the legal framework, a log of access refusals with a template letter, health reminders and the dog's logbook. Fully usable from the keyboard with NVDA."
+    },
+    "teamsChat": {
+      "summary": "Teams Chat: Quick Reading of Messages, AKA Teams Chat: lectura rápida de mensajes",
+      "description": "Improvements for the new Microsoft Teams desktop app. Alt+0 to Alt+9 (top row or numeric keypad) read the latest messages in the open chat: 0 is the most recent. Pressing twice copies the message. NVDA+Alt+0 to Alt+9 show the message actions: copy, the Teams menu, links and attachments. NVDA+Alt+E takes you to the compose box."
     }
   }
 }
