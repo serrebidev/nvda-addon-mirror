@@ -5169,6 +5169,9 @@
     },
     "ZaraAxess by L-R Productions": {
       "description": "Supercharges ZaraRadio with quick shortcuts for the information that really matters and fine-tunes the interface focus to give you full control of the operation, with no frills."
+    },
+    "ElizIA Visual": {
+      "description": "Controls Windows using AI and computer vision based on screenshots"
     }
   }
 }
