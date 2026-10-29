@@ -72,6 +72,24 @@
       "addon_id": "logCollectorAndFixesFromSerrebi",
       "license": "Unknown",
       "channel": "stable"
+    },
+    {
+      "url": "https://onj.me/nvda/orpheusNative.nvda-addon",
+      "addon_id": "orpheusNative",
+      "publisher": "Andre Louis",
+      "license": "Unknown",
+      "channel": "stable",
+      "homepage": "https://onjlouis.github.io/",
+      "source_url": "https://onjlouis.github.io/"
+    },
+    {
+      "url": "https://onj.me/nvda/orpheusClassic.nvda-addon",
+      "addon_id": "orpheusClassic",
+      "publisher": "Andre Louis",
+      "license": "Unknown",
+      "channel": "stable",
+      "homepage": "https://onjlouis.github.io/",
+      "source_url": "https://onjlouis.github.io/"
     }
   ],
   "exclude": [
