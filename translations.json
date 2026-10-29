@@ -5166,6 +5166,9 @@
     },
     "AccessWeather - Previsão do Tempo": {
       "description": "Announces the current weather and the forecast using the Open-Meteo API, including wind speed and direction. Press NVDA+Shift+W to hear the weather."
+    },
+    "ZaraAxess by L-R Productions": {
+      "description": "Supercharges ZaraRadio with quick shortcuts for the information that really matters and fine-tunes the interface focus to give you full control of the operation, with no frills."
     }
   }
 }
