@@ -5172,6 +5172,9 @@
     },
     "ElizIA Visual": {
       "description": "Controls Windows using AI and computer vision based on screenshots"
+    },
+    "Accessibility Conect - Wi-Fi and Bluetooth of Windows with NVDA": {
+      "summary": "Accessibility Conect - Wi-Fi and Bluetooth of Windows with NVDA"
     }
   }
 }
