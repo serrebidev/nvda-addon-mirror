@@ -4583,7 +4583,8 @@
       "description": "This add-on uses a silent audio file to keep a Bluetooth headset connection active without producing an audible sound."
     },
     "lineDesktop": {
-      "summary": "LINE Desktop Accessibility Support"
+      "summary": "LINE Desktop Accessibility Support",
+      "description": "The LINEDesktop add-on improves NVDA support for the LINE Desktop application (Qt6 version). It includes enhanced navigation through chats and the message input field, as well as features for voice and video calls accessible via hotkeys. Incoming calls can be answered or rejected, and caller information can be viewed. OCR is used for hard-to-reach interface elements. The add-on is described in more detail in its help guide. Note: the LINE messenger has been blocked in the People's Republic of China since 2014 and in the Russian Federation since 2017."
     },
     "Text_Fixer": {
       "summary": "NVDA Text Fixer",
