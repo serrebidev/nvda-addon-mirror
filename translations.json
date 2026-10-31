@@ -5176,6 +5176,10 @@
     },
     "Accessibility Conect - Wi-Fi and Bluetooth of Windows with NVDA": {
       "summary": "Accessibility Conect - Wi-Fi and Bluetooth of Windows with NVDA"
+    },
+    "WhatsApp Unified Accessibility": {
+      "summary": "WhatsApp Unified Accessibility",
+      "description": "Unified accessibility for WhatsApp Desktop and WhatsApp Web: shortcuts for the conversation list, messages and the typing field, per-message actions (play audio, copy, read in full, react, menu), speech filters, stable focus mode on the Web without mode-change sounds, and focus recovery when WhatsApp loses it."
     }
   }
 }
