@@ -156,6 +156,32 @@ class ManifestVersionRecoveryTests(unittest.TestCase):
         for raw in (b"", b"not a zip", self._bundle("name = example\n")):
             self.assertEqual("", mirror.bundle_manifest_version(raw))
 
+    def test_manifest_name_is_read_from_the_download_being_hashed(self):
+        bundle = self._bundle('name = "reloqCExperimental"\nversion = 1.0.1\n')
+        self.assertEqual("reloqCExperimental", mirror.bundle_manifest_name(bundle))
+
+    def test_unreadable_bundles_yield_no_manifest_name_instead_of_raising(self):
+        for raw in (b"", None, b"not a zip", self._bundle("version = 1.0\n")):
+            self.assertEqual("", mirror.bundle_manifest_name(raw))
+
+    def test_manifest_name_is_cached_with_the_download(self):
+        bundle = self._bundle('name = example\nversion = 3.2.1\n')
+        entry = {"download_url": self.URL, "version": "unknown"}
+        with mock.patch.object(
+            mirror, "sha256_stream",
+            return_value=("a" * 64, len(bundle), None, None, bundle),
+        ) as download:
+            record, error = mirror.cached_download(
+                entry, now=100, capture_limit=mirror.MANIFEST_CAPTURE_LIMIT,
+            )
+            self.assertIsNone(error)
+            self.assertEqual("example", record["manifest_name"])
+            again, _ = mirror.cached_download(
+                entry, record, now=200, capture_limit=mirror.MANIFEST_CAPTURE_LIMIT,
+            )
+            self.assertEqual("example", again["manifest_name"])
+            download.assert_called_once()
+
     def test_capture_limit_keeps_the_body_without_a_second_request(self):
         bundle = self._bundle('name = example\nversion = 3.2.1\n')
         response = mock.MagicMock()

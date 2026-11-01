@@ -378,6 +378,45 @@ def sanitize_addon_id(name):
     return cleaned or (name or "").strip()
 
 
+def apply_manifest_names(entries, hashcache):
+    """Republish entries under their bundle's manifest ``name``.
+
+    NVDA keys everything about an installed add-on by the ``name`` in its
+    manifest.ini -- including the compatibility override a user grants in
+    the Add-on Store, which the store records under the catalog's addonId.
+    When the two differ, the override never matches the downloaded bundle
+    and NVDA rejects the store install as "not supported", while the same
+    file installs fine by hand (seen 2026-11-01: the BestMidi Reloq-C entry
+    published the preview add-on's name, "Eloquence-C-Hörtest (x64-DLL)",
+    for the synth bundle named reloqCExperimental). The official store
+    forbids the mismatch outright (its checkAddonId validation).
+
+    The manifest name comes from the download cache, captured from bytes
+    already streamed for the SHA-256 -- never a fresh download -- so an
+    entry is corrected on the first build after its bundle was last
+    fetched, and coverage fills in as the ordinary rechecks land. Official
+    entries are validated upstream and pinned entries are repackaged under
+    their published name, so neither is touched. Returns the rename count.
+    """
+    renamed = 0
+    for entry in entries:
+        if entry.get("source") in ("official", "pinned"):
+            continue
+        cached = hashcache.get(entry.get("download_url") or "")
+        if not isinstance(cached, dict):
+            continue
+        manifest_name = (cached.get("manifest_name") or "").strip()
+        if not manifest_name or manifest_name.casefold() in _TEMPLATE_NAMES:
+            continue
+        cleaned = sanitize_addon_id(manifest_name)
+        if cleaned and cleaned != entry.get("name"):
+            log(f"{entry.get('source')}: addonId {entry.get('name')!r} -> "
+                f"{cleaned!r} (bundle manifest name)")
+            entry["name"] = cleaned
+            renamed += 1
+    return renamed
+
+
 def _release_tag_version(tag):
     """Parse a version-shaped GitHub tag without treating incidental digits as versions."""
     if not tag:
@@ -576,6 +615,27 @@ def bundle_manifest_version(raw):
     return _manifest_value(manifest_text, "version").strip()
 
 
+def bundle_manifest_name(raw):
+    """Return the ``name`` declared in a bundle's manifest.ini, or "".
+
+    The manifest name is the add-on's real identity in NVDA: an installed
+    add-on is keyed by it, and the store's compatibility override is recorded
+    under it. A catalog that publishes anything else as the store ID (a
+    display name, another add-on's name) leaves NVDA unable to match the
+    downloaded bundle to the store entry, so a store install that needs a
+    compatibility override is rejected as "not supported" while the same
+    file installs fine by hand.
+    """
+    if not raw:
+        return ""
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            text = archive.read("manifest.ini").decode("utf-8-sig", "replace")
+    except (zipfile.BadZipFile, KeyError, OSError, ValueError):
+        return ""
+    return _manifest_name(text)
+
+
 def _fresh_upload_recheck_due(cached, usable, same_version, now):
     """True when a recently-uploaded file is due its hourly conditional recheck.
 
@@ -667,6 +727,7 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
             refreshed.pop("error", None)
             if capture_limit:
                 refreshed.setdefault("manifest_version", "")
+                refreshed.setdefault("manifest_name", "")
             return refreshed, None
     except (URLError, OSError) as exc:
         error = str(exc)
@@ -700,6 +761,12 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
             # The add-on's own name, for catalogs whose summary is a
             # description. Same free bytes as the two above.
             record["manifest_summary"] = bundle_manifest_summary(body)
+            # The bundle's manifest ``name``: the add-on's real store ID.
+            # Catalogs (BestMidi especially) publish a display name -- or
+            # another add-on's name, when a repo ships several -- instead.
+            # Read from the same bytes; applied from the cache on a later
+            # build (see apply_manifest_names), never a forced re-download.
+            record["manifest_name"] = bundle_manifest_name(body)
         return record, None
     # Keep previous validators only for the same catalog version. Do not publish
     # a stale hash for a changed version or a URL whose refresh failed.
@@ -4407,6 +4474,13 @@ def main():
     # download file name, so sanitize once here (see sanitize_addon_id).
     for e in all_entries:
         e["name"] = sanitize_addon_id(e.get("name"))
+
+    # Then correct the name itself against the bundle's manifest, wherever
+    # a previous build's download already revealed it: the catalog name is
+    # only a claim, the manifest name is the add-on's identity in NVDA.
+    renamed = apply_manifest_names(all_entries, hashcache)
+    if renamed:
+        log(f"Corrected {renamed} addonIds to their bundle manifest names")
 
     global ENGLISH_CHANGELOGS
     ENGLISH_CHANGELOGS = english_changelogs(all_entries)
