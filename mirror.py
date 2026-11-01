@@ -727,7 +727,10 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
             refreshed.pop("error", None)
             if capture_limit:
                 refreshed.setdefault("manifest_version", "")
-                refreshed.setdefault("manifest_name", "")
+                # No manifest_name default here: a 304 carries no bundle,
+                # so the name stays uncaptured (key absent) until a build
+                # actually streams the file, rather than being marked
+                # known-empty forever.
             return refreshed, None
     except (URLError, OSError) as exc:
         error = str(exc)
