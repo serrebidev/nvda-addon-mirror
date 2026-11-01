@@ -5191,6 +5191,10 @@
     "點字輸出匯出工具 (Braille Output Exporter)": {
       "summary": "NVDA Braille Output Export to File",
       "description": "Intercepts NVDA's braille output and exports it as Unicode braille .txt or BRF .brf format."
+    },
+    "bookAudio": {
+      "summary": "BookAudio (Text to MP3)",
+      "description": "• The Book Audio add-on converts text documents to MP3 using the synthesizers and voices installed in NVDA.\n• Reading documents and encoding MP3 are done locally on the computer; the add-on has no cloud API of its own.\n• Supported formats are TXT, FB2, FB2.ZIP and PDF.\n• For each document, a separate subfolder is created with numbered MP3 files by chapter.\n• You can set the chapter-splitting phrase, speed, volume, MP3 bitrate and extra pauses after commas and at the ends of sentences.\n• There is a recording test button that speaks a short phrase and confirms that the chosen settings produce a non-empty MP3.\n• The language of the interface, messages and help follows the NVDA language: Russian for Russian NVDA, English for other languages.\n• While a book is being created you can keep using NVDA; synthesis runs in a separate process and interface speech is not recorded into the book.\n• Settings are saved between openings of the window and NVDA restarts.\n• The default hotkey is NVDA+Windows+A."
     }
   }
 }
