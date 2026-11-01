@@ -5183,6 +5183,14 @@
     "WhatsApp Unified Accessibility": {
       "summary": "WhatsApp Unified Accessibility",
       "description": "Unified accessibility for WhatsApp Desktop and WhatsApp Web: shortcuts for the conversation list, messages and the typing field, per-message actions (play audio, copy, read in full, react, menu), speech filters, stable focus mode on the Web without mode-change sounds, and focus recovery when WhatsApp loses it."
+    },
+    "讀音字庫切換": {
+      "summary": "NVDA Multifunctional Speech Dictionary Switcher",
+      "description": "Corrects polyphonic characters and switches braille dictionaries. Use NVDA+Alt+D to switch pronunciation dictionaries."
+    },
+    "點字輸出匯出工具 (Braille Output Exporter)": {
+      "summary": "NVDA Braille Output Export to File",
+      "description": "Intercepts NVDA's braille output and exports it as Unicode braille .txt or BRF .brf format."
     }
   }
 }
