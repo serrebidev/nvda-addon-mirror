@@ -5199,6 +5199,10 @@
     "emojiID": {
       "summary": "Emoji ID - Indonesian Emoji Reader, AKA Emoji ID - Pembaca Emoji Bahasa Indonesia",
       "description": "Reads emoji aloud in Indonesian, whatever TTS voice language is in use. Supports basic emoji, ZWJ sequences, flags, keycaps, and skin tones."
+    },
+    "NVDA Vocal Remover (BS-Roformer - Mel-Roformer)": {
+      "summary": "NVDA Vocal Remover (BS-Roformer - Mel-Roformer)",
+      "description": "AI vocal and instrument separator based on BS-Roformer and Mel-Roformer (Music & Vocals, Keep/Extract Backing Vocals, Bass, Drums) for NVDA. Press NVDA+Shift+X to separate vocals and instruments from an audio file."
     }
   }
 }
