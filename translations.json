@@ -5203,6 +5203,9 @@
     "NVDA Vocal Remover (BS-Roformer - Mel-Roformer)": {
       "summary": "NVDA Vocal Remover (BS-Roformer - Mel-Roformer)",
       "description": "AI vocal and instrument separator based on BS-Roformer and Mel-Roformer (Music & Vocals, Keep/Extract Backing Vocals, Bass, Drums) for NVDA. Press NVDA+Shift+X to separate vocals and instruments from an audio file."
+    },
+    "NVDAVocalRemover": {
+      "description": "AI vocal and instrument separator based on BS-Roformer and Mel-Roformer (Music & Vocals, Keep/Extract Backing Vocals, Bass, Drums) for NVDA. Press NVDA+Shift+X to separate vocals and instruments from an audio file."
     }
   }
 }
