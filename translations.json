@@ -1564,6 +1564,7 @@
       "description": "Simple Media Player is an add-on for NVDA that provides a user-friendly audio player with a graphical interface.\nAllows you to play MP3, WAV, OGG files, control the playlist, volume, rewind, and also set up repeat and shuffle tracks.\nThere are functions to display the album cover, copy music to the add-on folder, save the last folder and settings.\nControl is carried out with the mouse, interface buttons or hot keys.\nSuitable for listening to music or audio files directly from NVDA.\nGlobal keyboard shortcuts can be changed in input gestures, under the [Simple Media Player] category.\nInternal media player control commands are described in the help.\nThe help is based on the code."
     },
     "superplusContacts": {
+      "summary": "SuperPlus Contacts, AKA SuperPlusContacts (Менеджер контактов)",
       "description": "SuperPlusContacts add-on - allows you to create, store and manage contacts with a convenient graphical interface.\nSupports import and export to CSV format (compatible with Google Contacts and Outlook).\nAll data is stored locally.\nIdeal for NVDA users who want a simple and effective way to manage contact information without using third-party applications.\nEasy installation and intuitive operation.\nThe functionality of the add-on is described in more detail in the help."
     },
     "superCalculator": {
@@ -1599,6 +1600,7 @@
       "description": "Quick Note is a handy add-on for NVDA that lets you instantly create text notes.\nBy pressing the hot keys, a dialog box opens for entering text, which is automatically saved to the Notes.txt file on the Desktop with a date and time stamp.\nSupports multiline input and UTF-8 encoding.\nIdeal for quickly jotting down thoughts, ideas, tasks or any other information without having to open separate text editors.\nIts simple interface and reliable data storage make it a useful tool for daily use.\nThe keyboard shortcut is not assigned. The command can be assigned in input gestures, in the “Quick Note” category."
     },
     "nvda_reminder": {
+      "summary": "NVDA Reminder, AKA NVDAReminder (Голосовые и звуковые напоминания)",
       "description": "NVDA Reminder is a handy add-on for NVDA Screen Access that lets you set voice and audio reminders for specific times.\nThe add-on adds an item to the NVDA menu for creating reminders indicating the message text and trigger time.\nWhen the set time is reached, a beep sounds, a pop-up window appears, and NVDA speaks the reminder text.\nAll data is stored locally, no internet connection required.\nIts simple interface and reliable performance make this add-on a useful time management tool for NVDA users."
     },
     "EnhancingWindowInspector": {
@@ -1606,6 +1608,7 @@
       "description": "EnhancingWindowInspector add-on for NVDA.\nRetrieves detailed information about the active window: name, window class, process ID, executable path, coordinates, dimensions, state, parent window, window styles, Z-order, visibility and accessibility.\nAn indispensable tool for developers and testers.\nControls: NVDA+Control+Shift+D (full information), W (basic), P (process), G (geometry).\nPress twice quickly (within 0.5 seconds): copies information to the clipboard.\nThe keyboard shortcut can be changed in the input gestures, under the Enhanced Window Inspector category.\nNote: EnhancingWindowInspector is an extended fork of the original WindowInspector add-on, which had one single function that was retained in the fork in the form of voicing basic window information."
     },
     "gitlabManager": {
+      "summary": "GitLab Manager, AKA GitlabManager (Менеджер GitLab)",
       "description": "GitLab Manager is an add-on for NVDA that allows you to manage GitLab repositories directly from your screen reader.\nAllows you to view a list of your projects, create new repositories with visibility, license and README settings, and quickly open them in a web browser.\nA personal GitLab access token with API rights is required to work.\nThe add-on is ideal for developers who use NVDA and GitLab in their daily work, providing quick access to project management without the need to switch between applications."
     },
     "nvdaClipBoard": {
@@ -1643,6 +1646,7 @@
       "description": "unicodeBrailleReader add-on for reading Unicode braille as plain text.\nThe add-on allows NVDA to recognize and speak Unicode Braille characters (range U+2800–U+28FF).\nWhen a braille character is detected in text (for example, when checking spelling), the add-on converts it into the corresponding letter, number or special character using the Liblouis library.\nBefore the character is spoken, a short sound signal (beep) is generated, which helps the user distinguish braille characters from regular text.\nThe add-on also correctly handles modifiers such as number sign, capital letter sign, and letter sign.\nPerhaps it will be useful to someone.\nYou can’t disable it yet, and you can’t select a separate table either, it picks up the translation table in the NVDA settings.\nAfter installation, you must restart NVDA."
     },
     "wordpressManager": {
+      "summary": "WordPress Manager, AKA WordPressManager (Менеджер для WordPress)",
       "description": "WordPress Manager is a professional add-on for NVDA that allows blind and visually impaired users to manage WordPress sites through a convenient graphical interface.\nThe add-on integrates into the Windows system tray and provides a full set of administration tools: creating and publishing posts and pages, managing comments (approval, spam, deletion), setting up basic site parameters.\nSupports working with categories, tags, HTML content and provides a secure connection via App Passwords.\nAn ideal solution for webmasters and WordPress administrators with visual impairments."
     },
     "WindowInspector": {
@@ -1681,6 +1685,7 @@
       "description": "AllCapitalTextActions is an add-on for NVDA that provides a powerful tool for working with text.\nIt can convert case, clear formatting, add timestamps, break text into paragraphs, and play content through a speech synthesizer.\nThe interface includes functions for copying, pasting and saving text to the desktop.\nThe add-on is launched using the combination Ctrl+Shift+M.\nThe keyboard shortcut can be changed in Input Gestures, under the Text Processing category for the Opens Text Processing Interface shortcut."
     },
     "clipSaver": {
+      "summary": "Clip Saver, AKA ClipSaver (Регистратор буфера обмена)",
       "description": "The Clip Saver add-on for NVDA automatically saves everything you copy to the clipboard into text files.\nEach time the contents of the buffer are changed, a new file is created with a unique name containing the date, time and beginning of the copied text.\nAll files are saved in a special Volkan_Clipboard_Records folder in your documents.\nThe add-on works in the background, checking the clipboard every 500 milliseconds, and notifies you by voice of each successful save.\nDoes not require any action from the user after installation - just copy the text as usual, and everything will be automatically saved for future use."
     },
     "tiktokDownloader": {
@@ -1690,15 +1695,19 @@
       "description": "YouTube Downloader is a powerful and fully accessible add-on for NVDA that allows you to directly download videos and audio from YouTube.\nWith it, you can download content in MP3 (for audio) or MP4 (for video) formats with a choice of quality: from 320 kbps for audio to 1080p and higher for video.\nThe add-on supports cutting fragments by time, intelligent work with playlists (including selecting individual videos), as well as background loading, which does not interfere with NVDA.\nControl is carried out through the main window, called by the combination NVDA+Shift+Y or through the NVDA menu.\nThe link is automatically picked up from the clipboard.\nYou can add multiple tasks to the queue, stop and retry failed downloads.\nFor playlists, a convenient selection of specific videos is available.\nAll downloaded files are saved to the folder you specify.\nNote: The author of the add-on has not fully implemented the ability to localize the interface."
     },
     "googleQuickSearch": {
+      "summary": "Google Quick Search, AKA GoogleQuickSearch (Быстрый поиск Google)",
       "description": "The GoogleQuickSearch add-on allows you to instantly perform Google searches directly from NVDA.\nWhen you activate the script (key combination NVDA+G by default), a dialog box opens with a field for entering a request.\nWhen you click the Search button or press Enter, the query automatically opens in your default browser to the Google search page.\nThe add-on also speaks the entered request before opening the browser for confirmation.\nThe dialog box provides buttons to start a search, close the window, and go to the developer's support page (Donate).\nA simple and fast tool for finding information every day without having to switch to the browser to enter a query."
     },
     "nvTube": {
+      "summary": "NVTube, AKA NvTube (Поиск на YouTube)",
       "description": "NVTube is an add-on for NVDA that allows you to quickly search for videos on YouTube and automatically open the first video found for playback.\nJust enter a query in the dialog box and the add-on will search, extract the ID of the first video and open it in the browser with autoplay.\nWorks in the background without blocking NVDA, with audible search status and clear error messages.\nSupports assigning hotkeys for quick access."
     },
     "nvLogs": {
+      "summary": "NV Logs, AKA NvLogs (Журналы NVDA)",
       "description": "NVLogs is a simple and convenient add-on for NVDA that allows you to view the program's event log in a graphical window.\nIt adds the “Show NVDA Log” command (the gesture can be assigned manually), which, when called, opens a dialog with the full contents of the log.\nThe log is displayed in a scrollable, multi-line text box.\nIf the log is empty, the user will receive a corresponding voice message.\nThe add-on does not require complex configuration and is useful for diagnosing problems, monitoring events and debugging.\nThe shortcut for assigning a gesture is located in input gestures, in the NVDA Logs category."
     },
     "indirTube": {
+      "summary": "IndirTube YouTube Downloader, AKA IndirTUBE (Загрузчик с YouTube)",
       "description": "IndirTube is an NVDA add-on for downloading video and audio from YouTube.\nAllows you to select MP3 or MP4 format via a dialog box using a link from the clipboard or the web browser's address bar.\nLaunched with a hotkey, runs in the background using yt-dlp and ffmpeg.\nThe result is saved to the standard downloads folder.\nBefore use, you must independently assign a keyboard shortcut in input gestures, in the “YouTube Downloader” category for the shortcut “Opens the indirTube download dialog.”"
     },
     "shortcutLauncher": {
@@ -5218,33 +5227,6 @@
     "Emoji ID - Pembaca Emoji Bahasa Indonesia": {
       "summary": "Emoji ID - Indonesian Emoji Reader, AKA Emoji ID - Pembaca Emoji Bahasa Indonesia",
       "description": "Reads emoji aloud in Indonesian, whatever TTS voice language is in use. Supports basic emoji, ZWJ sequences, flags, keycaps, and skin tones."
-    },
-    "clipSaver": {
-      "summary": "Clip Saver, AKA ClipSaver (Регистратор буфера обмена)"
-    },
-    "gitlabManager": {
-      "summary": "GitLab Manager, AKA GitlabManager (Менеджер GitLab)"
-    },
-    "googleQuickSearch": {
-      "summary": "Google Quick Search, AKA GoogleQuickSearch (Быстрый поиск Google)"
-    },
-    "indirTube": {
-      "summary": "IndirTube YouTube Downloader, AKA IndirTUBE (Загрузчик с YouTube)"
-    },
-    "nvda_reminder": {
-      "summary": "NVDA Reminder, AKA NVDAReminder (Голосовые и звуковые напоминания)"
-    },
-    "nvLogs": {
-      "summary": "NV Logs, AKA NvLogs (Журналы NVDA)"
-    },
-    "nvTube": {
-      "summary": "NVTube, AKA NvTube (Поиск на YouTube)"
-    },
-    "superplusContacts": {
-      "summary": "SuperPlus Contacts, AKA SuperPlusContacts (Менеджер контактов)"
-    },
-    "wordpressManager": {
-      "summary": "WordPress Manager, AKA WordPressManager (Менеджер для WordPress)"
     }
   }
 }
