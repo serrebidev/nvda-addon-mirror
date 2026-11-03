@@ -208,6 +208,12 @@ GITHUB_OWNER_CACHE_VERSION = "v2-displayname"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
 DOWNLOAD_RECHECK_SECONDS = 24 * 60 * 60
 DOWNLOAD_RETRY_SECONDS = 6 * 60 * 60
+#: Download locations that no longer exist. Official entries carry their own
+#: hash, so nothing ever tests their URL, and they outrank a live copy of the
+#: same version. The integrumart GitHub account was deleted, which left 14
+#: published add-ons that could not be installed although nvda.ru hosts them.
+# ponytail: hand-kept list, automate a repo check if more accounts disappear.
+DEAD_DOWNLOAD_PREFIXES = ("https://github.com/integrumart/",)
 #: How long an add-on stays published on its last verified hash while its host
 #: cannot be reached. nvda.ru times out from some GitHub runners while its files
 #: are fine, and rejecting on that dropped up to 214 working add-ons per build.
@@ -1220,6 +1226,26 @@ def drop_blocked_entries(entries, blocked):
                 "addonId": e.get("name") or e.get("addonId"),
                 "source": e.get("source"),
                 "reason": "blocked (safety): " + reasons[name.casefold()],
+            })
+            continue
+        kept.append(e)
+    return kept, rejected
+
+
+def drop_dead_downloads(entries, prefixes=DEAD_DOWNLOAD_PREFIXES):
+    """Split out entries whose download location no longer exists.
+
+    Runs before dedupe so another source's live copy can win. Returns
+    (kept, rejected) like the other drop_* passes.
+    """
+    kept, rejected = [], []
+    for e in entries:
+        if (e.get("download_url") or "").casefold().startswith(prefixes):
+            rejected.append({
+                "addonId": e.get("name"),
+                "source": e.get("source"),
+                "reason": "download location no longer exists: "
+                          + e["download_url"],
             })
             continue
         kept.append(e)
@@ -4561,6 +4587,9 @@ def main():
     if blocked_rejected:
         rejected.extend(blocked_rejected)
         log(f"Blocked {len(blocked_rejected)} entries on the safety blocklist")
+
+    todo, dead_rejected = drop_dead_downloads(todo)
+    rejected.extend(dead_rejected)
 
     # 3. Dedupe across sources.
     todo = dedupe(todo)
