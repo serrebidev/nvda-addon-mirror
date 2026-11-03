@@ -113,9 +113,10 @@ ADDON_STORE_FIRST_API_VERSION = (2025, 1, 0)
 #: file is an empty Add-on Store, not a degraded one -- NVDA has no version
 #: fallback. Older years keep only their newest line, on the assumption that
 #: anyone that far behind who is still updating at all has taken their year's
-#: last patch. Superseded patches within a line are always dropped: NVDA moves
-#: those users forward on its own, and every patch in a line shares one
-#: BACK_COMPAT_TO, so they are near-duplicate files nobody requests.
+#: last patch. "Every line" includes every patch in it: NVDA requests its exact
+#: year.major.minor, updating is the user's choice, and NV Access lists a patch
+#: before it ships -- 2026.3.1 replaced 2026.3.0 here while still a release
+#: candidate, which broke the Add-on Store for everyone on stable NVDA.
 API_VERSION_YEARS_IN_FULL = 2
 
 #: Warn when the built site passes this. GitHub Pages documents 1 GB as a soft
@@ -3660,12 +3661,11 @@ def published_nvda_api_versions(data, years_in_full=API_VERSION_YEARS_IN_FULL):
     catalog per locale, so the set cannot grow without bound: NVDA adds roughly
     eight API versions a year and the site has a size ceiling.
 
-    Retention keeps every release line from the newest ``years_in_full`` NVDA
-    years, and only the newest line of each year before that. Superseded
-    patches within a line are always dropped. See API_VERSION_YEARS_IN_FULL.
+    Retention keeps every API version from the newest ``years_in_full`` NVDA
+    years, and only the newest API version of each year before that. See
+    API_VERSION_YEARS_IN_FULL.
 
-    ``years_in_full=0`` disables pruning beyond superseded patches, keeping
-    every line's newest patch.
+    ``years_in_full=0`` disables pruning.
     """
     released = set()
     for entry in data:
@@ -3675,14 +3675,7 @@ def published_nvda_api_versions(data, years_in_full=API_VERSION_YEARS_IN_FULL):
         if ver is not None and ver >= ADDON_STORE_FIRST_API_VERSION:
             released.add(ver)
 
-    # One entry per (year, major) line: the newest patch in that line.
-    newest_in_line = {}
-    for ver in released:
-        line = (ver[0], ver[1])
-        if ver > newest_in_line.get(line, (0, 0, 0)):
-            newest_in_line[line] = ver
-
-    kept = set(newest_in_line.values())
+    kept = released
     if years_in_full:
         # Years are ranked by what NVDA actually released, not by the calendar,
         # so a build running in a quiet stretch of a new year does not silently
@@ -3714,21 +3707,10 @@ def _log_api_version_retention(entries, api_versions):
         ver for ver in published_nvda_api_versions(entries, years_in_full=0)
         if ver not in published
     ]
-    if not dropped:
-        return
-    superseded = []
-    lines_dropped = []
-    kept_lines = {tuple(v.split(".")[:2]) for v in published if v != "latest"}
-    for ver in dropped:
-        (lines_dropped if tuple(ver.split(".")[:2]) not in kept_lines
-         else superseded).append(ver)
-    if superseded:
-        log(f"API versions not published (superseded patch releases, NVDA "
-            f"moves these users forward automatically): {', '.join(superseded)}")
-    if lines_dropped:
-        log(f"API versions not published (release line retired; anyone still "
-            f"on one of these gets an EMPTY Add-on Store, raise "
-            f"--api-version-years to keep them): {', '.join(lines_dropped)}")
+    if dropped:
+        log(f"API versions not published (anyone still on one of these gets an "
+            f"Add-on Store error and no compatible add-ons, raise "
+            f"--api-version-years to keep them): {', '.join(dropped)}")
 
 
 def _report_site_size(out_dir, stats):
@@ -4370,9 +4352,9 @@ def main():
     parser.add_argument("--api-versions", help="comma-separated apiVersion override")
     parser.add_argument(
         "--api-version-years", type=int, default=API_VERSION_YEARS_IN_FULL,
-        help=("publish every release line from this many recent NVDA years, "
-              "plus the newest line of each older year; 0 keeps every "
-              "line. Each line costs roughly 120 MB across all locales."),
+        help=("publish every API version from this many recent NVDA years, "
+              "plus the newest one of each older year; 0 keeps them all. "
+              "Each one costs roughly 120 MB across all locales."),
     )
     parser.add_argument("--channels", help="comma-separated channel override")
     parser.add_argument(

@@ -35,8 +35,12 @@ own language and API version. A 404 is an **empty Add-on Store**, not a
 degraded one: no fallback to another version, and none to English.
 
 So dropping a locale is never an option, and retiring an API version strands
-everyone still on it. `--api-version-years` exists because every release line
+everyone still on it. `--api-version-years` exists because every API version
 costs a full catalog copy per locale (~120 MB) and the site has a ceiling.
+
+Patches count. NV Access listed 2026.3.1 while it was still an RC; dropping
+2026.3.0 as "superseded" broke the store for all stable users from 2026-11-02.
+Check `{base}/en/all/{version}.json` for the version NVDA has actually shipped.
 
 `BACK_COMPAT_TO` rises on the first release of each year. An add-on whose
 `lastTestedNVDAVersion` is below it does not merely look stale — NVDA refuses
