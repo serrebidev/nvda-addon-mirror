@@ -168,17 +168,29 @@ class NvdaReleaseMetadataTests(unittest.TestCase):
             mirror.published_nvda_api_versions(entries),
         )
 
-    def test_superseded_patches_within_a_line_are_not_published(self):
-        # NVDA moves users onto the newest patch in their line on its own, and
-        # every patch in a line shares one BACK_COMPAT_TO, so the older patches
-        # are near-duplicate files that cost a full catalog copy per locale.
+    def test_a_newly_listed_patch_does_not_retire_the_release_before_it(self):
+        # NV Access listed 2026.3.1 while it was still a release candidate.
+        # Dropping 2026.3.0 then gave every stable NVDA user a 404 and an
+        # Add-on Store error, because NVDA requests its exact patch version.
         entries = [
-            self._entry((2026, 1, 0)),
-            self._entry((2026, 1, 1)),
-            self._entry((2026, 1, 2)),
+            self._entry((2026, 3, 0)),
+            self._entry((2026, 3, 1)),
         ]
         self.assertEqual(
-            ["2026.1.2"], mirror.published_nvda_api_versions(entries)
+            ["2026.3.1", "2026.3.0"],
+            mirror.published_nvda_api_versions(entries),
+        )
+
+    def test_older_years_keep_only_their_newest_patch(self):
+        entries = [
+            self._entry((2025, 3, 2)),
+            self._entry((2025, 3, 3)),
+            self._entry((2026, 1, 0)),
+            self._entry((2027, 1, 0)),
+        ]
+        self.assertEqual(
+            ["2027.1.0", "2026.1.0", "2025.3.3"],
+            mirror.published_nvda_api_versions(entries),
         )
 
     def test_older_years_keep_only_their_newest_line(self):

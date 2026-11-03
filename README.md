@@ -382,17 +382,16 @@ artifacts that contain symlinks.
     Every build reads NV Access's live `addon-datastore` metadata; the bundled
     `nvdaAPIVersions.json` is the offline fallback and also supplies each
     version's `BACK_COMPAT_TO`.
-  - **Which API versions are published.** Each release line costs one filtered
-    copy of the catalog per locale — around 120 MB across all locales — and
-    NVDA ships roughly three lines a year, so publishing every line since
-    2025.1 outgrew GitHub Pages' 1 GB soft limit (the site reached 1.79 GB).
-    `--api-version-years` (default 2) keeps every line from the current and
-    previous NVDA years, plus the newest line of each older year. Superseded
-    patches within a line are always dropped: NVDA moves those users onto the
-    newest patch itself, and every patch in a line shares one `BACK_COMPAT_TO`.
-    Users on a retired line still get the `latest` (incompatible) view. The
-    build logs every version it stops serving and warns if the site passes
-    1 GB.
+  - **Which API versions are published.** Each API version costs one filtered
+    copy of the catalog per locale — around 120 MB across all locales — so
+    publishing every version since 2025.1 outgrew GitHub Pages' 1 GB soft limit
+    (the site reached 1.79 GB). `--api-version-years` (default 2) keeps every
+    version from the current and previous NVDA years, patches included, plus
+    the newest version of each older year. NVDA requests its exact version and
+    NV Access lists a patch before it ships, so a superseded patch in those
+    years still has users. Users on an unpublished version get an Add-on Store
+    error and only the `latest` (incompatible) view. The build logs every
+    version it does not serve and warns if the site passes 1 GB.
 - **Version sanitization**: many non-GitHub add-ons use versions NVDA's
   `MajorMinorPatch` can't natively hold (`4.1.1009.12`, `2023.12.10.06.44.50`,
   `v20`, `1.0-beta`). The mirror keeps the first up-to-three integer runs and
