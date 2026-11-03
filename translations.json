@@ -1,5 +1,9 @@
 {
   "translations": {
+    "ClipBoardEditor": {
+      "summary": "Clipboard Editor",
+      "description": "Edit the text in the clipboard, view the last 10 copied texts, and format JSON, XML or SQL content."
+    },
     "alessaEffectsSoundsProphetic": {
       "summary": "Alessa Effects Sounds Prophetic",
       "description": "Original, prophetic sound effects for NVDA: piano and pads with echo when opening programs, loading pages and pressing Enter, sounds by element type when moving focus with Tab and arrow keys, and soft drums while typing. It has a settings window with volume and options per sound group. Free and open source."
