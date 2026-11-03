@@ -5218,6 +5218,33 @@
     "Emoji ID - Pembaca Emoji Bahasa Indonesia": {
       "summary": "Emoji ID - Indonesian Emoji Reader, AKA Emoji ID - Pembaca Emoji Bahasa Indonesia",
       "description": "Reads emoji aloud in Indonesian, whatever TTS voice language is in use. Supports basic emoji, ZWJ sequences, flags, keycaps, and skin tones."
+    },
+    "clipSaver": {
+      "summary": "Clip Saver, AKA ClipSaver (Регистратор буфера обмена)"
+    },
+    "gitlabManager": {
+      "summary": "GitLab Manager, AKA GitlabManager (Менеджер GitLab)"
+    },
+    "googleQuickSearch": {
+      "summary": "Google Quick Search, AKA GoogleQuickSearch (Быстрый поиск Google)"
+    },
+    "indirTube": {
+      "summary": "IndirTube YouTube Downloader, AKA IndirTUBE (Загрузчик с YouTube)"
+    },
+    "nvda_reminder": {
+      "summary": "NVDA Reminder, AKA NVDAReminder (Голосовые и звуковые напоминания)"
+    },
+    "nvLogs": {
+      "summary": "NV Logs, AKA NvLogs (Журналы NVDA)"
+    },
+    "nvTube": {
+      "summary": "NVTube, AKA NvTube (Поиск на YouTube)"
+    },
+    "superplusContacts": {
+      "summary": "SuperPlus Contacts, AKA SuperPlusContacts (Менеджер контактов)"
+    },
+    "wordpressManager": {
+      "summary": "WordPress Manager, AKA WordPressManager (Менеджер для WordPress)"
     }
   }
 }
