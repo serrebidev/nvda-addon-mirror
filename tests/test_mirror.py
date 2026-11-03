@@ -1736,6 +1736,19 @@ class ManifestParsingTests(unittest.TestCase):
         self.assertEqual("renamedId", mirror._manifest_name(manifest))
 
 
+class DeadDownloadTests(unittest.TestCase):
+    def test_entry_on_a_deleted_account_gives_way_to_a_live_copy(self):
+        dead = {"name": "clipSaver", "source": "official", "sha256": "a" * 64,
+                "download_url": "https://github.com/INTEGRUMART/clipsaver/v5.nvda-addon"}
+        live = {"name": "clipSaver", "source": "ru",
+                "download_url": "https://nvda.ru/uploads/addons/ClipSaver-V.5.0.nvda-addon"}
+        kept, rejected = mirror.drop_dead_downloads([dead, live])
+        self.assertEqual([live], kept)
+        self.assertEqual("clipSaver", rejected[0]["addonId"])
+        self.assertEqual("official", rejected[0]["source"])
+        self.assertIn("no longer exists", rejected[0]["reason"])
+
+
 class BlockedEntriesTests(unittest.TestCase):
     BLOCKED = [{"name": "Hacking by addon", "reason": "troll bundle"}]
 
