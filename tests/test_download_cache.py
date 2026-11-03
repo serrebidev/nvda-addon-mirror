@@ -64,16 +64,79 @@ class DownloadCacheTests(unittest.TestCase):
             self.assertEqual(2, download.call_count)
 
     def test_failure_is_backed_off_even_without_a_previous_hash(self):
-        for previous in (None, self.cached):
-            with mock.patch.object(mirror, "sha256_stream", side_effect=URLError("offline")) as download:
-                record, failure = mirror.cached_download(self.entry, previous, now=201)
-                self.assertIn("offline", failure)
+        with mock.patch.object(mirror, "sha256_stream", side_effect=URLError("offline")) as download:
+            record, failure = mirror.cached_download(self.entry, None, now=201)
+            self.assertIn("offline", failure)
+            again, repeated = mirror.cached_download(self.entry, record, now=801)
+            self.assertEqual(failure, repeated)
+            self.assertEqual(record, again)
+            download.assert_called_once()
+            mirror.cached_download(self.entry, record, now=201 + mirror.DOWNLOAD_RETRY_SECONDS)
+            self.assertEqual(2, download.call_count)
+
+    def _http_error(self, status):
+        return HTTPError(self.entry["download_url"], status, "x", Message(), io.BytesIO())
+
+    def test_outage_keeps_publishing_the_verified_hash_with_backoff(self):
+        # nvda.ru times out from some GitHub runners while the files are fine.
+        # Rejecting on that dropped up to 214 working add-ons per build.
+        for fault in (URLError("timed out"), TimeoutError("timed out"),
+                      self._http_error(503), self._http_error(429)):
+            with mock.patch.object(mirror, "sha256_stream", side_effect=fault) as download:
+                record, failure = mirror.cached_download(self.entry, self.cached, now=201)
+                self.assertIsNone(failure)
+                self.assertEqual(self.cached["sha256"], record["sha256"])
+                self.assertNotIn("error", record)
+                self.assertEqual(201, record["failing_since"])
                 again, repeated = mirror.cached_download(self.entry, record, now=801)
-                self.assertEqual(failure, repeated)
+                self.assertIsNone(repeated)
                 self.assertEqual(record, again)
                 download.assert_called_once()
                 mirror.cached_download(self.entry, record, now=201 + mirror.DOWNLOAD_RETRY_SECONDS)
                 self.assertEqual(2, download.call_count)
+
+    def test_missing_file_is_rejected_at_once(self):
+        with mock.patch.object(mirror, "sha256_stream", side_effect=self._http_error(404)):
+            record, failure = mirror.cached_download(self.entry, self.cached, now=201)
+        self.assertIn("404", failure)
+        self.assertIn("404", record["error"])
+
+    def test_outage_past_the_grace_period_is_rejected(self):
+        grace = mirror.DOWNLOAD_OUTAGE_GRACE_SECONDS
+        cached = dict(self.cached, failing_since=201)
+        with mock.patch.object(mirror, "sha256_stream", side_effect=URLError("timed out")):
+            record, failure = mirror.cached_download(self.entry, cached, now=200 + grace)
+            self.assertIsNone(failure)
+            self.assertEqual(201, record["failing_since"])
+            record, failure = mirror.cached_download(self.entry, cached, now=201 + grace)
+        self.assertIn("timed out", failure)
+        self.assertIn("timed out", record["error"])
+
+    def test_recovery_ends_the_outage(self):
+        cached = dict(self.cached, failing_since=150)
+        with mock.patch.object(mirror, "sha256_stream", side_effect=self._http_error(304)):
+            record, failure = mirror.cached_download(self.entry, cached, now=201)
+        self.assertIsNone(failure)
+        self.assertNotIn("failing_since", record)
+        with mock.patch.object(mirror, "sha256_stream", return_value=("b" * 64, 123, None, None, None)):
+            record, failure = mirror.cached_download(self.entry, cached, now=201)
+        self.assertIsNone(failure)
+        self.assertNotIn("failing_since", record)
+
+    def test_force_does_not_trust_the_old_hash_during_an_outage(self):
+        with mock.patch.object(mirror, "sha256_stream", side_effect=URLError("timed out")):
+            _, failure = mirror.cached_download(self.entry, self.cached, force=True, now=100)
+        self.assertIn("timed out", failure)
+
+    def test_outage_backoff_holds_for_inspection_and_fresh_uploads(self):
+        cached = dict(self.cached, failing_since=150, next_check=5000,
+                      last_modified=formatdate(150, usegmt=True))
+        with mock.patch.object(mirror, "sha256_stream") as download:
+            _, failure = mirror.cached_download(
+                self.entry, cached, now=201, capture_limit=1024, inspect=True,
+            )
+        download.assert_not_called()
+        self.assertIsNone(failure)
 
     def test_changed_version_failure_does_not_reuse_old_hash(self):
         with mock.patch.object(mirror, "sha256_stream", side_effect=URLError("offline")):

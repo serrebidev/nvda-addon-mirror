@@ -27,6 +27,10 @@ re-downloads look like abuse.
 - A build that cannot verify a repo reuses that repo's last verified
   `release_state`. Only a rate-limited repo with no verified state blocks
   publication. Never trade catalog completeness for quiet logs.
+- A timeout, 408, 429 or 5xx on a file already verified for this version keeps
+  it published for `DOWNLOAD_OUTAGE_GRACE_SECONDS`. nvda.ru times out from some
+  runners while its files are fine. A 404 or a changed version is rejected at
+  once. `download-failed` in the build log counts only those rejections.
 
 ## NVDA has no fallback of any kind
 

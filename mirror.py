@@ -208,6 +208,11 @@ GITHUB_OWNER_CACHE_VERSION = "v2-displayname"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
 DOWNLOAD_RECHECK_SECONDS = 24 * 60 * 60
 DOWNLOAD_RETRY_SECONDS = 6 * 60 * 60
+#: How long an add-on stays published on its last verified hash while its host
+#: cannot be reached. nvda.ru times out from some GitHub runners while its files
+#: are fine, and rejecting on that dropped up to 214 working add-ons per build.
+#: The limit stops a host that has really gone from staying listed forever.
+DOWNLOAD_OUTAGE_GRACE_SECONDS = 7 * 24 * 60 * 60
 #: Authors often replace a bundle under the same name within hours of the
 #: first upload (the mirror recorded NeuralVoiceManager 2026.10.10, then the
 #: author replaced the file two and a half hours later and NVDA rejected the
@@ -650,7 +655,7 @@ def _fresh_upload_recheck_due(cached, usable, same_version, now):
     """
     if not (usable and same_version):
         return False
-    if cached.get("ignores_conditional"):
+    if cached.get("ignores_conditional") or "failing_since" in cached:
         return False
     if not (cached.get("etag") or cached.get("last_modified")):
         return False
@@ -694,6 +699,7 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
         and bool(capture_limit)
         and "manifest_version" not in cached
         and not cached.get("error")
+        and "failing_since" not in cached
     )
     if not force and not unexamined:
         if same_version and cached.get("next_check", 0) > now:
@@ -723,9 +729,11 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
         status = exc.code
         error = str(exc)
         exc.close()
+        host_unavailable = status in (408, 429) or status >= 500
         if status == 304 and usable and same_version and not force:
             refreshed = dict(cached, next_check=now + DOWNLOAD_RECHECK_SECONDS)
             refreshed.pop("error", None)
+            refreshed.pop("failing_since", None)
             if capture_limit:
                 refreshed.setdefault("manifest_version", "")
                 # No manifest_name default here: a 304 carries no bundle,
@@ -735,6 +743,7 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
             return refreshed, None
     except (URLError, OSError) as exc:
         error = str(exc)
+        host_unavailable = True
     else:
         record = {"sha256": digest, "size": size, "etag": etag,
                   "last_modified": modified, "version": version,
@@ -772,8 +781,19 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
             # build (see apply_manifest_names), never a forced re-download.
             record["manifest_name"] = bundle_manifest_name(body)
         return record, None
-    # Keep previous validators only for the same catalog version. Do not publish
-    # a stale hash for a changed version or a URL whose refresh failed.
+    # Failing to reach a host says nothing about a file already verified for
+    # this version, so it stays published, backed off, until the grace period
+    # ends. Never trust a changed version, a missing file or a forced refresh.
+    if host_unavailable and usable and same_version and not force:
+        failing_since = cached.get("failing_since", now)
+        if now - failing_since < DOWNLOAD_OUTAGE_GRACE_SECONDS:
+            log(f"Keeping verified hash, host unavailable ({error}): "
+                f"{entry.get('download_url')}")
+            held = dict(cached, failing_since=failing_since,
+                        next_check=now + DOWNLOAD_RETRY_SECONDS)
+            held.pop("error", None)
+            return held, None
+    # Keep previous validators only for the same catalog version.
     failed = dict(cached) if same_version else {}
     failed.update(version=version, error=error,
                   next_check=now + DOWNLOAD_RETRY_SECONDS)
