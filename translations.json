@@ -5227,6 +5227,10 @@
     "Emoji ID - Pembaca Emoji Bahasa Indonesia": {
       "summary": "Emoji ID - Indonesian Emoji Reader, AKA Emoji ID - Pembaca Emoji Bahasa Indonesia",
       "description": "Reads emoji aloud in Indonesian, whatever TTS voice language is in use. Supports basic emoji, ZWJ sequences, flags, keycaps, and skin tones."
+    },
+    "derDieDasPlusVerben": {
+      "summary": "German Articles Plus German Verbs, AKA Der Die Das Plus Deutsche Verben",
+      "description": "Would you like to look up German articles and verb forms easily offline?\nThis add-on gives you several ways to do so:\n- Directly in your text editor: place the cursor within a word or select it, then press NVDA + Shift + Enter. The appropriate article for a noun is announced; for a verb, a new window opens with all its forms. You can perform the same action by left-clicking while holding NVDA + Ctrl. When using the mouse with a noun, a popup displays its article in a large font.\n- You can also look up nouns and verbs directly in the database: open the search window with NVDA + Ctrl + F5."
     }
   }
 }
