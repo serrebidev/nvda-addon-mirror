@@ -5231,6 +5231,10 @@
     "derDieDasPlusVerben": {
       "summary": "German Articles Plus German Verbs, AKA Der Die Das Plus Deutsche Verben",
       "description": "Would you like to look up German articles and verb forms easily offline?\nThis add-on gives you several ways to do so:\n- Directly in your text editor: place the cursor within a word or select it, then press NVDA + Shift + Enter. The appropriate article for a noun is announced; for a verb, a new window opens with all its forms. You can perform the same action by left-clicking while holding NVDA + Ctrl. When using the mouse with a noun, a popup displays its article in a large font.\n- You can also look up nouns and verbs directly in the database: open the search window with NVDA + Ctrl + F5."
+    },
+    "StreamFab dostęp": {
+      "summary": "StreamFab Access, AKA StreamFab dostęp",
+      "description": "Improves the accessibility of StreamFab with NVDA: names unlabeled buttons, announces download status and new windows, reads focus in the My Account menu, lets you press window buttons that are unreachable with the Tab key, and gives a list of downloaded videos. Shortcuts in StreamFab: Ctrl+Shift+D download video, Ctrl+Shift+S download status, Ctrl+L address field, Ctrl+Shift+L list of downloaded videos, Ctrl+Shift+O OK, Ctrl+Shift+C Cancel, Ctrl+Shift+arrow keys window buttons, Ctrl+Shift+Enter press the selected one, Ctrl+Shift+R read window, Ctrl+Shift+A announcements, Ctrl+Shift+H help."
     }
   }
 }
