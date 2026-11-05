@@ -19,7 +19,7 @@ import unittest
 import zipfile
 from email.message import Message
 from unittest import mock
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import mirror
 from tests import nvda_contract
@@ -76,8 +76,8 @@ class Internet:
         self.unexpected = []
         self.lock = threading.Lock()
 
-    def serve(self, url, raw, etag='"1"', ranges=True):
-        self.files[url] = {"raw": raw, "etag": etag, "ranges": ranges}
+    def serve(self, url, raw, etag='"1"', ranges=True, down=False):
+        self.files[url] = {"raw": raw, "etag": etag, "ranges": ranges, "down": down}
 
     def count(self, url, kind, start=0):
         return sum(1 for u, k in self.calls[start:] if u == url and k == kind)
@@ -93,6 +93,9 @@ class Internet:
             if served is None:
                 self.unexpected.append(url)
                 raise HTTPError(url, 404, "Not Found", Message(), io.BytesIO())
+            if served["down"]:
+                self.calls.append((url, "down"))
+                raise URLError("timed out")
             sent = request.get_header("If-none-match")
             headers = {"ETag": served["etag"]} if served["etag"] else {}
             if sent and sent == served["etag"]:
@@ -179,6 +182,14 @@ class Scenario:
         self.refuser = BASE + "refuser.nvda-addon"
         self._seeded("Refuser Display", self.refuser, manifest_text("refuserAddon"),
                      ranges=False)
+        # Recheck not due for weeks: the wrong ID must not wait for it.
+        self.waiting = BASE + "waiting.nvda-addon"
+        self._seeded("Waiting Display", self.waiting, manifest_text("waitingAddon"),
+                     next_check=T0 + 999 * HOUR)
+        self.down = BASE + "down.nvda-addon"
+        self._seeded("Down Display", self.down, manifest_text("downAddon"),
+                     next_check=T0 + 999 * HOUR)
+        self.internet.files[self.down]["down"] = True
 
         # What the catalog states against what the bundle says.
         self.lying_version = BASE + "a11yTaskRecorder-0.2.0.nvda-addon"
@@ -463,6 +474,17 @@ class EndToEndTests(unittest.TestCase):
 
     def test_a_304_release_gets_its_real_id(self):
         self.assertEqual("stuckAddon", self.third.by_url(self.s.stuck)[0]["addonId"])
+
+    def test_a_wrong_id_is_corrected_in_the_next_build(self):
+        self.assertEqual("waitingAddon",
+                         self.first.by_url(self.s.waiting)[0]["addonId"])
+        self.assertEqual(0, self.s.internet.count(self.s.waiting, "full"))
+        self.assertEqual(0, self.s.internet.count(self.s.waiting, "304"))
+
+    def test_a_failed_early_read_is_not_retried_every_build(self):
+        self.assertEqual(1, self.s.internet.count(self.s.down, "down"))
+        self.assertEqual("Down Display",
+                         self.third.by_url(self.s.down)[0]["addonId"])
 
     def test_a_name_recorded_empty_gets_its_real_id(self):
         self.assertEqual("emptyAddon", self.third.by_url(self.s.empty)[0]["addonId"])

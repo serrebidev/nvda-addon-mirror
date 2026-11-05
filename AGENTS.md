@@ -26,9 +26,11 @@ re-downloads look like abuse.
   wrong addonId or compatibility claim makes an add-on uninstallable, yet a
   release that answers 304 forever and a bundle over `MANIFEST_CAPTURE_LIMIT`
   never yield a body to read it from. So `read_manifest_by_range()` reads the zip
-  directory and `manifest.ini` (2 requests, about 128 KB), once per URL, at the
-  ordinary recheck. A 200 is closed unread and the refusal is remembered as
-  `None`. Do not extend this to per-run checks or to locale files.
+  directory and `manifest.ini` (2 requests, about 128 KB), once per URL.
+  `read_unread_manifests()` does this in the next build rather than leave an ID
+  wrong until the recheck; a failed read waits for the recheck. A 200 is closed
+  unread and the refusal is remembered as `None`. Do not extend this to per-run
+  checks or to locale files.
 - `apply_manifest_claims()` publishes the corrected version while
   `cached_download()` keeps keying on `catalog_version`. Comparing the corrected
   one would look like a new release and re-download the bundle.

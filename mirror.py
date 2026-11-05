@@ -35,6 +35,7 @@ import re
 import threading
 import time
 import zipfile
+import zlib
 from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -802,7 +803,9 @@ def read_manifest_by_range(url, size, timeout=30):
     try:
         with zipfile.ZipFile(_RangedBundle(url, size, timeout)) as archive:
             return archive.read("manifest.ini").decode("utf-8-sig", "replace")
-    except (_RangeRefused, zipfile.BadZipFile, KeyError, ValueError) as exc:
+    # RuntimeError: an encrypted entry, or a compression method zipfile lacks.
+    except (_RangeRefused, zipfile.BadZipFile, KeyError, ValueError,
+            RuntimeError, EOFError, zlib.error) as exc:
         log(f"No manifest by range ({exc}): {url}")
         return ""
 
@@ -829,6 +832,42 @@ def _fill_manifest_by_range(record, url):
     else:
         record["manifest_last_tested"] = None
     return record
+
+
+def read_unread_manifests(entries, hashcache, workers):
+    """Read now each manifest the ordinary recheck has not reached yet.
+
+    A wrong addonId leaves an add-on uninstallable, so it should not wait up to
+    a day for that recheck. This moves the same single read forward and adds
+    none: a finished read sets the marker the recheck looks for. A failed one
+    sets ``manifest_read_tried``, so only the recheck retries it, never every
+    build. Returns the number of URLs read.
+    """
+    pending = {}
+    for entry in entries:
+        if entry.get("source") in ("official", "pinned"):
+            continue
+        url = entry.get("download_url") or ""
+        record = hashcache.get(url)
+        if (isinstance(record, dict) and record.get("sha256") and record.get("size")
+                and not record.get("error") and "failing_since" not in record
+                and "manifest_last_tested" not in record
+                and "manifest_read_tried" not in record):
+            pending[url] = record
+
+    def read(item):
+        url, record = item
+        try:
+            _fill_manifest_by_range(record, url)
+        # One odd file among thousands must not fail the build, which would
+        # lose these reads and repeat them all on the next one.
+        except Exception as exc:
+            log(f"Manifest read failed ({exc!r}): {url}")
+        record["manifest_read_tried"] = True
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(read, pending.items()))
+    return len(pending)
 
 
 def _fresh_upload_recheck_due(cached, usable, same_version, now):
@@ -4773,6 +4812,10 @@ def main():
     # Then correct the name itself against the bundle's manifest, wherever
     # a previous build's download already revealed it: the catalog name is
     # only a claim, the manifest name is the add-on's identity in NVDA.
+    if not (args.skip_download or args.limit):
+        read = read_unread_manifests(all_entries, hashcache, args.workers)
+        if read:
+            log(f"Read {read} unread bundle manifests by range")
     renamed = apply_manifest_names(all_entries, hashcache)
     if renamed:
         log(f"Corrected {renamed} addonIds to their bundle manifest names")

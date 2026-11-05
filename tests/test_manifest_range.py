@@ -99,6 +99,16 @@ class RangeReadTests(unittest.TestCase):
         with mock.patch.object(mirror, "urlopen", FakeHost(raw)):
             self.assertEqual("", mirror.read_manifest_by_range(URL, len(raw)))
 
+    def test_an_encrypted_manifest_yields_no_name_and_no_crash(self):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as archive:
+            archive.writestr("manifest.ini", "name = realName\n")
+        raw = bytearray(out.getvalue())
+        raw[raw.rfind(b"PK\x01\x02") + 8] |= 1  # central directory: encrypted
+        raw = bytes(raw)
+        with mock.patch.object(mirror, "urlopen", FakeHost(raw)):
+            self.assertEqual("", mirror.read_manifest_by_range(URL, len(raw)))
+
     def test_unknown_size_makes_no_request(self):
         with mock.patch.object(mirror, "urlopen") as opened:
             self.assertEqual("", mirror.read_manifest_by_range(URL, 0))
