@@ -5235,6 +5235,13 @@
     "StreamFab dostęp": {
       "summary": "StreamFab Access, AKA StreamFab dostęp",
       "description": "Improves the accessibility of StreamFab with NVDA: names unlabeled buttons, announces download status and new windows, reads focus in the My Account menu, lets you press window buttons that are unreachable with the Tab key, and gives a list of downloaded videos. Shortcuts in StreamFab: Ctrl+Shift+D download video, Ctrl+Shift+S download status, Ctrl+L address field, Ctrl+Shift+L list of downloaded videos, Ctrl+Shift+O OK, Ctrl+Shift+C Cancel, Ctrl+Shift+arrow keys window buttons, Ctrl+Shift+Enter press the selected one, Ctrl+Shift+R read window, Ctrl+Shift+A announcements, Ctrl+Shift+H help."
+    },
+    "reloqC": {
+      "description": "Manual hearing test of the independent C port; the normal NVDA voice remains active."
+    },
+    "streamFabDostep": {
+      "summary": "StreamFab Access, AKA Dodatek NVDA poprawiający dostępność programu StreamFab dla osób niewidomych",
+      "description": "Improves the accessibility of the StreamFab program with NVDA: gives names to unlabeled buttons, announces download status and new windows, reads focus in the My Account menu, lets you press window buttons that cannot be reached with the Tab key, gives a list of downloaded videos, and in the series download window correctly reads episodes (with durations), announces selection with Space, and gives Polish names for lists and audio languages. Handles the login window and moves keyboard focus to the License window that login waits for. Shortcuts in StreamFab: Ctrl+Shift+D download video, Ctrl+Shift+S download status, Ctrl+L address field, Ctrl+Shift+L list of downloaded videos, Ctrl+Shift+O OK, Ctrl+Shift+C Cancel, Ctrl+Shift+arrow keys window buttons, Ctrl+Shift+Enter press the selected one, Ctrl+Shift+R read window, Ctrl+Shift+W next window, Ctrl+Shift+A announcements, Ctrl+Shift+H help."
     }
   }
 }
