@@ -75,6 +75,17 @@ Catalog feeds are not authoritative about channels either. nvda-addons.ru marks
 89% of its links "Dev", so a pre-release label from it is honoured only when the
 version string corroborates it.
 
+## Two add-ons, one manifest name
+
+NVDA keys add-ons by manifest `name`, so two authors' add-ons sharing one
+collapse into a single store row and one hides the other. Pin the fork in
+`pinned.json` as `{owner}-{name}` with `"fork_policy": "include"` and
+`"optional": true`; the original keeps the name. Catalog rows whose download
+URL is in a pinned repo are dropped, or they would take the shared name back.
+A failed optional pin hides only that fork for one build. Do not pin a fork
+over the GitHub Pages size budget (Supertonic 1.0.0 is 281 MB): the site is
+already past the 1 GB soft limit.
+
 ## Do not reformat the data files
 
 Their diffs are reviewed. Reformatting one buries a real change in thousands of

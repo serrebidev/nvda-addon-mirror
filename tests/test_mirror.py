@@ -88,6 +88,29 @@ class PinnedCompletenessTests(unittest.TestCase):
                 ):
                     mirror.fetch_pinned(path)
 
+    def test_failed_optional_pin_is_skipped(self):
+        # A fork pinned beside the original: losing it for one build loses
+        # only that fork, so it must not stop every other add-on publishing.
+        config = {
+            "pinned": [
+                {"repo": "example/good", "addon_id": "good"},
+                {"repo": "example/fork", "addon_id": "fork", "optional": True},
+            ]
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "pinned.json")
+            with open(path, "w", encoding="utf-8") as config_file:
+                json.dump(config, config_file)
+
+            def fetch(spec, repo, addon_id):
+                if repo == "example/fork":
+                    raise RuntimeError("release unavailable")
+                return [{"name": addon_id}]
+
+            with mock.patch.object(mirror, "_fetch_one_pinned", side_effect=fetch), \
+                    mock.patch.object(mirror, "log"):
+                self.assertEqual([{"name": "good"}], mirror.fetch_pinned(path))
+
 
 class PinnedConfigurationTests(unittest.TestCase):
     def test_serrebi_helper_and_log_collector_are_pinned(self):

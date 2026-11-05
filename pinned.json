@@ -90,6 +90,123 @@
       "channel": "stable",
       "homepage": "https://onjlouis.github.io/",
       "source_url": "https://onjlouis.github.io/"
+    },
+    {
+      "repo": "dave090679/banking4w",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "dave090679-banking4w",
+      "summary": "Subsembly Banking (dave090679)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "ahmed-f-elaswar/clipboardhistory",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "ahmed-f-elaswar-clipboardHistory",
+      "summary": "Clipboard History Manager (ahmed-f-elaswar)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "masonasons/dectalknvda",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "masonasons-dectalk",
+      "summary": "DECtalk (masonasons)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "zseli22/diphoneforge",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "zseli22-espeakWitMbrola",
+      "summary": "eSpeak NG with MBROLA (zseli22)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "abdulmajeedalmarzoqi/hijridate",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "abdulmajeedalmarzoqi-hijriDate",
+      "summary": "Hijri Date (abdulmajeedalmarzoqi)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "hurthuang/metecbd-nvda-addon",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "hurthuang-metecBD",
+      "summary": "Metec BD Braille Display (hurthuang)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "taljazz/nvda-pomodoro",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "taljazz-pomodoro",
+      "summary": "Pomodoro Timer (taljazz)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "jage9/sonos-redux",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "jage9-Sonos",
+      "summary": "Sonos Redux (jage9)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "mzanm/nvda_timewithseconds",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "mzanm-TimeWithSeconds",
+      "summary": "Report the time with seconds (mzanm)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "wmietek8/translateadvanced",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "wmietek8-TranslateAdvanced",
+      "summary": "Traductor Avanzado (wmietek8)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "chenz2000/unigramplus",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "chenz2000-unigramPlus",
+      "summary": "UnigramPlus Continued (chenz2000)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "maxlogic/voice-switcher-nvda",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "maxlogic-voiceSwitcher",
+      "summary": "Voice Switcher (MaxLogic)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
+      "repo": "millifeka-sketch/youtubedownloader",
+      "asset_glob": "*.nvda-addon",
+      "addon_id": "millifeka-sketch-youtubeDownloader",
+      "summary": "YouTube Downloader (millifeka-sketch)",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
     }
   ],
   "exclude": [

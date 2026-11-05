@@ -843,11 +843,16 @@ def read_unread_manifests(entries, hashcache, workers):
     sets ``manifest_read_tried``, so only the recheck retries it, never every
     build. Returns the number of URLs read.
     """
+    # A pin rewrites its URL's record every build, dropping any marker, and
+    # publishes the pin rather than the catalog row anyway.
+    pinned_urls = {e.get("download_url") for e in entries if e.get("source") == "pinned"}
     pending = {}
     for entry in entries:
         if entry.get("source") in ("official", "pinned"):
             continue
         url = entry.get("download_url") or ""
+        if url in pinned_urls:
+            continue
         record = hashcache.get(url)
         if (isinstance(record, dict) and record.get("sha256") and record.get("size")
                 and not record.get("error") and "failing_since" not in record
@@ -1527,7 +1532,10 @@ def _fetch_pinned_impl(config_path):
         except Exception as exc:  # noqa: BLE001 - report every failed pin together
             message = f"pinned entry {label} failed: {exc}"
             log(message)
-            failures.append(message)
+            # A fork pinned beside its original: losing it for one build hides
+            # only that fork, and its catalog rows are no longer excluded.
+            if not spec.get("optional"):
+                failures.append(message)
     if failures:
         raise RuntimeError(
             "refusing to publish an incomplete pinned add-on set: "
@@ -4871,11 +4879,22 @@ def main():
         (spec.get("name") or "").strip()
         for spec in _load_excluded(PINNED_CONFIG_PATH)
     }
-    if excluded_names:
+    # A pinned fork is renamed so it can sit beside the original that shares
+    # its manifest name. Any catalog row for the fork's repo still carries
+    # that shared name, and would take it from the original in dedupe.
+    pinned_repos = tuple(
+        e["source_url"].rstrip("/").casefold() + "/"
+        for e in todo
+        if e.get("source") == "pinned"
+        and (e.get("source_url") or "").casefold().startswith("https://github.com/")
+    )
+    if excluded_names or pinned_repos:
         kept = []
         excluded_count = 0
         for e in todo:
-            if e.get("source") != "pinned" and e.get("name") in excluded_names:
+            if e.get("source") != "pinned" and (
+                    e.get("name") in excluded_names
+                    or (e.get("download_url") or "").casefold().startswith(pinned_repos)):
                 rejected.append({
                     "addonId": e.get("name"),
                     "source": e.get("source"),

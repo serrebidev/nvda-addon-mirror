@@ -149,6 +149,25 @@ class Scenario:
             sha256=hashlib.sha256(pinned).hexdigest(), _patched_bytes=pinned,
         ))
 
+        # Two authors' add-ons sharing one manifest name. The fork is pinned
+        # under its own ID; a catalog row for the fork's repo must not take
+        # the shared name from the original, even from a stronger source.
+        self.shared = BASE + "shared.nvda-addon"
+        serve(self.shared, bundle(manifest_text("sharedAddon", "1.0")))
+        self.bestmidi.append(row("sharedAddon", self.shared, "1.0"))
+        self.fork_repo = "https://github.com/forkOwner/shared"
+        self.fork_release = self.fork_repo + "/releases/download/v2/shared.nvda-addon"
+        serve(self.fork_release, bundle(manifest_text("sharedAddon", "2.0")))
+        self.ru.append(row("sharedAddon", self.fork_release, "2.0", source="ru"))
+        fork = bundle(manifest_text("forkOwner-sharedAddon", "2.0"))
+        self.fork_hosted = f"{SITE}/downloads/forkOwner-sharedAddon-2.0.nvda-addon"
+        serve(self.fork_hosted, fork)
+        self.pinned.append(row(
+            "forkOwner-sharedAddon", self.fork_release, "2.0", source="pinned",
+            source_url=self.fork_repo, sha256=hashlib.sha256(fork).hexdigest(),
+            _patched_bytes=fork,
+        ))
+
         # The report that started this: BestMidi's display name as the ID, a
         # 40 MB bundle over the capture limit, and a beta row for the release
         # the official store carries as stable.
@@ -474,6 +493,11 @@ class EndToEndTests(unittest.TestCase):
 
     def test_a_304_release_gets_its_real_id(self):
         self.assertEqual("stuckAddon", self.third.by_url(self.s.stuck)[0]["addonId"])
+
+    def test_a_pinned_fork_and_its_original_are_both_listed(self):
+        self.assertEqual(self.s.shared, self.ids["sharedAddon"]["URL"])
+        self.assertEqual(self.s.fork_hosted, self.ids["forkOwner-sharedAddon"]["URL"])
+        self.assertEqual(0, self.s.internet.count(self.s.fork_release, "full"))
 
     def test_a_wrong_id_is_corrected_in_the_next_build(self):
         self.assertEqual("waitingAddon",
