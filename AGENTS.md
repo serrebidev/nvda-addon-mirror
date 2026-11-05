@@ -21,6 +21,17 @@ re-downloads look like abuse.
   catalog states earns a forced fetch (`inspect=True`); everything else waits
   for the ordinary recheck, and coverage fills in over a day. Wiring a new
   capture into the forced path would refetch the whole catalog in one build.
+- **The one exception is `manifest.ini` itself, and it is never a re-download.**
+  A catalog row is only a claim: NVDA installs by what the manifest says. A
+  wrong addonId or compatibility claim makes an add-on uninstallable, yet a
+  release that answers 304 forever and a bundle over `MANIFEST_CAPTURE_LIMIT`
+  never yield a body to read it from. So `read_manifest_by_range()` reads the zip
+  directory and `manifest.ini` (2 requests, about 128 KB), once per URL, at the
+  ordinary recheck. A 200 is closed unread and the refusal is remembered as
+  `None`. Do not extend this to per-run checks or to locale files.
+- `apply_manifest_claims()` publishes the corrected version while
+  `cached_download()` keeps keying on `catalog_version`. Comparing the corrected
+  one would look like a new release and re-download the bundle.
 - The cron is hourly (`7 * * * *`). Hourly keeps the worst case inside the
   GITHUB_TOKEN budget of 1000 requests an hour and polls authors less. Do not
   promise a ten-minute refresh anywhere; hourly is the honest number.
@@ -80,6 +91,12 @@ with a model's answer.
 python -W error -m unittest discover -s tests   # what CI runs
 python mirror.py --sources ru --limit 6 --skip-download --locales en
 ```
+
+`tests/test_end_to_end.py` runs `main()` for three builds against a fake internet
+and installs every published row through `tests/nvda_contract.py`, a copy of
+NVDA's load and install rules that shares no parsing with `mirror.py`. A new
+catalog-versus-bundle bug belongs there as a scenario. When NVDA's store code
+changes, update the contract from its source.
 
 A test that hardcodes a cache key or a floor will pass for the wrong reason
 after a version bump. Derive those from the module instead — see

@@ -65,6 +65,51 @@ def build_output(
     return out
 
 
+class AuditRowContractTests(unittest.TestCase):
+    """One row NVDA cannot load empties the whole store, "show all" included."""
+
+    def audit_latest(self, bad):
+        with tempfile.TemporaryDirectory() as directory:
+            out = build_output(
+                directory, extra_files={"en/all/latest.json": [entry(), bad]},
+            )
+            return mirror.audit_catalog(out)
+
+    def test_a_clean_latest_passes(self):
+        self.assertEqual([], self.audit_latest(entry("Other")))
+
+    def test_latest_is_held_to_the_row_contract(self):
+        missing = entry("Other")
+        del missing["sha256"]
+        cases = {
+            "missing required key": missing,
+            "unexpected channel": entry("Other", channel="nightly"),
+            "not a major/minor/patch": entry("Other", minNVDAVersion=None),
+            "duplicate": entry(),
+            "sha256": entry("Other", sha256="not-a-digest"),
+            "file name": entry("Other", addonVersionName="1.0:abc"),
+            "must be text": entry("Other", displayName=None),
+            "scanResults": entry("Other", scanResults=None),
+            "URL": entry("Other", URL="ftp://example.invalid/a"),
+        }
+        for expected, bad in cases.items():
+            with self.subTest(expected):
+                problems = self.audit_latest(bad)
+                self.assertTrue(any(expected in p for p in problems), problems)
+
+    def test_an_unexpected_key_in_a_version_dict_is_flagged(self):
+        # MajorMinorPatch(**dict) raises on it.
+        bad = entry("Other", minNVDAVersion={"major": 1, "minor": 0, "patch": 0, "x": 1})
+        problems = self.audit_latest(bad)
+        self.assertTrue(any("major/minor/patch" in p for p in problems), problems)
+
+    def test_an_empty_latest_is_flagged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = build_output(directory, extra_files={"en/all/latest.json": []})
+            problems = mirror.audit_catalog(out)
+        self.assertTrue(any("empty" in p for p in problems), problems)
+
+
 class AuditCatalogTests(unittest.TestCase):
     def test_clean_catalog_passes(self):
         with tempfile.TemporaryDirectory() as directory:

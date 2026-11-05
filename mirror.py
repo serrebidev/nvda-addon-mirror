@@ -233,9 +233,12 @@ FRESH_RECHECK_SECONDS = 60 * 60
 #: ships the real one inside the bundle's manifest.ini. The hashing pass
 #: already streams those bytes, so the manifest is read from the stream it
 #: keeps rather than from a second request. Bundles above this size are hashed
-#: without buffering: no ordinary add-on is that large, and the packs that are
-#: (voice and speech data) are not published anyway.
+#: without buffering: only read_manifest_name_by_range() can see inside those.
 MANIFEST_CAPTURE_LIMIT = 32 * 1024 * 1024
+#: One range request reads the zip directory at a bundle's tail, a second reads
+#: manifest.ini. The cap only stops a pathological zip from costing more.
+MANIFEST_RANGE_BLOCK = 64 * 1024
+MANIFEST_RANGE_MAX_REQUESTS = 6
 PINNED_BUNDLE_CACHE_PATH = ".bundlecache"
 
 # Newly discovered repositories cost one uncached request each, while repeat
@@ -390,6 +393,10 @@ def sanitize_addon_id(name):
     return cleaned or (name or "").strip()
 
 
+#: What NVDA's MajorMinorPatch parses from an installed add-on's version string.
+_NVDA_VERSION_RE = re.compile(r"\d+\.\d+(?:\.\d+)?")
+
+
 def apply_manifest_names(entries, hashcache):
     """Republish entries under their bundle's manifest ``name``.
 
@@ -424,9 +431,52 @@ def apply_manifest_names(entries, hashcache):
         if cleaned and cleaned != entry.get("name"):
             log(f"{entry.get('source')}: addonId {entry.get('name')!r} -> "
                 f"{cleaned!r} (bundle manifest name)")
+            # translations.json may still be keyed by the old ID.
+            entry["catalog_name"] = entry.get("name")
             entry["name"] = cleaned
             renamed += 1
     return renamed
+
+
+def apply_manifest_claims(entries, hashcache):
+    """Publish the version and API versions NVDA will read from the bundle.
+
+    Catalogs state these independently of the file they link. A row claiming
+    compatibility for a bundle that does not declare it offers a plain Install
+    that ends in "Add-on not supported", with no override on offer; a row
+    denying it hides a working add-on; a wrong version misorders updates and
+    lets dedupe pick the wrong release. Read from the download cache like
+    apply_manifest_names, so this never costs a request. Returns the number of
+    fields corrected.
+    """
+    corrected = 0
+    for entry in entries:
+        if entry.get("source") in ("official", "pinned"):
+            continue
+        cached = hashcache.get(entry.get("download_url") or "")
+        if not isinstance(cached, dict):
+            continue
+        version = (cached.get("manifest_version") or "").strip()
+        # NVDA's own parse: a version it cannot read is left to the catalog.
+        if (_NVDA_VERSION_RE.fullmatch(version)
+                and sanitize_version(version) != sanitize_version(entry.get("version"))):
+            log(f"{entry.get('name')}: version {entry.get('version')!r} -> "
+                f"{version!r} (bundle manifest)")
+            entry.setdefault("catalog_version", entry.get("version"))
+            entry["version"] = version
+            corrected += 1
+        for field, key in (("min_nvda", "manifest_min_nvda"),
+                           ("last_tested", "manifest_last_tested")):
+            stated = cached.get(key)
+            if stated is None:
+                continue
+            # NVDA reads a missing or "None" API version as 0.0.0.
+            real = parse_api_version(stated) or (0, 0, 0)
+            # A polled catalog comes back from its JSON cache with lists.
+            if real != tuple(entry.get(field) or ()):
+                entry[field] = real
+                corrected += 1
+    return corrected
 
 
 def _release_tag_version(tag):
@@ -624,7 +674,31 @@ def bundle_manifest_version(raw):
             manifest_text = archive.read("manifest.ini").decode("utf-8-sig", "replace")
     except (zipfile.BadZipFile, KeyError, OSError, ValueError):
         return ""
-    return _manifest_value(manifest_text, "version").strip()
+    return _manifest_scalar(manifest_text, "version")
+
+
+def _manifest_api_fields(manifest_text):
+    return {
+        "manifest_min_nvda": _manifest_scalar(manifest_text, "minimumNVDAVersion"),
+        "manifest_last_tested": _manifest_scalar(manifest_text, "lastTestedNVDAVersion"),
+    }
+
+
+def bundle_manifest_api_versions(raw):
+    """Return the NVDA API versions a bundle declares, as cache-record fields.
+
+    NVDA decides whether a downloaded bundle may install from these, not from
+    the catalog row, so a catalog that disagrees offers an install that fails.
+    Returns {} for anything unreadable: nothing was learned about the bundle.
+    """
+    if not raw:
+        return {}
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            text = archive.read("manifest.ini").decode("utf-8-sig", "replace")
+    except (zipfile.BadZipFile, KeyError, OSError, ValueError):
+        return {}
+    return _manifest_api_fields(text)
 
 
 def bundle_manifest_name(raw):
@@ -646,6 +720,115 @@ def bundle_manifest_name(raw):
     except (zipfile.BadZipFile, KeyError, OSError, ValueError):
         return ""
     return _manifest_name(text)
+
+
+class _RangeRefused(Exception):
+    """The host will not serve this bundle piecemeal."""
+
+
+class _RangedBundle:
+    """Just enough of a seekable file for zipfile to read a remote bundle."""
+
+    def __init__(self, url, size, timeout):
+        self.url = quote_url(url)
+        self.size = size
+        self.timeout = timeout
+        self.position = 0
+        self.block_start = 0
+        self.block = b""
+        self.requests = 0
+        # The zip directory sits at the tail, so one request usually covers it.
+        self._fetch(max(0, size - MANIFEST_RANGE_BLOCK), size)
+
+    def seekable(self):
+        return True
+
+    def tell(self):
+        return self.position
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        base = {io.SEEK_SET: 0, io.SEEK_CUR: self.position,
+                io.SEEK_END: self.size}[whence]
+        self.position = base + offset
+        return self.position
+
+    def read(self, count=-1):
+        if count is None or count < 0:
+            count = self.size - self.position
+        end = min(self.position + count, self.size)
+        if self.position >= end:
+            return b""
+        block_end = self.block_start + len(self.block)
+        if not self.block_start <= self.position or end > block_end:
+            self._fetch(self.position, end)
+        data = self.block[self.position - self.block_start:end - self.block_start]
+        self.position += len(data)
+        return data
+
+    def _fetch(self, start, end):
+        self.requests += 1
+        if self.requests > MANIFEST_RANGE_MAX_REQUESTS:
+            raise _RangeRefused(f"more than {MANIFEST_RANGE_MAX_REQUESTS} requests")
+        stop = min(max(end, start + MANIFEST_RANGE_BLOCK), self.size)
+        req = Request(self.url, headers={
+            "User-Agent": USER_AGENT, "Accept": "*/*",
+            # Explicit bounds: GitHub answers a suffix range with 501.
+            "Range": f"bytes={start}-{stop - 1}",
+        })
+        with urlopen(req, timeout=self.timeout) as resp:
+            if resp.status != 206:
+                # Closing unread is the point: a server that ignores ranges
+                # is about to send the whole file, which is the exact abuse
+                # an author complained about on 2026-09-05.
+                raise _RangeRefused(f"HTTP {resp.status}")
+            self.block = resp.read(stop - start)
+            self.block_start = start
+            # Stay on the redirect target, so the release's download counter
+            # sees one request however many ranges the read takes.
+            self.url = resp.geturl()
+
+
+def read_manifest_by_range(url, size, timeout=30):
+    """Read a bundle's manifest.ini without downloading the bundle.
+
+    For the two cases a stream can never answer: a 304 carries no body, and a
+    bundle over MANIFEST_CAPTURE_LIMIT is hashed without being kept. Returns ""
+    when the answer is final (the host refuses ranges, or the file holds no
+    readable manifest). Network trouble raises, so the caller can try again at
+    the next recheck.
+    """
+    if not size:
+        return ""
+    try:
+        with zipfile.ZipFile(_RangedBundle(url, size, timeout)) as archive:
+            return archive.read("manifest.ini").decode("utf-8-sig", "replace")
+    except (_RangeRefused, zipfile.BadZipFile, KeyError, ValueError) as exc:
+        log(f"No manifest by range ({exc}): {url}")
+        return ""
+
+
+def _fill_manifest_by_range(record, url):
+    """Give a record the manifest facts no download has given it, at most once.
+
+    ``manifest_last_tested`` is the marker: every completed look sets it, to
+    None when the look found nothing, which is never repeated. A manifest_name
+    of "" says nothing: builds of 2026-11-01 wrote it on a 304, and a body too
+    large to keep still does.
+    """
+    if "manifest_last_tested" in record:
+        return record
+    try:
+        text = read_manifest_by_range(url, record.get("size"))
+    except (OSError, http.client.HTTPException) as exc:
+        log(f"Manifest read failed, will retry at next recheck ({exc}): {url}")
+        return record
+    record["manifest_name"] = _manifest_name(text) or record.get("manifest_name") or None
+    if text:
+        record["manifest_version"] = _manifest_scalar(text, "version")
+        record.update(_manifest_api_fields(text))
+    else:
+        record["manifest_last_tested"] = None
+    return record
 
 
 def _fresh_upload_recheck_due(cached, usable, same_version, now):
@@ -693,7 +876,9 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
     """
     now = time.time() if now is None else now
     cached = cached if isinstance(cached, dict) else {}
-    version = entry.get("version")
+    # The catalog's own string, even once apply_manifest_claims() has corrected
+    # what gets published: only a change in the catalog's claim bypasses the TTL.
+    version = entry.get("catalog_version") or entry.get("version")
     same_version = cached.get("version") == version
     usable = bool(cached.get("sha256") and cached.get("size") is not None)
     # A cache written before the version was ever looked for has no answer to
@@ -742,10 +927,10 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
             refreshed.pop("failing_since", None)
             if capture_limit:
                 refreshed.setdefault("manifest_version", "")
-                # No manifest_name default here: a 304 carries no bundle,
-                # so the name stays uncaptured (key absent) until a build
-                # actually streams the file, rather than being marked
-                # known-empty forever.
+                # A 304 carries no bundle and an unchanged release may never
+                # send one, so an unnamed bundle is read by range instead:
+                # waiting for a stream would leave its ID wrong for good.
+                _fill_manifest_by_range(refreshed, entry["download_url"])
             return refreshed, None
     except (URLError, OSError) as exc:
         error = str(exc)
@@ -786,6 +971,19 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
             # Read from the same bytes; applied from the cache on a later
             # build (see apply_manifest_names), never a forced re-download.
             record["manifest_name"] = bundle_manifest_name(body)
+            # What NVDA decides compatibility from once it has the file.
+            record.update(bundle_manifest_api_versions(body))
+            if size > capture_limit:
+                _fill_manifest_by_range(record, entry["download_url"])
+            elif body is not None and not record["manifest_name"]:
+                # A landing page or a bundle with no name: its checksum would
+                # verify, and then NVDA could not open it. The next look waits
+                # for the ordinary recheck, without validators, so a 304 can
+                # never publish it again.
+                error = "not an NVDA add-on bundle (no manifest name)"
+                log(f"{error}: {entry['download_url']}")
+                return {"version": version, "error": error,
+                        "next_check": now + DOWNLOAD_RECHECK_SECONDS}, error
         return record, None
     # Failing to reach a host says nothing about a file already verified for
     # this version, so it stays published, backed off, until the grace period
@@ -1221,11 +1419,16 @@ def drop_blocked_entries(entries, blocked):
     kept, rejected = [], []
     for e in entries:
         name = (e.get("name") or e.get("addonId") or "").strip()
-        if name.casefold() in reasons:
+        # A rename to the manifest name must not free a blocked add-on.
+        if {name.casefold(), (e.get("catalog_name") or "").strip().casefold()} & set(reasons):
             rejected.append({
                 "addonId": e.get("name") or e.get("addonId"),
                 "source": e.get("source"),
-                "reason": "blocked (safety): " + reasons[name.casefold()],
+                "reason": "blocked (safety): " + (
+                    reasons.get(name.casefold())
+                    or reasons.get((e.get("catalog_name") or "").strip().casefold())
+                    or ""
+                ),
             })
             continue
         kept.append(e)
@@ -1558,12 +1761,25 @@ def _pinned_fork_release_qualifies(spec, repo, fork_version):
     return _github_fork_release_qualifies(repo, fork_version)
 
 
-def _manifest_name(manifest_text):
+def _manifest_scalar(manifest_text, key):
+    """A one-line manifest value the way NVDA's configobj reads it.
+
+    Unquoted, single quotes included, and with no inline comment. Used for the
+    fields NVDA compares (never for prose, which may contain a "#").
+    """
     for line in manifest_text.splitlines():
-        m = re.match(r"^name\s*=\s*(.+)$", line.strip())
+        m = re.match(rf"^{key}\s*=\s*(.*)$", line.strip())
         if m:
-            return m.group(1).strip().strip('"')
+            value = m.group(1).strip()
+            quoted = re.fullmatch(r"""(["'])(.*?)\1\s*(?:#.*)?""", value)
+            if quoted:
+                return quoted.group(2)
+            return value.split("#", 1)[0].strip().strip('"')
     return ""
+
+
+def _manifest_name(manifest_text):
+    return _manifest_scalar(manifest_text, "name")
 
 
 def _manifest_value(manifest_text, key):
@@ -3182,10 +3398,13 @@ def _translate_entry(entry):
     Returns {field: original text} for the fields the generated overlay
     replaced, so transform() can record what auto_translate.py should see.
     """
-    tr = TRANSLATIONS.get(entry["name"])
+    key = entry["name"]
+    if key not in TRANSLATIONS:
+        key = entry.get("catalog_name")
+    tr = TRANSLATIONS.get(key)
     replaced = {
         field: entry.get(field) or ""
-        for field in AUTO_ONLY_FIELDS.get(entry["name"], ())
+        for field in AUTO_ONLY_FIELDS.get(key, ())
         if tr and tr.get(field)
     }
     if tr:
@@ -3275,7 +3494,8 @@ def transform(entry, sha256):
         "description": entry.get("description") or "",
         "publisher": author,
         "channel": entry.get("channel") or "stable",
-        "addonVersionName": version,
+        # NVDA saves the download as "{addonId}-{addonVersionName}.nvda-addon".
+        "addonVersionName": _ILLEGAL_ID_CHARS_RE.sub("-", version or ""),
         "addonVersionNumber": {
             "major": addon_version[0],
             "minor": addon_version[1],
@@ -4287,6 +4507,41 @@ _AUDIT_REQUIRED_KEYS = (
     "sha256", "minNVDAVersion", "lastTestedVersion",
 )
 _AUDIT_CHANNELS = {"stable", "beta", "dev"}
+_AUDIT_TEXT_KEYS = (
+    "addonId", "displayName", "description", "publisher", "addonVersionName",
+    "license", "sourceURL",
+)
+_AUDIT_SHA256_RE = re.compile(r"[0-9a-fA-F]{64}")
+
+
+def _audit_row_contract(addon):
+    """What NVDA needs from one row to load it and to download its file.
+
+    NVDA builds the whole store from one loop over the rows, so one that raises
+    takes every add-on with it. Applies to latest.json as much as to the
+    compatible views: "include incompatible add-ons" reads it.
+    """
+    problems = [
+        f"{key} must be text, got {addon[key]!r}"
+        for key in _AUDIT_TEXT_KEYS
+        if key in addon and not isinstance(addon[key], str)
+    ]
+    sha256 = addon.get("sha256")
+    if "sha256" in addon and not (
+        isinstance(sha256, str) and _AUDIT_SHA256_RE.fullmatch(sha256)
+    ):
+        problems.append(f"sha256 is not a digest: {sha256!r}")
+    url = addon.get("URL")
+    if "URL" in addon and not (
+        isinstance(url, str) and url.startswith(("http://", "https://"))
+    ):
+        problems.append(f"URL is not downloadable: {url!r}")
+    if "scanResults" in addon and not isinstance(addon["scanResults"], dict):
+        problems.append(f"scanResults must be omitted or a dict: {addon['scanResults']!r}")
+    file_name = f"{addon.get('addonId')}-{addon.get('addonVersionName')}.nvda-addon"
+    if _ILLEGAL_ID_CHARS_RE.search(file_name):
+        problems.append(f"illegal Windows file name: {file_name!r}")
+    return problems
 
 
 def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
@@ -4300,7 +4555,8 @@ def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
     ``lastTestedNVDAVersion >= that release's BACK_COMPAT_TO``, must have no
     duplicate ``(addonId, channel)`` rows, and every entry must carry the keys
     the oldest supported client (NVDA 2025.1) requires. ``latest.json`` is the
-    unfiltered "show all" view and is not audited.
+    unfiltered "show all" view: it is exempt from the version floors, and held
+    to everything else.
 
     BACK_COMPAT_TO values come from the build's own ``stats.json`` (recorded
     from the live addon-datastore metadata, with the bundled
@@ -4322,16 +4578,17 @@ def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
 
     for path in sorted(glob.glob(os.path.join(out_dir, "*", "all", "*.json"))):
         ver_name = os.path.splitext(os.path.basename(path))[0]
-        if ver_name == "latest":
-            continue
-        ver_tuple = parse_api_version(ver_name)
-        if ver_tuple is None:
-            problems.append(f"{path}: {ver_name!r} is not a valid API version file name")
-            continue
-        floor = floors.get(ver_name) or bundled_floors.get(ver_name)
-        if floor is None:
-            problems.append(f"{path}: no BACK_COMPAT_TO recorded for {ver_name}")
-            continue
+        is_latest = ver_name == "latest"
+        ver_tuple = floor = None
+        if not is_latest:
+            ver_tuple = parse_api_version(ver_name)
+            if ver_tuple is None:
+                problems.append(f"{path}: {ver_name!r} is not a valid API version file name")
+                continue
+            floor = floors.get(ver_name) or bundled_floors.get(ver_name)
+            if floor is None:
+                problems.append(f"{path}: no BACK_COMPAT_TO recorded for {ver_name}")
+                continue
         try:
             with open(path, "r", encoding="utf-8") as f:
                 entries = json.load(f)
@@ -4343,6 +4600,8 @@ def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
                 f"{path}: expected a JSON list, got {type(entries).__name__}"
             )
             continue
+        if is_latest and not entries:
+            problems.append(f"{path}: empty, which is an empty Add-on Store")
         seen = set()
         for index, addon in enumerate(entries):
             label = f"{path}[{index}]:"
@@ -4352,9 +4611,12 @@ def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
             channel = addon.get("channel")
             if channel not in _AUDIT_CHANNELS:
                 problems.append(f"{label} unexpected channel {channel!r}")
+            problems.extend(f"{label} {p}" for p in _audit_row_contract(addon))
             for key in ("minNVDAVersion", "lastTestedVersion", "addonVersionNumber"):
                 version_dict = addon.get(key)
                 try:
+                    if set(version_dict) != {"major", "minor", "patch"}:
+                        raise ValueError(version_dict)
                     parsed = (
                         int(version_dict["major"]),
                         int(version_dict["minor"]),
@@ -4362,6 +4624,8 @@ def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
                     )
                 except (KeyError, TypeError, ValueError):
                     problems.append(f"{label} {key} is not a major/minor/patch dict")
+                    continue
+                if is_latest:
                     continue
                 if key == "minNVDAVersion" and parsed > ver_tuple:
                     problems.append(
@@ -4512,6 +4776,9 @@ def main():
     renamed = apply_manifest_names(all_entries, hashcache)
     if renamed:
         log(f"Corrected {renamed} addonIds to their bundle manifest names")
+    corrected = apply_manifest_claims(all_entries, hashcache)
+    if corrected:
+        log(f"Corrected {corrected} version fields to their bundle manifests")
 
     global ENGLISH_CHANGELOGS
     ENGLISH_CHANGELOGS = english_changelogs(all_entries)
