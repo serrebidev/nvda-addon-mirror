@@ -5243,6 +5243,14 @@
     "streamFabDostep": {
       "summary": "StreamFab Access, AKA Dodatek NVDA poprawiający dostępność programu StreamFab dla osób niewidomych",
       "description": "Improves the accessibility of the StreamFab program with NVDA: gives names to unlabeled buttons, announces download status and new windows, reads focus in the My Account menu, lets you press window buttons that cannot be reached with the Tab key, gives a list of downloaded videos, and in the series download window correctly reads episodes (with durations), announces selection with Space, and gives Polish names for lists and audio languages. Handles the login window and moves keyboard focus to the License window that login waits for. Shortcuts in StreamFab: Ctrl+Shift+D download video, Ctrl+Shift+S download status, Ctrl+L address field, Ctrl+Shift+L list of downloaded videos, Ctrl+Shift+O OK, Ctrl+Shift+C Cancel, Ctrl+Shift+arrow keys window buttons, Ctrl+Shift+Enter press the selected one, Ctrl+Shift+R read window, Ctrl+Shift+W next window, Ctrl+Shift+A announcements, Ctrl+Shift+H help."
+    },
+    "digalo": {
+      "summary": "Digalo speech synthesizer",
+      "description": "Digalo speech synthesizer: voices in ten languages, plus a multilingual voice that speaks each language in its own voice. The voice configurator and dictionary editor are under Settings, in the Digalo section. Languages and voices: ar: Merwan. de: Dagmar, Thomas. en-GB: Gordon, Vicky. en-US: Mary, William. es: Andres, Rafael, Veronica. fr: Cathy, Robert. it: Massimo, Sofia. nl: Maarten. pl: Radek. pt-BR: Joana, Pedro. ru: Nicolai. Note: this is the first public version, so various unhandled errors may occur; report them to the developer."
+    },
+    "wmietek8-TranslateAdvanced": {
+      "summary": "Advanced Translator",
+      "description": "Advanced Translator for NVDA is an add-on that makes it easy to translate text into various languages using services such as Google Translate, DeepL, LibreTranslate and Microsoft Translator. It offers simultaneous translation, a translation history and API key management. It is easy to configure and use, with hotkeys and customizable options in the NVDA menu."
     }
   }
 }
