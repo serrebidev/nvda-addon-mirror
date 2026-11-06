@@ -990,6 +990,10 @@
       "summary": "Outlook - Image & Attachment Helper with OCR",
       "description": "Detects, lists, copies, and performs OCR and interactive AI chat/descriptions for images, screenshots, and file attachments (PDF, DOCX, images) in Microsoft Outlook Classic. Features 3 item categories (inline graphics, divider lines, attachments), magnified preview for low-vision users (P), context-sensitive help (F1), semantic heading and table navigation for AI answers, context action menu, prompt presets, hyperlink support, multi-turn chat, universal rich copy, and batch saving with descriptive filenames."
     },
+    "Outlook - Pomocnik obrazów, załączników i OCR": {
+      "summary": "Outlook - Image & Attachment Helper with OCR",
+      "description": "Detects, lists, copies, and performs OCR and interactive AI description/chat for images, screenshots, and attachments (PDF, DOCX, image files, etc.) in Microsoft Outlook Classic. Offers 3 item categories (images, divider lines, attachments), a magnified preview with color inversion (negative) for low-vision users (P/I), context help (F1), semantic heading and table navigation through AI replies, an actions menu, prompt templates, hyperlink support, multi-turn chat, universal export, and batch saving with clear file names."
+    },
     "docListNavigator": {
       "summary": "List and Roman Numeral Navigator for Word and Acrobat, AKA Nawigator list i cyfr rzymskich dla Word i Acrobat",
       "description": "Enables hierarchical navigation through multi-level lists in MS Word and Adobe Acrobat Reader (next/previous at the same level, parent, child, reading the full path, and the document structure tree with F7), plus automatic, natural pronunciation of Roman numerals (for example, 'Roman three')."
