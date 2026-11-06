@@ -10,17 +10,22 @@ Each entry is either:
   catalog when the bundle is installed, or
 - ``pinned``: locked to an exact version with its download URL and SHA-256,
   so installs are reproducible.
+- ``embedded``: the add-on file itself is packed into the bundle, so local
+  or unreleased builds transfer exactly and installs work offline.
 
-The format is versioned (``formatVersion``) so future variants, such as
-fully-offline bundles with embedded files, can be added later.
+A bundle with embedded files is a zip holding ``bundle.json`` plus the
+packed add-ons; a bundle without them stays plain JSON. The format is
+versioned (``formatVersion``) so future variants can be added later.
 """
 
 import hashlib
+import io
 import json
 import os
 import re
 import tempfile
 import urllib.request
+import zipfile
 from datetime import datetime, timezone
 
 import wx
@@ -32,6 +37,7 @@ MIRROR_CATALOG_URL = "https://serrebidev.github.io/nvda-addon-mirror/addons.json
 
 MODE_LATEST = "latest"
 MODE_PINNED = "pinned"
+MODE_EMBEDDED = "embedded"
 
 _DOWNLOAD_TIMEOUT = 30
 _DOWNLOAD_CHUNK = 65536
@@ -74,9 +80,12 @@ def buildBundle(name, entries):
 	}
 
 
-def makeEntry(*, addonId, displayName, installedVersion, mode, version=None, url=None, sha256=None):
+def makeEntry(
+	*, addonId, displayName, installedVersion, mode,
+	version=None, url=None, sha256=None, fileName=None,
+):
 	"""Build one bundle entry. Pinned entries carry version, url and sha256."""
-	if mode not in (MODE_LATEST, MODE_PINNED):
+	if mode not in (MODE_LATEST, MODE_PINNED, MODE_EMBEDDED):
 		raise ValueError("Unknown bundle entry mode: %r" % (mode,))
 	entry = {
 		"addonId": addonId,
@@ -89,6 +98,13 @@ def makeEntry(*, addonId, displayName, installedVersion, mode, version=None, url
 			raise ValueError("Pinned entries need a version and a URL")
 		entry["version"] = version
 		entry["url"] = url
+		if sha256:
+			entry["sha256"] = sha256
+	if mode == MODE_EMBEDDED:
+		if not version or not fileName:
+			raise ValueError("Embedded entries need a version and a file name")
+		entry["version"] = version
+		entry["file"] = fileName
 		if sha256:
 			entry["sha256"] = sha256
 	return entry
@@ -113,9 +129,11 @@ def parseBundle(data):
 		if not isinstance(entry, dict) or not entry.get("addonId"):
 			raise BundleError(_("This bundle contains an invalid add-on entry."))
 		mode = entry.get("mode", MODE_LATEST)
-		if mode not in (MODE_LATEST, MODE_PINNED):
+		if mode not in (MODE_LATEST, MODE_PINNED, MODE_EMBEDDED):
 			raise BundleError(_("This bundle contains an invalid add-on entry."))
 		if mode == MODE_PINNED and not (entry.get("version") and entry.get("url")):
+			raise BundleError(_("This bundle contains an invalid add-on entry."))
+		if mode == MODE_EMBEDDED and not (entry.get("version") and entry.get("file")):
 			raise BundleError(_("This bundle contains an invalid add-on entry."))
 	return data
 
@@ -123,19 +141,47 @@ def parseBundle(data):
 def loadBundleFile(path):
 	"""Read and validate a bundle file. :raise BundleError: on any problem."""
 	try:
+		if zipfile.is_zipfile(path):
+			with zipfile.ZipFile(path) as archive:
+				data = json.loads(archive.read("bundle.json").decode("utf-8"))
+				bundle = parseBundle(data)
+				for entry in bundle["addons"]:
+					if entry.get("mode") != MODE_EMBEDDED:
+						continue
+					try:
+						entry["_data"] = archive.read(entry["file"])
+					except KeyError:
+						raise BundleError(_("This bundle is missing an included add-on file."))
+			return bundle
 		with open(path, "r", encoding="utf-8") as f:
 			data = json.load(f)
 	except FileNotFoundError:
 		raise BundleError(_("Could not open the bundle file."))
-	except (OSError, ValueError):
+	except BundleError:
+		raise
+	except (OSError, ValueError, KeyError):
 		raise BundleError(_("Could not read the bundle file: it is not valid JSON."))
 	return parseBundle(data)
 
 
-def saveBundleFile(bundle, path):
-	"""Write a bundle document to *path* as UTF-8 JSON."""
+def saveBundleFile(bundle, path, embeddedFiles=None):
+	"""Write a bundle to *path*: plain JSON, or a zip when files are embedded."""
+	document = {
+		key: [
+			{field: value for field, value in entry.items() if not field.startswith("_")}
+			if isinstance(entry, dict) else entry
+			for entry in value
+		] if key == "addons" else value
+		for key, value in bundle.items()
+	}
+	if embeddedFiles:
+		with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+			archive.writestr("bundle.json", json.dumps(document, ensure_ascii=False, indent=2) + "\n")
+			for fileName, data in embeddedFiles.items():
+				archive.writestr(fileName, data)
+		return
 	with open(path, "w", encoding="utf-8") as f:
-		json.dump(bundle, f, ensure_ascii=False, indent=2)
+		json.dump(document, f, ensure_ascii=False, indent=2)
 		f.write("\n")
 
 
@@ -177,6 +223,7 @@ def getInstalledAddons(addonHandler):
 			"addonId": addon.name,
 			"displayName": manifest.get("summary") or addon.name,
 			"version": addon.version,
+			"path": getattr(addon, "path", "") or "",
 		})
 	return sorted(installed, key=lambda item: item["displayName"].lower())
 
@@ -217,6 +264,59 @@ def buildExportEntries(installed, catalogMap, pinVersions):
 	return entries
 
 
+def _embeddedFileName(addonId):
+	safe = re.sub(r"[^A-Za-z0-9._-]+", "_", str(addonId))
+	return "addons/%s.nvda-addon" % (safe or "addon",)
+
+
+def packInstalledAddon(addonPath):
+	"""Pack an installed add-on folder into .nvda-addon bytes.
+
+	The manifest stays at the zip root, as NVDA's installer requires.
+	:raise OSError: if the folder cannot be read.
+	"""
+	if not addonPath or not os.path.isdir(addonPath):
+		raise OSError("Installed add-on folder not found: %s" % (addonPath or "?",))
+	buffer = io.BytesIO()
+	with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+		for root, _dirs, files in os.walk(addonPath):
+			for fileName in files:
+				full = os.path.join(root, fileName)
+				archive.write(full, os.path.relpath(full, addonPath))
+	return buffer.getvalue()
+
+
+def buildEmbeddedEntries(installed, packer):
+	"""Build embedded entries via *packer(addon) -> bytes*. Returns (entries, files)."""
+	entries, files = [], {}
+	for addon in installed:
+		data = packer(addon)
+		fileName = _embeddedFileName(addon["addonId"])
+		files[fileName] = data
+		entries.append(makeEntry(
+			addonId=addon["addonId"],
+			displayName=addon["displayName"],
+			installedVersion=addon["version"],
+			mode=MODE_EMBEDDED,
+			version=addon["version"],
+			sha256=hashlib.sha256(data).hexdigest(),
+			fileName=fileName,
+		))
+	return entries, files
+
+
+def reinstallItems(resolved):
+	"""Resolved entries whose install would overwrite the same version."""
+	return [item for item in resolved if item.get("status") == "up-to-date"]
+
+
+def planInstall(resolved, reinstallConfirmed):
+	"""Entries to install; same-version ones only when *reinstallConfirmed*."""
+	if reinstallConfirmed:
+		return list(resolved)
+	return [item for item in resolved if item.get("status") != "up-to-date"]
+
+
 def resolveEntries(bundle, catalogMap, installedMap):
 	"""Resolve a bundle into an install plan for the import dialog.
 
@@ -231,7 +331,13 @@ def resolveEntries(bundle, catalogMap, installedMap):
 		addonId = entry["addonId"]
 		installed = installedMap.get(addonId)
 		installedVersion = installed["version"] if installed else ""
-		if entry.get("mode") == MODE_PINNED:
+		if entry.get("mode") == MODE_EMBEDDED:
+			version = entry.get("version", "")
+			url = ""
+			sha256 = entry.get("sha256", "")
+			source = ""
+			available = entry.get("_data") is not None
+		elif entry.get("mode") == MODE_PINNED:
 			version = entry.get("version", "")
 			url = entry.get("url", "")
 			sha256 = entry.get("sha256", "")
@@ -259,7 +365,7 @@ def resolveEntries(bundle, catalogMap, installedMap):
 			status = "update"
 		else:
 			status = "new"
-		resolved.append({
+		item = {
 			"addonId": addonId,
 			"displayName": entry.get("displayName") or catalogMap.get(addonId, {}).get("displayName") or addonId,
 			"version": version,
@@ -268,7 +374,10 @@ def resolveEntries(bundle, catalogMap, installedMap):
 			"source": source,
 			"status": status,
 			"installedVersion": installedVersion,
-		})
+		}
+		if entry.get("_data") is not None:
+			item["embeddedData"] = entry["_data"]
+		resolved.append(item)
 	return resolved
 
 
@@ -335,7 +444,10 @@ def installResolved(resolved, *, downloader=downloadToTemp, installer=None, prog
 		if progress is not None:
 			progress(index, total, name, "download")
 		try:
-			path = downloader(item["url"])
+			if item.get("embeddedData") is not None:
+				path = _writeTempAddon(item["embeddedData"])
+			else:
+				path = downloader(item["url"])
 		except Exception as e:
 			failed.append((name, _("Download failed: %s") % (e,)))
 			continue
@@ -357,6 +469,13 @@ def installResolved(resolved, *, downloader=downloadToTemp, installer=None, prog
 			except OSError:
 				pass
 	return {"installed": installed, "failed": failed, "skipped": skipped}
+
+
+def _writeTempAddon(data):
+	fd, path = tempfile.mkstemp(suffix=".nvda-addon", prefix="nvda-bundle-")
+	with os.fdopen(fd, "wb") as f:
+		f.write(data)
+	return path
 
 
 def _nvdaInstaller(path):
@@ -395,6 +514,8 @@ class ExportBundleDialog(wx.Dialog):
 			_("Latest available"),
 			# Translators: Bundle export mode: lock the currently installed versions.
 			_("Pin to my installed versions"),
+			# Translators: Bundle export mode: pack the add-on files into the bundle itself.
+			_("Include add-on files (for local or unreleased builds)"),
 		])
 		sizer.Add(self.modeRadio, 0, wx.EXPAND | wx.ALL, 10)
 		nameSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -421,20 +542,37 @@ class ExportBundleDialog(wx.Dialog):
 				wx.OK | wx.ICON_INFORMATION,
 			)
 			return
-		pinVersions = self.modeRadio.GetSelection() == 1
+		modeSelection = self.modeRadio.GetSelection()
+		pinVersions = modeSelection == 1
+		includeFiles = modeSelection == 2
 		# Messages keep flowing while the catalog downloads, so a second press
 		# of Export can arrive meanwhile. Ignore it rather than disabling the
 		# focused button, which would strand keyboard focus.
 		if getattr(self, "_exporting", False):
 			return
 		self._exporting = True
+		embeddedFiles = None
 		try:
-			catalogMap = runPumped(fetchCatalogMap)
-		except Exception:
-			catalogMap = {}
+			if includeFiles:
+				entries, embeddedFiles = runPumped(
+					buildEmbeddedEntries, selected,
+					lambda addon: packInstalledAddon(addon.get("path", "")),
+				)
+			else:
+				try:
+					catalogMap = runPumped(fetchCatalogMap)
+				except Exception:
+					catalogMap = {}
+				entries = buildExportEntries(selected, catalogMap, pinVersions)
+		except Exception as e:
+			wx.MessageBox(
+				_("Could not include the add-on files in the bundle: %s") % (e,),
+				_("Export add-on bundle"),
+				wx.OK | wx.ICON_ERROR,
+			)
+			return
 		finally:
 			self._exporting = False
-		entries = buildExportEntries(selected, catalogMap, pinVersions)
 		bundle = buildBundle(self.nameCtrl.GetValue().strip() or _("NVDA add-ons"), entries)
 		# Translators: File dialog title and filter for saving a bundle.
 		wildcard = _("NVDA add-on bundle (*%s)|*%s") % (BUNDLE_EXTENSION, BUNDLE_EXTENSION)
@@ -449,7 +587,7 @@ class ExportBundleDialog(wx.Dialog):
 			if not path.lower().endswith(BUNDLE_EXTENSION):
 				path += BUNDLE_EXTENSION
 		try:
-			saveBundleFile(bundle, path)
+			saveBundleFile(bundle, path, embeddedFiles=embeddedFiles)
 		except OSError as e:
 			wx.MessageBox(
 				_("Could not save the bundle: %s") % (e,),
@@ -457,12 +595,18 @@ class ExportBundleDialog(wx.Dialog):
 				wx.OK | wx.ICON_ERROR,
 			)
 			return
-		pinned = sum(1 for entry in entries if entry["mode"] == MODE_PINNED)
-		wx.MessageBox(
+		if includeFiles:
+			message = _("Exported {count} add-ons with their files included in the bundle.").format(
+				count=len(entries),
+			)
+		else:
+			pinned = sum(1 for entry in entries if entry["mode"] == MODE_PINNED)
 			# Translators: {count} add-ons exported, {pinned} of them pinned.
-			_("Exported {count} add-ons ({pinned} pinned to installed versions).").format(
+			message = _("Exported {count} add-ons ({pinned} pinned to installed versions).").format(
 				count=len(entries), pinned=pinned,
-			),
+			)
+		wx.MessageBox(
+			message,
 			_("Export add-on bundle"),
 			wx.OK | wx.ICON_INFORMATION,
 		)
@@ -503,7 +647,9 @@ class ImportBundleDialog(wx.Dialog):
 		status = item["status"]
 		if status == "up-to-date":
 			# Translators: {name} add-on name, {version} its version.
-			detail = _("already installed ({version})").format(version=item["installedVersion"])
+			detail = _("already installed ({version}); check to reinstall").format(
+				version=item["installedVersion"],
+			)
 		elif status == "update":
 			# Translators: {name} add-on name, {old} installed version, {new} bundle version.
 			detail = _("installed: {old}, bundle: {new}").format(
@@ -517,6 +663,9 @@ class ImportBundleDialog(wx.Dialog):
 		elif status == "unavailable":
 			# Translators: Shown when a bundle entry has no known download.
 			detail = _("no download available")
+		elif item.get("embeddedData") is not None:
+			# Translators: {version} add-on version included in the bundle file.
+			detail = _("{version}, included in bundle").format(version=item["version"] or _("unknown"))
 		else:
 			version = item["version"] or _("latest")
 			detail = version
@@ -540,6 +689,26 @@ class ImportBundleDialog(wx.Dialog):
 				wx.OK | wx.ICON_INFORMATION,
 			)
 			return
+		reinstalls = reinstallItems(available)
+		if reinstalls:
+			names = ", ".join(item["displayName"] for item in reinstalls)
+			# Translators: Asked before reinstalling add-ons at the same version.
+			answer = wx.MessageBox(
+				_(
+					"{names} already installed at the same version. "
+					"Reinstall anyway, overwriting the installed copy?"
+				).format(names=names),
+				_("Install from add-on bundle"),
+				wx.YES_NO | wx.ICON_QUESTION,
+			)
+			available = planInstall(available, reinstallConfirmed=answer == wx.YES)
+			if not available:
+				wx.MessageBox(
+					_("Nothing was installed."),
+					_("Install from add-on bundle"),
+					wx.OK | wx.ICON_INFORMATION,
+				)
+				return
 		# Translators: Progress dialog title while installing a bundle.
 		progress = wx.ProgressDialog(
 			_("Installing add-ons"), _("Starting..."),

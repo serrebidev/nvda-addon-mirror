@@ -469,6 +469,95 @@ class DowngradeStatusTests(unittest.TestCase):
         self.assertEqual("update", item["status"])
 
 
+class EmbeddedBundleTests(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(builtins, "_", lambda text: text, create=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_packInstalledAddon_zips_manifest_at_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "manifest.ini"), "w", encoding="utf-8") as f:
+                f.write("name = reloqC\nversion = 1.1.2\n")
+            os.makedirs(os.path.join(tmp, "synthDrivers"))
+            with open(os.path.join(tmp, "synthDrivers", "reloq.py"), "w") as f:
+                f.write("# driver\n")
+            data = bundles.packInstalledAddon(tmp)
+        import io, zipfile
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            self.assertIn("manifest.ini", z.namelist())
+            self.assertIn("synthDrivers/reloq.py", z.namelist())
+
+    def test_embedded_round_trip_carries_exact_bytes(self):
+        payload = b"unreleased-addon-bytes"
+        installed = [{"addonId": "reloqC", "displayName": "Eloquence C", "version": "1.1.2", "path": "/x"}]
+        entries, files = bundles.buildEmbeddedEntries(installed, packer=lambda addon: payload)
+        self.assertEqual(bundles.MODE_EMBEDDED, entries[0]["mode"])
+        self.assertEqual("1.1.2", entries[0]["version"])
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), entries[0]["sha256"])
+        bundle = bundles.buildBundle("Share", entries)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "share.nvda-bundle")
+            bundles.saveBundleFile(bundle, path, embeddedFiles=files)
+            loaded = bundles.loadBundleFile(path)
+        [entry] = loaded["addons"]
+        self.assertEqual(payload, entry["_data"])
+        resolved = bundles.resolveEntries(loaded, {}, {})
+        self.assertEqual("new", resolved[0]["status"])
+        self.assertEqual(payload, resolved[0]["embeddedData"])
+
+    def test_embedded_install_uses_embedded_bytes_not_network(self):
+        payload = b"unreleased-addon-bytes"
+        seen = []
+
+        def fakeInstaller(path):
+            with open(path, "rb") as f:
+                seen.append(f.read())
+
+        item = {
+            "addonId": "reloqC", "displayName": "Eloquence C", "version": "1.1.2",
+            "url": "", "sha256": hashlib.sha256(payload).hexdigest(),
+            "source": "", "status": "up-to-date", "installedVersion": "1.1.2",
+            "embeddedData": payload,
+        }
+        result = bundles.installResolved(
+            [item],
+            downloader=lambda url: (_ for _ in ()).throw(AssertionError("must not download")),
+            installer=fakeInstaller,
+        )
+        self.assertEqual(["Eloquence C"], result["installed"])
+        self.assertEqual([payload], seen)
+
+    def test_plain_bundle_still_saves_as_json(self):
+        bundle = bundles.buildBundle("Plain", [
+            bundles.makeEntry(addonId="a", displayName="A", installedVersion="1.0", mode=bundles.MODE_LATEST),
+        ])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "plain.nvda-bundle")
+            bundles.saveBundleFile(bundle, path)
+            with open(path, encoding="utf-8") as f:
+                self.assertEqual(bundle, json.load(f))
+            self.assertEqual(bundle, bundles.loadBundleFile(path))
+
+
+class ReinstallPlanTests(unittest.TestCase):
+    def _item(self, addonId, status, installedVersion="", version=""):
+        return {
+            "addonId": addonId, "displayName": addonId, "version": version or installedVersion,
+            "url": "https://example.com/x.nvda-addon", "sha256": "", "source": "example.com",
+            "status": status, "installedVersion": installedVersion,
+        }
+
+    def test_same_version_needs_confirmation_and_is_dropped_without_it(self):
+        items = [self._item("alpha", "up-to-date", "2.0"), self._item("beta", "new")]
+        self.assertEqual(["alpha"], [i["addonId"] for i in bundles.reinstallItems(items)])
+        self.assertEqual(["beta"], [i["addonId"] for i in bundles.planInstall(items, reinstallConfirmed=False)])
+
+    def test_same_version_installs_when_confirmed(self):
+        items = [self._item("alpha", "up-to-date", "2.0"), self._item("beta", "new")]
+        self.assertEqual(["alpha", "beta"], [i["addonId"] for i in bundles.planInstall(items, reinstallConfirmed=True)])
+
+
 class RunPumpedTests(unittest.TestCase):
     """Network work must run through NVDA's ExecAndPump, not on the GUI thread."""
 

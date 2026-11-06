@@ -128,7 +128,7 @@ https://serrebidev.github.io/nvda-addon-mirror
 Three ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [Download addonStoreMirror 1.5.0](https://github.com/serrebidev/nvda-addon-mirror/releases/download/v1.5.0/addonStoreMirror-1.5.0.nvda-addon).
+   [Download addonStoreMirror 1.6.0](https://github.com/serrebidev/nvda-addon-mirror/releases/download/v1.6.0/addonStoreMirror-1.6.0.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
@@ -159,18 +159,23 @@ Since 1.4.0 the helper can pack your whole add-on setup into one small
 to share add-on setups without sending a portable NVDA copy around.
 
 - **Export:** NVDA menu > Tools > Add-on bundles > "Export installed add-ons
-  as bundle...". Pick the add-ons, choose "Latest available" or "Pin to my
-  installed versions", save the file. The bundle only contains download
-  links, never the add-ons themselves.
+  as bundle...". Pick the add-ons, choose "Latest available", "Pin to my
+  installed versions", or "Include add-on files", and save the file. The
+  first two only contain download links; "Include add-on files" packs the
+  installed add-ons into the bundle itself, so a local or unreleased build
+  reaches the other person exactly as installed and installs offline.
 - **Install:** "Install add-ons from bundle file..." opens a `.nvda-bundle`,
   shows every add-on with its version and download source, and installs the
   ones you check — one restart at the end instead of one per add-on.
-  Add-ons you already have at the same version are unchecked automatically.
+  Add-ons you already have at the same version are unchecked automatically;
+  check one and you will be asked whether to reinstall it anyway,
+  overwriting the installed copy.
 
 Only install bundles from people you trust: a bundle is a list of download
-URLs, and the import dialog shows exactly where each add-on comes from.
-Pinned entries also carry a SHA-256 checksum that is verified after
-downloading.
+URLs (or, with files included, the add-ons themselves), and the import
+dialog shows exactly where each add-on comes from.
+Pinned and included entries also carry a SHA-256 checksum that is verified
+before installing.
 
 2. **Edit `nvda.ini`** manually:
    ```ini
