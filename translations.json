@@ -990,6 +990,10 @@
       "summary": "Outlook - Image & Attachment Helper with OCR",
       "description": "Detects, lists, copies, and performs OCR and interactive AI chat/descriptions for images, screenshots, and file attachments (PDF, DOCX, images) in Microsoft Outlook Classic. Features 3 item categories (inline graphics, divider lines, attachments), magnified preview for low-vision users (P), context-sensitive help (F1), semantic heading and table navigation for AI answers, context action menu, prompt presets, hyperlink support, multi-turn chat, universal rich copy, and batch saving with descriptive filenames."
     },
+    "docListNavigator": {
+      "summary": "List and Roman Numeral Navigator for Word and Acrobat, AKA Nawigator list i cyfr rzymskich dla Word i Acrobat",
+      "description": "Enables hierarchical navigation through multi-level lists in MS Word and Adobe Acrobat Reader (next/previous at the same level, parent, child, reading the full path, and the document structure tree with F7), plus automatic, natural pronunciation of Roman numerals (for example, 'Roman three')."
+    },
     "screenWrapping": {
       "summary": "ScreenWrapping",
       "description": "The ScreenWrapping add-on adds screen wrapping functionality to nvda.\nWhen you press shortcut keys such as h, b, f and others, you will be moved to the next element regardless of your current position on the web page.\nIf no elements are found below your position, you will be moved to the first element of the requested type accessible from the top of the page, and vice versa when you search upward. this also applies to the nvda search dialog.\nYou can turn the screen navigation feature on or off using the **nvda+h command.\nYou can change the command in input gestures, in the subsection Review mode, Activate and deactivate the function of moving around the screen."
