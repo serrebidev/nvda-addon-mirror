@@ -1,5 +1,9 @@
 {
   "translations": {
+    "通用表格閱讀器": {
+      "summary": "Universal Table Reader, AKA 通用表格閱讀器",
+      "description": "Recognizes web page tables and provides cell-by-cell navigation on the original page, braille synchronization, and a separate reading window. Requires NVDA 2026.3; inferred results should be verified."
+    },
     "ClipBoardEditor": {
       "summary": "Clipboard Editor",
       "description": "Edit the text in the clipboard, view the last 10 copied texts, and format JSON, XML or SQL content."
