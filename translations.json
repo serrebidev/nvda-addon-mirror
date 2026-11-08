@@ -1,5 +1,9 @@
 {
   "translations": {
+    "fasih": {
+      "summary": "Fasih: Arabic RHVoice voices, AKA Fasih (فصيح): Arabic RHVoice voices",
+      "description": "Fasih: non-neural Arabic voices for the RHVoice engine (Jamal, Nour, Sami), with Rawi diacritization from ClaritySynth and the WORLD vocoder."
+    },
     "通用表格閱讀器": {
       "summary": "Universal Table Reader, AKA 通用表格閱讀器",
       "description": "Recognizes web page tables and provides cell-by-cell navigation on the original page, braille synchronization, and a separate reading window. Requires NVDA 2026.3; inferred results should be verified."
