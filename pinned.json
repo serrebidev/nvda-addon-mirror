@@ -12,18 +12,6 @@
       "last_tested_nvda_version": "2027.1"
     },
     {
-      "repo": "hozosch/eloquence_64",
-      "asset_glob": "*.nvda-addon",
-      "addon_id": "hozosch-Eloquence64",
-      "summary": "Eloquence 64 (hozosch)",
-      "publisher": "HOzosch",
-      "fork_policy": "include",
-      "license": "Unknown",
-      "channel": "stable",
-      "min_nvda_version": "2024.1",
-      "last_tested_nvda_version": "2027.1"
-    },
-    {
       "repo": "Nick6489/Eloquence64RS",
       "asset_glob": "*.nvda-addon",
       "addon_id": "Nick-Eloquence64RS",
