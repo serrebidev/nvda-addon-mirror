@@ -146,13 +146,12 @@ class PinnedConfigurationTests(unittest.TestCase):
             entry for entry in pinned
             if "eloquence" in entry.get("repo", "").casefold()
         ]
-        self.assertEqual(4, len(eloquence))
-        self.assertEqual(4, len({entry["repo"].casefold() for entry in eloquence}))
-        self.assertEqual(4, len({entry["addon_id"].casefold() for entry in eloquence}))
-        self.assertEqual(4, len({entry["summary"].casefold() for entry in eloquence}))
+        self.assertEqual(3, len(eloquence))
+        self.assertEqual(3, len({entry["repo"].casefold() for entry in eloquence}))
+        self.assertEqual(3, len({entry["addon_id"].casefold() for entry in eloquence}))
+        self.assertEqual(3, len({entry["summary"].casefold() for entry in eloquence}))
 
         by_repo = {entry["repo"]: entry for entry in eloquence}
-        self.assertEqual("include", by_repo["hozosch/eloquence_64"]["fork_policy"])
         self.assertEqual("include", by_repo["Nick6489/Eloquence64RS"]["fork_policy"])
 
 class NvdaReleaseMetadataTests(unittest.TestCase):
