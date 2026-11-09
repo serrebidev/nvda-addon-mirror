@@ -3049,7 +3049,12 @@ def fetch_github_owners(
                 repo,
                 release_state.get(repo.casefold()),
             ): ("release", repo)
-            for repo in repositories
+            # Never-verified repositories first: on a small quota they are
+            # the ones with no last verified state to fall back on.
+            for repo in sorted(repositories, key=lambda repo: isinstance(
+                (release_state.get(repo.casefold()) or {}).get("candidates"),
+                list,
+            ))
         }
         futures.update({
             pool.submit(_github_artifact_candidates, spec): ("artifact", spec.get("repo"))
