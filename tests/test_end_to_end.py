@@ -130,7 +130,7 @@ class Scenario:
         self.internet = Internet()
         self.seed = {}
         self.official, self.bestmidi, self.ru, self.es = [], [], [], []
-        self.owners, self.pinned = [], []
+        self.owners, self.pinned, self.forgejo = [], [], []
         serve = self.internet.serve
 
         # Every source must reach the far end, not only the catalogs above.
@@ -140,6 +140,10 @@ class Scenario:
         self.owner_url = BASE + "ownerAddon.nvda-addon"
         serve(self.owner_url, bundle(manifest_text("ownerAddon")))
         self.owners.append(row("Owner Display", self.owner_url, source="github_owner"))
+        self.forgejo_url = BASE + "forgejoAddon.nvda-addon"
+        serve(self.forgejo_url, bundle(manifest_text("forgejoAddon")))
+        self.forgejo.append(row(
+            "Forgejo Display", self.forgejo_url, source="forgejo_owner"))
         # A pinned bundle is repackaged and hosted by the mirror itself.
         pinned = bundle(manifest_text("pinnedAddon", "2.0"))
         self.pinned_url = f"{SITE}/downloads/pinnedAddon-2.0.nvda-addon"
@@ -346,6 +350,8 @@ def run_build(scenario, directory, now):
                               lambda: copy.deepcopy(scenario.es)), \
             mock.patch.object(mirror, "fetch_github_owners",
                               lambda existing_entries=None: copy.deepcopy(scenario.owners)), \
+            mock.patch.object(mirror, "fetch_forgejo_owners",
+                              lambda existing_entries=None: copy.deepcopy(scenario.forgejo)), \
             mock.patch.object(mirror, "fetch_pinned",
                               lambda: copy.deepcopy(scenario.pinned)), \
             mock.patch.object(mirror, "load_nvda_api_version_entries",

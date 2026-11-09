@@ -184,13 +184,15 @@ USER_AGENT = (
     "serrebidev/nvda-addon-mirror)"
 )
 
-ALL_SOURCES = ("official", "bestmidi", "ru", "es", "github_owner", "pinned")
+ALL_SOURCES = ("official", "bestmidi", "ru", "es", "github_owner", "forgejo_owner", "pinned")
 
 #: How much each source is trusted when two of them describe the same add-on.
 #: Used both to pick the winning entry (see dedupe) and to pick which source's
-#: English release notes to borrow (see english_changelogs).
+#: English release notes to borrow (see english_changelogs). Forgejo outranks
+#: GitHub: an owner who publishes on both means the Forgejo release to win.
 SOURCE_PRIORITY = {
-    "pinned": 5,
+    "pinned": 6,
+    "forgejo_owner": 5,
     "github_owner": 4,
     "official": 3,
     "ru": 2,
@@ -272,6 +274,7 @@ STORE_SOURCE_LABELS = {
     "official": "NV Access Add-on Store",
     "pinned": "Pinned GitHub release",
     "github_owner": "GitHub author release",
+    "forgejo_owner": "Forgejo author release",
     "ru": "NVDA Add-ons RU",
     "bestmidi": "BestMidi",
     "es": "NVDA.es",
@@ -281,7 +284,19 @@ STORE_SOURCE_LABELS = {
 #: so the helper add-on does not describe it as a GitHub release. Deliberately
 #: not a STORE_SOURCE_LABELS key: it is a provenance label, not a source.
 PINNED_URL_SOURCE_LABEL = "Author's website"
+#: A pinned entry can also name a Forgejo release ("host": "forgejo"), which
+#: needs its own provenance label for the same reason.
+PINNED_FORGEJO_SOURCE_LABEL = "Pinned Forgejo release"
 GITHUB_API = "https://api.github.com"
+#: The owner's Forgejo instance, which serves GitHub-shaped release JSON at
+#: /api/v1/repos/{owner}/{repo}/releases. Public releases need no token.
+FORGEJO_WEB = "https://git.serrebiradio.com"
+FORGEJO_API = FORGEJO_WEB + "/api/v1"
+FORGEJO_OWNERS_PATH = "forgejoOwners.json"
+#: Section of the shared author cache file holding the Forgejo entries and
+#: release state. One file keeps the existing workflow cache steps and the
+#: published-site restore working with no new paths or secrets.
+FORGEJO_CACHE_SECTION = "__forgejo__"
 # urllib wraps most network faults in URLError, but a connection GitHub drops
 # mid-response escapes as a bare http.client.RemoteDisconnected from
 # getresponse() ("Remote end closed connection without response"), which is
@@ -293,12 +308,19 @@ GITHUB_TRANSIENT_ERRORS = (
     http.client.HTTPException,
     URLError,
 )
+#: The Forgejo source retries the same network faults as the GitHub one.
+FORGEJO_TRANSIENT_ERRORS = GITHUB_TRANSIENT_ERRORS
 GITHUB_OWNER_REJECTIONS = []
+FORGEJO_OWNER_REJECTIONS = []
 
 # GitHub API token, when present (e.g. GITHUB_TOKEN in Actions). Raises the
 # api.github.com rate limit from 60 to 1000 requests/hour, which matters when
 # the mirror rebuilds more often than the upstream catalogs change.
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+
+# Forgejo API token, when present. Public releases need none; a token only
+# matters for private repositories or a rate-limited instance.
+FORGEJO_TOKEN = os.environ.get("FORGEJO_TOKEN", "")
 
 
 def log(msg):
@@ -1572,14 +1594,34 @@ def cached_pinned_bundle(asset):
 
 
 def _fetch_one_pinned(spec, repo, addon_id):
-    api_headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/vnd.github+json",
-    }
-    if GITHUB_TOKEN:
-        api_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    host = (spec.get("host") or "github").strip().lower()
+    if host == "forgejo":
+        # Forgejo serves GitHub-shaped release JSON; only the base URL, the
+        # page-size parameter, and the token scheme differ.
+        web_base = FORGEJO_WEB
+        releases_url = f"{FORGEJO_API}/repos/{repo}/releases?limit=20"
+        api_headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+        }
+        if FORGEJO_TOKEN:
+            api_headers["Authorization"] = f"token {FORGEJO_TOKEN}"
+    elif host == "github":
+        web_base = "https://github.com"
+        releases_url = f"{GITHUB_API}/repos/{repo}/releases?per_page=20"
+        api_headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/vnd.github+json",
+        }
+        if GITHUB_TOKEN:
+            api_headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    else:
+        raise RuntimeError(
+            f"pinned entry {repo} has unknown host {host!r}; "
+            "expected 'github' or 'forgejo'"
+        )
     releases = json.loads(http_get(
-        f"{GITHUB_API}/repos/{repo}/releases?per_page=20", headers=api_headers
+        releases_url, headers=api_headers
     ).decode("utf-8"))
     glob = spec.get("asset_glob", "*.nvda-addon")
 
@@ -1607,7 +1649,9 @@ def _fetch_one_pinned(spec, repo, addon_id):
     author = spec.get("publisher") or _manifest_value(manifest_text, "author") or ""
     mv = _manifest_value(manifest_text, "version")
     version = _select_pinned_version(mv, asset["name"], release["tag_name"])
-    if not _pinned_fork_release_qualifies(spec, repo, sanitize_version(version)):
+    if not _pinned_fork_release_qualifies(
+        spec, repo, sanitize_version(version), host=host
+    ):
         raise RuntimeError(
             f"pinned fork {repo} release {version!r} is not newer than its "
             "parent; use fork_policy 'include' only for an intentionally "
@@ -1631,12 +1675,12 @@ def _fetch_one_pinned(spec, repo, addon_id):
         "author": author,
         "version": version,
         "channel": spec.get("channel", "stable"),
-        "homepage": f"https://github.com/{repo}",
-        "source_url": f"https://github.com/{repo}",
+        "homepage": f"{web_base}/{repo}",
+        "source_url": f"{web_base}/{repo}",
         "license": spec.get("license", "Unknown"),
         "license_url": spec.get("license_url", ""),
         "changelog": (release.get("body") or "").strip(),
-        "download_url": f"https://github.com/{repo}/releases/download/{release['tag_name']}/{asset['name']}",
+        "download_url": f"{web_base}/{repo}/releases/download/{release['tag_name']}/{asset['name']}",
         "submission_ms": parse_iso8601_to_ms(release.get("published_at")),
         "min_nvda": min_nvda,
         "last_tested": last_tested,
@@ -1645,6 +1689,10 @@ def _fetch_one_pinned(spec, repo, addon_id):
         "sha256": digest,
         "_patched_bytes": patched,
     }
+    if host == "forgejo":
+        # A Forgejo pin carries its own provenance label so the helper
+        # add-on does not describe it as a GitHub release.
+        entry["store_source_label"] = PINNED_FORGEJO_SOURCE_LABEL
     return [entry]
 
 
@@ -1789,7 +1837,7 @@ def _github_fork_release_qualifies(repo, fork_version=None):
     return qualifies
 
 
-def _pinned_fork_release_qualifies(spec, repo, fork_version):
+def _pinned_fork_release_qualifies(spec, repo, fork_version, host="github"):
     """Apply the configured fork policy for an explicitly pinned variant.
 
     Pinned variants normally follow the global rule that a fork must release a
@@ -1805,6 +1853,8 @@ def _pinned_fork_release_qualifies(spec, repo, fork_version):
             f"invalid pinned fork_policy {policy!r} for {repo}; "
             "expected 'newer' or 'include'"
         )
+    if host == "forgejo":
+        return _forgejo_fork_release_qualifies(repo, fork_version)
     return _github_fork_release_qualifies(repo, fork_version)
 
 
@@ -2407,7 +2457,10 @@ def _cached_github_repositories(cache):
         if match:
             repositories.add(match.group(1))
         repo = entry.get("_repo")
-        if isinstance(repo, str) and "/" in repo:
+        if isinstance(repo, str) and "/" in repo and not repo.startswith("forgejo:"):
+            # "forgejo:owner/name" markers belong to the Forgejo source,
+            # which keeps its own repository list; GitHub must not probe
+            # api.github.com for them.
             repositories.add(repo)
     return repositories
 
@@ -2479,8 +2532,13 @@ def _owner_cache_key(item):
     )
 
 
-def _github_asset_entry(candidate):
-    """Download one author-owned bundle, validate its manifest, and normalize it."""
+def _github_asset_entry(candidate, source="github_owner",
+                        repo_url_base="https://github.com"):
+    """Download one author-owned bundle, validate its manifest, and normalize it.
+
+    The Forgejo source shares this builder with its own source label and
+    repository URL base; the bundle validation is identical.
+    """
     raw = http_get(candidate["download_url"], timeout=120)
     digest = hashlib.sha256(raw).hexdigest()
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
@@ -2507,7 +2565,7 @@ def _github_asset_entry(candidate):
     if channel == "stable" or manifest_channel in ("beta", "dev"):
         channel = manifest_channel
 
-    repo_url = f"https://github.com/{candidate['repo']}"
+    repo_url = f"{repo_url_base}/{candidate['repo']}"
     return {
         "name": name,
         "summary": _manifest_value(manifest_text, "summary") or name,
@@ -2528,9 +2586,16 @@ def _github_asset_entry(candidate):
         "last_tested": parse_api_version(
             _manifest_value(manifest_text, "lastTestedNVDAVersion")
         ),
-        "source": "github_owner",
+        "source": source,
         "sha256": digest,
     }
+
+
+def _forgejo_asset_entry(candidate):
+    """Download one Forgejo-hosted bundle, validate it, and normalize it."""
+    return _github_asset_entry(
+        candidate, source="forgejo_owner", repo_url_base=FORGEJO_WEB
+    )
 
 
 def _load_github_owner_cache(path=GITHUB_OWNER_CACHE_PATH):
@@ -2997,6 +3062,10 @@ def fetch_github_owners(
         if entry.get("download_url")
     }
     new_cache = {"__discovery__": discovery_snapshot}
+    if FORGEJO_CACHE_SECTION in old_cache:
+        # The Forgejo source shares this cache file; its section rides along
+        # through every write here, periodic progress saves included.
+        new_cache[FORGEJO_CACHE_SECTION] = old_cache[FORGEJO_CACHE_SECTION]
     entries = []
     pending = []
     reused_catalog = 0
@@ -3095,6 +3164,342 @@ def fetch_github_owners(
         )
     log(
         f"GitHub authors: reused {reused_catalog} catalog records and "
+        f"{reused_cache} cached manifests; validated {len(pending)} new assets"
+    )
+    return entries
+
+
+def _load_forgejo_owners(path=FORGEJO_OWNERS_PATH):
+    """Load Forgejo author accounts and their add-on repositories.
+
+    The file shares githubOwners.json's shape, but every repository must be
+    listed explicitly: the Forgejo source does no account discovery.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as config_file:
+            data = json.load(config_file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
+    owners = data.get("owners", [])
+    if not isinstance(owners, list):
+        return []
+    return [
+        spec for spec in owners
+        if isinstance(spec, dict) and (spec.get("login") or "").strip()
+    ]
+
+
+def _forgejo_headers():
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    if FORGEJO_TOKEN:
+        headers["Authorization"] = f"token {FORGEJO_TOKEN}"
+    return headers
+
+
+def _forgejo_json(url, timeout=120):
+    """Fetch Forgejo JSON with bounded retries."""
+    for attempt, delay in enumerate((0, 5, 15, 30)):
+        if delay:
+            time.sleep(delay)
+        try:
+            return http_get_json(url, timeout=timeout, headers=_forgejo_headers())
+        except HTTPError as exc:
+            if exc.code not in (403, 429) and not 500 <= exc.code < 600:
+                raise
+            if attempt == 3:
+                raise
+        except FORGEJO_TRANSIENT_ERRORS:
+            if attempt == 3:
+                raise
+    raise RuntimeError(f"Forgejo request did not complete: {url}")
+
+
+def _forgejo_json_conditional(url, etag=None, timeout=120):
+    """Fetch Forgejo JSON and preserve ETags when the instance sends them."""
+    for attempt, delay in enumerate((0, 5, 15, 30)):
+        if delay:
+            time.sleep(delay)
+        headers = _forgejo_headers()
+        if etag:
+            headers["If-None-Match"] = etag
+        request = Request(url, headers=headers)
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                data = json.loads(response.read().decode("utf-8-sig"))
+                return data, response.headers.get("ETag"), False
+        except HTTPError as exc:
+            if exc.code == 304:
+                return None, etag, True
+            if exc.code not in (403, 429) and not 500 <= exc.code < 600:
+                raise
+            if attempt == 3:
+                raise
+        except FORGEJO_TRANSIENT_ERRORS:
+            if attempt == 3:
+                raise
+    raise RuntimeError(f"Forgejo conditional request did not complete: {url}")
+
+
+def _forgejo_owner_repositories(spec):
+    """Return the configured repositories for one Forgejo owner."""
+    login = (spec.get("login") or "").strip()
+    if not login:
+        raise ValueError("Forgejo owner entry has no login")
+    excluded = {
+        name.strip().casefold()
+        for name in spec.get("exclude_repositories", [])
+        if isinstance(name, str) and name.strip()
+    }
+    return sorted(
+        {
+            f"{login}/{name.strip()}"
+            for name in spec.get("repositories", [])
+            if (
+                isinstance(name, str)
+                and name.strip()
+                and name.strip().casefold() not in excluded
+            )
+        },
+        key=str.casefold,
+    )
+
+
+def _forgejo_release_asset_state(repo, previous_state=None):
+    """Return current candidates and conditional-request state for one repo."""
+    owner, name = repo.split("/", 1)
+    url = (
+        f"{FORGEJO_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+        "/releases?limit=20"
+    )
+    if not isinstance(previous_state, dict):
+        previous_state = {}
+    # Same state shape as the GitHub source, so fork comparisons and cache
+    # reuse work unchanged. Forgejo sends no ETag today, so the stored one
+    # stays None and each build re-lists; a handful of repositories costs
+    # nothing to re-list.
+    cached_etag = (
+        previous_state.get("etag")
+        if "latest_version" in previous_state
+        else None
+    )
+    releases, etag, not_modified = _forgejo_json_conditional(
+        url,
+        etag=cached_etag,
+    )
+    if not_modified:
+        cached_candidates = previous_state.get("candidates")
+        if not isinstance(cached_candidates, list):
+            raise RuntimeError(f"Forgejo returned 304 without cached candidates: {repo}")
+        return cached_candidates, previous_state
+    candidates = _release_asset_candidates_from_records(repo, releases or [])
+    release_versions = [
+        _release_tag_version(release.get("tag_name") or release.get("tagName") or "")
+        for release in (releases or [])
+        if not release.get("draft", release.get("isDraft", False))
+    ]
+    release_versions = [version for version in release_versions if version is not None]
+    latest_version = max(release_versions) if release_versions else None
+    return candidates, {
+        "etag": etag,
+        "candidates": candidates,
+        "latest_version": list(latest_version) if latest_version else None,
+    }
+
+
+def _forgejo_repository_fork_parent(repo):
+    owner, name = repo.split("/", 1)
+    metadata = _forgejo_json(
+        f"{FORGEJO_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+    )
+    if not metadata.get("fork"):
+        return None
+    parent = metadata.get("parent") or {}
+    parent_name = parent.get("full_name")
+    if not parent_name:
+        raise RuntimeError(f"Forgejo fork has no originating repository: {repo}")
+    return parent_name
+
+
+def _forgejo_fork_release_qualifies(repo, fork_version=None):
+    """Return true for originals or forks released beyond their parent version."""
+    parent = _forgejo_repository_fork_parent(repo)
+    if not parent:
+        return True
+    if fork_version is None:
+        _candidates, fork_state = _forgejo_release_asset_state(repo)
+        fork_version = _release_state_version(fork_state)
+    _parent_candidates, parent_state = _forgejo_release_asset_state(parent)
+    parent_version = _release_state_version(parent_state)
+    qualifies = (
+        fork_version is not None
+        and parent_version is not None
+        and fork_version > parent_version
+    )
+    if not qualifies:
+        log(
+            f"Forgejo fork {repo}: release {fork_version or 'unknown'} is not newer "
+            f"than parent {parent} release {parent_version or 'unknown'}"
+        )
+    return qualifies
+
+
+def fetch_forgejo_owners(
+    config_path=FORGEJO_OWNERS_PATH,
+    cache_path=GITHUB_OWNER_CACHE_PATH,
+    existing_entries=None,
+):
+    """Fetch every released add-on owned by the configured Forgejo authors.
+
+    The Forgejo source is an explicit repository list: the owners publish
+    their own originals there, so there is no account discovery, no global
+    search, and no fork filtering. Entries and release state live in the
+    shared author cache file under FORGEJO_CACHE_SECTION, reusing the
+    workflow's existing cache steps. Like the GitHub source, a failed
+    repository aborts the source rather than silently publishing an
+    incomplete author set.
+    """
+    global FORGEJO_OWNER_REJECTIONS
+    FORGEJO_OWNER_REJECTIONS = []
+    owners = _load_forgejo_owners(config_path)
+    old_cache = _load_github_owner_cache(cache_path)
+    section = old_cache.get(FORGEJO_CACHE_SECTION)
+    if not isinstance(section, dict):
+        section = {}
+    release_state = section.get("release_state")
+    if not isinstance(release_state, dict):
+        release_state = {}
+    old_entries = section.get("entries")
+    if not isinstance(old_entries, dict):
+        old_entries = {}
+    repositories = set()
+    for spec in owners:
+        repositories.update(_forgejo_owner_repositories(spec))
+    candidates = []
+    new_release_state = {}
+    failures = []
+    for repo in sorted(repositories, key=str.casefold):
+        try:
+            repo_candidates, repo_state = _forgejo_release_asset_state(
+                repo,
+                release_state.get(repo.casefold()),
+            )
+        except Exception as exc:  # noqa: BLE001 - aggregate source failures
+            failures.append(f"{repo}: {exc}")
+            continue
+        candidates.extend(repo_candidates)
+        new_release_state[repo.casefold()] = repo_state
+    if failures:
+        raise RuntimeError(
+            "refusing to publish incomplete Forgejo author discovery: "
+            + "; ".join(failures)
+        )
+    existing_by_url = {
+        entry.get("download_url"): entry
+        for entry in (existing_entries or [])
+        if entry.get("download_url")
+    }
+    new_entries = {}
+    entries = []
+    pending = []
+    reused_catalog = 0
+    reused_cache = 0
+    for item in candidates:
+        url = item.get("download_url")
+        cache_key = _owner_cache_key(item)
+        if not url:
+            failures.append(f"{item.get('repo')}/{item.get('asset_name')}: no download URL")
+            continue
+        existing = existing_by_url.get(url)
+        if existing is not None:
+            entry = dict(existing)
+            entry["source"] = "forgejo_owner"
+            entry["source_url"] = f"{FORGEJO_WEB}/{item['repo']}"
+            entries.append(entry)
+            new_entries[cache_key] = entry
+            reused_catalog += 1
+            continue
+        cached = old_entries.get(cache_key)
+        if isinstance(cached, dict):
+            if cached.get("_invalid"):
+                FORGEJO_OWNER_REJECTIONS.append({
+                    "addonId": cached.get("asset_name") or item.get("asset_name"),
+                    "source": "forgejo_owner",
+                    "reason": cached["_invalid"],
+                })
+                cached = dict(cached)
+                cached["_repo"] = f"forgejo:{item.get('repo')}"
+                new_entries[cache_key] = cached
+                reused_cache += 1
+                continue
+            entry = dict(cached)
+            entry["source"] = "forgejo_owner"
+            entry["source_url"] = f"{FORGEJO_WEB}/{item['repo']}"
+            entries.append(entry)
+            new_entries[cache_key] = entry
+            reused_cache += 1
+            continue
+        pending.append(item)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_forgejo_asset_entry, item): item for item in pending}
+        for future in concurrent.futures.as_completed(futures):
+            item = futures[future]
+            try:
+                entry = future.result()
+                entries.append(entry)
+                new_entries[_owner_cache_key(item)] = entry
+            except HTTPError as exc:
+                if exc.code not in (404, 410):
+                    failures.append(
+                        f"{item['repo']}/{item['asset_name']}: {exc}"
+                    )
+                    continue
+                reason = f"unavailable Forgejo release asset: HTTP {exc.code}"
+                FORGEJO_OWNER_REJECTIONS.append({
+                    "addonId": item.get("asset_name"),
+                    "source": "forgejo_owner",
+                    "reason": reason,
+                })
+                new_entries[_owner_cache_key(item)] = {
+                    "_invalid": reason,
+                    "asset_name": item.get("asset_name"),
+                    "_repo": f"forgejo:{item.get('repo')}",
+                }
+            except (zipfile.BadZipFile, KeyError, UnicodeDecodeError, ValueError, RuntimeError) as exc:
+                reason = f"invalid NVDA add-on bundle: {exc}"
+                FORGEJO_OWNER_REJECTIONS.append({
+                    "addonId": item.get("asset_name"),
+                    "source": "forgejo_owner",
+                    "reason": reason,
+                })
+                new_entries[_owner_cache_key(item)] = {
+                    "_invalid": reason,
+                    "asset_name": item.get("asset_name"),
+                    "_repo": f"forgejo:{item.get('repo')}",
+                }
+            except Exception as exc:  # noqa: BLE001 - aggregate bundle failures
+                failures.append(
+                    f"{item['repo']}/{item['asset_name']}: {exc}"
+                )
+    new_cache = {
+        key: value for key, value in old_cache.items()
+        if key != FORGEJO_CACHE_SECTION
+    }
+    new_cache[FORGEJO_CACHE_SECTION] = {
+        "release_state": new_release_state,
+        "entries": new_entries,
+    }
+    _write_github_owner_cache(new_cache, cache_path)
+    if failures:
+        raise RuntimeError(
+            "refusing to publish incomplete Forgejo author add-ons: "
+            + "; ".join(failures)
+        )
+    log(
+        f"Forgejo authors: reused {reused_catalog} catalog records and "
         f"{reused_cache} cached manifests; validated {len(pending)} new assets"
     )
     return entries
@@ -3607,7 +4012,8 @@ def dedupe(entries):
     catalog declares.
 
     Preference order within the same (addonId, channel): explicitly pinned
-    releases > direct author releases > official (NV Access-reviewed,
+    releases > Forgejo author releases > GitHub author releases > official
+    (NV Access-reviewed,
     VirusTotal data, upstream hash) > nvda-addons.ru (curated, direct links) >
     bestmidi > the shared Spanish catalog. Within one source the newer parseable
     version wins; an entry with a download URL beats one without.
@@ -4704,7 +5110,7 @@ def main():
     parser.add_argument("--out", default="public")
     parser.add_argument("--sources", default=",".join(ALL_SOURCES),
                         help=("comma-separated sources: official,bestmidi,ru,es,"
-                              "github_owner,pinned"))
+                              "github_owner,forgejo_owner,pinned"))
     parser.add_argument("--locales", help="comma-separated locale override")
     parser.add_argument("--api-versions", help="comma-separated apiVersion override")
     parser.add_argument(
@@ -4765,8 +5171,11 @@ def main():
     # four other people's servers, and none of them supports a cheap freshness
     # check. The GitHub sources that follow cost one conditional request per
     # repository -- a 304 that GitHub does not even charge to the rate limit --
-    # so those do refresh on every build. This keeps the hourly mirror from
-    # repeatedly pulling unchanged catalog bodies from other people's servers.
+    # and the Forgejo source one small release listing per repository (the
+    # instance sends no ETags, but the configured list is a handful of
+    # repositories), so those do refresh on every build. This keeps the
+    # hourly mirror from repeatedly pulling unchanged catalog bodies from
+    # other people's servers.
     source_cache = load_json_cache(SOURCE_CACHE_PATH)
     # --no-head-check already means "trust nothing that was cached"; a human
     # who asks for that is asking for the catalogs too, not only the hashes.
@@ -4804,6 +5213,13 @@ def main():
         log(f"GitHub authors: {len(entries)} add-on/channel candidates")
         all_entries.extend(entries)
         rejected.extend(GITHUB_OWNER_REJECTIONS)
+
+    if "forgejo_owner" in sources:
+        log("Fetching configured Forgejo authors")
+        entries = fetch_forgejo_owners(existing_entries=all_entries)
+        log(f"Forgejo authors: {len(entries)} add-on/channel candidates")
+        all_entries.extend(entries)
+        rejected.extend(FORGEJO_OWNER_REJECTIONS)
 
     if "pinned" in sources:
         log("Fetching pinned variant add-ons")

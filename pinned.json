@@ -48,14 +48,16 @@
       "channel": "stable"
     },
     {
-      "repo": "serrebidev/nvda-addon-mirror",
+      "repo": "serrebi/nvda-addon-mirror",
+      "host": "forgejo",
       "asset_glob": "addonStoreMirror-*.nvda-addon",
       "addon_id": "addonStoreMirror",
       "license": "GPL v2",
       "channel": "stable"
     },
     {
-      "repo": "serrebidev/logCollector",
+      "repo": "serrebi/logCollector",
+      "host": "forgejo",
       "asset_glob": "*.nvda-addon",
       "addon_id": "logCollectorAndFixesFromSerrebi",
       "license": "Unknown",

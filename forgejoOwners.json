@@ -1,0 +1,15 @@
+{
+  "owners": [
+    {
+      "login": "serrebi",
+      "repositories": [
+        "NVDARemoteAudioClient",
+        "Reloq-C",
+        "AppleMusicNVDA",
+        "logCollector",
+        "signal-desktop-enhancements",
+        "nvda-addon-mirror"
+      ]
+    }
+  ]
+}

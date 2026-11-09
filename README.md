@@ -1,7 +1,7 @@
 # NVDA Add-on Update Mirror
 
 A self-updating mirror of NVDA add-on catalogs, direct author releases, and
-explicitly pinned GitHub releases, published in the exact wire format NVDA's built-in Add-on Store
+explicitly pinned releases, published in the exact wire format NVDA's built-in Add-on Store
 consumes. It refreshes hourly via GitHub Actions and is served from
 GitHub Pages.
 
@@ -27,14 +27,23 @@ Sources:
   Original repositories are always eligible. A fork is eligible only when its
   numeric release version is strictly newer than its parent repository's
   release; equal, older, missing, or incomparable fork versions are rejected.
-  An owner may exclude every fork; `serrebidev` does this because those forks
-  are contribution/PR branches. The mirror therefore uses the original
-  `keyang556/tdesktopnvda`, not `serrebidev/tdesktopnvda`.
+  An owner may exclude every fork, for accounts whose forks are
+  contribution/PR branches rather than releases.
   Explicitly pinned variants can opt into `fork_policy: include` when they are
   intentionally different products published under separate manifest IDs. The
   four release-bearing Eloquence 64 variants are pinned this way where needed,
   and are published with unique IDs and display names so installing one cannot
   overwrite another.
+
+- **Configured Forgejo authors** — the same release-asset validation as the
+  GitHub authors, but against an explicit repository list on the owner's
+  Forgejo instance (`forgejoOwners.json`), which serves GitHub-shaped
+  release JSON. Public releases need no token. A Forgejo release outranks
+  its GitHub sibling: owners who publish on both mean the Forgejo one to
+  win. The owner's own add-ons (NVDARemoteAudioClient, Reloq-C,
+  AppleMusicNVDA, logCollector, signal-desktop-enhancements, and this
+  mirror's helper add-on) are scanned here; the GitHub author list keeps
+  only third-party authors.
 
 - **Global GitHub search** — once a day the mirror searches GitHub
   repositories for `nvda`, most recently updated first, and queues matches
@@ -87,8 +96,9 @@ Sources:
    `0.0.0` in NVDA's required numeric comparison field, with the original
    version text preserved for display.
 3. Merges sources case-insensitively by add-on id and channel. Explicitly pinned
-   releases win, followed by direct author releases, the official store,
-   nvda-addons.ru, bestmidi, and Spanish-catalog originals. A dev or beta entry
+   releases win, followed by Forgejo author releases, GitHub author
+   releases, the official store, nvda-addons.ru, bestmidi, and
+   Spanish-catalog originals. A dev or beta entry
    whose version is the release the stable channel already carries is then
    dropped, so one add-on is listed once. nvda-addons.ru labels most of its
    links "Dev" regardless of what upstream published, which otherwise put the
@@ -113,8 +123,8 @@ Sources:
 ## Using the mirror
 
 The mirror serves **metadata only** — it does not re-host the `.nvda-addon`
-files. Each entry's `URL` points at the original host (GitHub release or
-`nvda.ru` upload), and NVDA downloads directly from there. The build downloads
+files. Each entry's `URL` points at the original host (a GitHub or Forgejo
+release, or an `nvda.ru` upload), and NVDA downloads directly from there. The build downloads
 uncached files to compute the SHA-256 checksum NVDA enforces on install, then
 reuses that result between daily checks. The helper does not crawl packages;
 NVDA downloads an add-on when the user installs or updates it.
@@ -128,7 +138,7 @@ https://serrebidev.github.io/nvda-addon-mirror
 Three ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [Download addonStoreMirror 1.6.0](https://github.com/serrebidev/nvda-addon-mirror/releases/download/v1.6.0/addonStoreMirror-1.6.0.nvda-addon).
+   [Download addonStoreMirror 1.6.0](https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases/download/v1.6.0/addonStoreMirror-1.6.0.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.

@@ -45,6 +45,20 @@ re-downloads look like abuse.
   runners while its files are fine. A 404 or a changed version is rejected at
   once. `download-failed` in the build log counts only those rejections.
 
+## Forgejo authors
+
+The owner's add-ons release on Forgejo (`git.serrebiradio.com`, user
+`serrebi`), not GitHub. The `forgejo_owner` source scans the explicit
+repository list in `forgejoOwners.json` — no account discovery, no token
+needed for public releases — and outranks `github_owner` in dedupe, so a
+Forgejo release always wins over its GitHub sibling. Its entries and
+release state share `githubOwnerCache.json` under the `__forgejo__` key,
+which the GitHub source carries through every cache write; keep it that
+way (`.github/workflows` is not edited, so a second cache file would
+never persist in CI). A `pinned.json` entry names `"host": "forgejo"`
+to pin a Forgejo release. Keep `githubOwners.json` free of owner repos:
+every repo the owner publishes lives in `forgejoOwners.json`.
+
 ## NVDA has no fallback of any kind
 
 `{base}/{lang}/{channel}/{apiVersion}.json` is fetched with the running NVDA's

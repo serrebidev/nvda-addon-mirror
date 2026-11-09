@@ -393,17 +393,6 @@
       ]
     },
     {
-      "login": "serrebidev",
-      "fork_policy": "exclude",
-      "repositories": [
-        "AppleMusicNVDA",
-        "NVDARemoteAudioClient",
-        "nvda-addon-mirror",
-        "logCollector",
-        "signal-desktop-enhancements"
-      ]
-    },
-    {
       "login": "abdel792",
       "repositories": [
         "sayCurrentKeyboardLanguage"

@@ -126,13 +126,17 @@ class PinnedConfigurationTests(unittest.TestCase):
             for entry in pinned
         }
         self.assertIn(
-            ("serrebidev/nvda-addon-mirror", "addonStoreMirror"),
+            ("serrebi/nvda-addon-mirror", "addonStoreMirror"),
             configured,
         )
         self.assertIn(
-            ("serrebidev/logCollector", "logCollectorAndFixesFromSerrebi"),
+            ("serrebi/logCollector", "logCollectorAndFixesFromSerrebi"),
             configured,
         )
+        for entry in pinned:
+            if entry.get("repo", "").startswith("serrebi/"):
+                with self.subTest(repo=entry.get("repo")):
+                    self.assertEqual("forgejo", entry.get("host"))
 
     def test_all_eloquence_variants_have_unique_ids_and_names(self):
         path = os.path.join(
@@ -584,7 +588,8 @@ class TransformTests(unittest.TestCase):
 
     def test_every_configured_source_has_a_display_name(self):
         self.assertEqual(
-            {"official", "pinned", "github_owner", "ru", "bestmidi", "es"},
+            {"official", "pinned", "github_owner", "forgejo_owner",
+             "ru", "bestmidi", "es"},
             set(mirror.STORE_SOURCE_LABELS),
         )
 
@@ -1117,10 +1122,15 @@ class GitHubOwnerTests(unittest.TestCase):
         by_login = {spec["login"].casefold(): spec for spec in owners}
 
         self.assertIn("keyang556", by_login)
-        self.assertEqual("exclude", by_login["serrebidev"]["fork_policy"])
+        # The owner's own account publishes on Forgejo now; its GitHub
+        # entry is gone, so its contribution forks there can no longer
+        # shadow the originals.
+        self.assertNotIn("serrebidev", by_login)
+        forgejo = mirror._load_forgejo_owners()
+        by_forgejo = {spec["login"].casefold(): spec for spec in forgejo}
         self.assertIn(
             "AppleMusicNVDA",
-            by_login["serrebidev"]["repositories"],
+            by_forgejo["serrebi"]["repositories"],
         )
 
     def test_requested_authors_stay_configured(self):
@@ -1139,8 +1149,8 @@ class GitHubOwnerTests(unittest.TestCase):
 
     def test_every_author_requires_forks_to_be_newer_by_default(self):
         # "No forks unless the fork is newer" is the rule for every GitHub
-        # source. Only serrebidev opts out, and it opts out the stricter way,
-        # by dropping forks entirely.
+        # source. An owner may still opt out the stricter way, by dropping
+        # forks entirely (fork_policy: exclude).
         for spec in mirror._load_github_owners():
             with self.subTest(login=spec["login"]):
                 self.assertIn(
