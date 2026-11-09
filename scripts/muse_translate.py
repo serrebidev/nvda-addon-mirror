@@ -25,6 +25,10 @@ import sys
 
 TRANSLATIONS_PATH = "translations.json"
 
+#: Side chat reused by every run, so the translation history stays in one
+#: place. Gitignored local state, not committed.
+THREAD_FILENAME = ".muse-translate-thread"
+
 #: Upper bound per run. Leftovers stay queued for the next run; this caps
 #: one muse.ai round-trip in time and cost.
 MAX_ITEMS_PER_RUN = 40
@@ -98,14 +102,38 @@ def _run_muse_cli(*args, timeout):
         ) from exc
 
 
-def send_muse(message, wait=600):
-    """Send one task to a fresh muse.ai side chat; return the reply text."""
+def _thread_path(repo):
+    return os.path.join(repo, THREAD_FILENAME)
+
+
+def read_thread(repo):
+    """Return the saved side-chat id, or "" when there is none yet."""
+    try:
+        with open(_thread_path(repo), encoding="utf-8") as handle:
+            return handle.read().strip()
+    except OSError:
+        return ""
+
+
+def write_thread(repo, session_id):
+    """Persist the side-chat id for the next run."""
+    with open(_thread_path(repo), "w", encoding="utf-8") as handle:
+        handle.write(session_id + "\n")
+
+
+def _start_side_chat():
+    """Open the translations side chat; return its session id."""
     session = _run_muse_cli(
         "session-start", "--title", "NVDA mirror translations", timeout=120
     )
     session_id = session.get("session_id", "")
     if not session_id:
         raise RuntimeError("muse-cli session-start returned no session_id")
+    return session_id
+
+
+def _send_to_thread(session_id, message, wait):
+    """Send one message; return the reply text or raise."""
     answer = _run_muse_cli(
         "send", "--thread", session_id, "--wait", str(wait), message,
         timeout=wait + 60,
@@ -117,6 +145,24 @@ def send_muse(message, wait=600):
             f"check the side chat {session_id} manually"
         )
     return reply
+
+
+def send_muse(message, repo=".", wait=600):
+    """Send one task to the shared side chat; return the reply text.
+
+    The chat id persists in the repo directory, so every run continues the
+    same conversation. When the saved chat is unusable, a new one starts
+    once and the send retries there.
+    """
+    session_id = read_thread(repo)
+    if session_id:
+        try:
+            return _send_to_thread(session_id, message, wait)
+        except RuntimeError:
+            pass
+    session_id = _start_side_chat()
+    write_thread(repo, session_id)
+    return _send_to_thread(session_id, message, wait)
 
 
 def parse_reply(text, work):
@@ -236,7 +282,7 @@ def main(argv=None):
     if args.dry_run:
         print(f"would send {len(work)} add-ons: {', '.join(work)}")
         return 0
-    reply = send_muse(build_message(work))
+    reply = send_muse(build_message(work), repo=args.repo)
     merged = parse_reply(reply, work)
     uncovered = [i for i in work if set(work[i]) - set(merged.get(i, {}))]
     if uncovered:

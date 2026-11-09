@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "scripts")
@@ -118,6 +119,93 @@ class ApplyTranslationsTests(unittest.TestCase):
         self.assertEqual({"summary": "Brand New"}, written["brandNew"])
         # New ids append at the end, in reply order.
         self.assertEqual(["halfDone", "brandNew"], list(written))
+
+
+class SendMuseTests(unittest.TestCase):
+    def test_first_run_starts_and_saves_the_side_chat(self):
+        calls = []
+
+        def fake_run(*args, timeout):
+            calls.append(args)
+            if args[0] == "session-start":
+                return {"session_id": "chat-1"}
+            return {"reply": {"text": "hello"}}
+
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(
+                muse_translate, "_run_muse_cli", side_effect=fake_run
+            ):
+                self.assertEqual(
+                    "hello", muse_translate.send_muse("hi", repo=directory)
+                )
+            with open(
+                os.path.join(directory, muse_translate.THREAD_FILENAME),
+                encoding="utf-8",
+            ) as handle:
+                self.assertEqual("chat-1\n", handle.read())
+        self.assertEqual("session-start", calls[0][0])
+        self.assertEqual(
+            ("send", "--thread", "chat-1", "--wait", "600", "hi"), calls[1]
+        )
+
+    def test_later_runs_reuse_the_saved_chat(self):
+        calls = []
+
+        def fake_run(*args, timeout):
+            calls.append(args)
+            return {"reply": {"text": "hello"}}
+
+        with tempfile.TemporaryDirectory() as directory:
+            with open(
+                os.path.join(directory, muse_translate.THREAD_FILENAME),
+                "w",
+                encoding="utf-8",
+            ) as handle:
+                handle.write("chat-9\n")
+            with mock.patch.object(
+                muse_translate, "_run_muse_cli", side_effect=fake_run
+            ):
+                self.assertEqual(
+                    "hello", muse_translate.send_muse("hi", repo=directory)
+                )
+        self.assertEqual(1, len(calls))
+        self.assertEqual(
+            ("send", "--thread", "chat-9", "--wait", "600", "hi"), calls[0]
+        )
+
+    def test_dead_chat_starts_a_new_one_and_retries(self):
+        calls = []
+
+        def fake_run(*args, timeout):
+            calls.append(args)
+            if args[:2] == ("send", "--thread") and args[2] == "chat-dead":
+                raise RuntimeError("no such thread")
+            if args[0] == "session-start":
+                return {"session_id": "chat-2"}
+            return {"reply": {"text": "hello"}}
+
+        with tempfile.TemporaryDirectory() as directory:
+            thread_path = os.path.join(
+                directory, muse_translate.THREAD_FILENAME
+            )
+            with open(thread_path, "w", encoding="utf-8") as handle:
+                handle.write("chat-dead\n")
+            with mock.patch.object(
+                muse_translate, "_run_muse_cli", side_effect=fake_run
+            ):
+                self.assertEqual(
+                    "hello", muse_translate.send_muse("hi", repo=directory)
+                )
+            with open(thread_path, encoding="utf-8") as handle:
+                self.assertEqual("chat-2\n", handle.read())
+        self.assertEqual(
+            [
+                ("send", "--thread", "chat-dead", "--wait", "600", "hi"),
+                ("session-start", "--title", "NVDA mirror translations"),
+                ("send", "--thread", "chat-2", "--wait", "600", "hi"),
+            ],
+            calls,
+        )
 
 
 if __name__ == "__main__":

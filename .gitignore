@@ -1,6 +1,9 @@
 # Generated mirror output (synced to the web root, not tracked in main)
 public/
 
+# muse.ai side chat reused by the translation fill (local state per machine)
+.muse-translate-thread
+
 # Persistent sha256 cache (restored from the deployed site, not committed)
 hashcache.json
 githubOwnerCache.json
