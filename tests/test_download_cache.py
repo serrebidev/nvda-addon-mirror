@@ -189,7 +189,9 @@ class DownloadCacheTests(unittest.TestCase):
     def test_pinned_lookup_survives_rate_limit_only_when_verified_once(self):
         def refuse(code):
             def fetch():
-                raise HTTPError("https://api.github.com/x", code, "no", Message(), None)
+                error = HTTPError("https://api.github.com/x", code, "no", Message(), None)
+                self.addCleanup(error.close)
+                raise error
             return fetch
 
         with tempfile.TemporaryDirectory() as directory, \

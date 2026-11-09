@@ -1909,6 +1909,8 @@ def _pinned_cached(key, repo, fetch):
         state = load_json_cache(PINNED_STATE_PATH)
         if key not in state:
             raise
+        if isinstance(exc, HTTPError):
+            exc.close()
         log(f"pinned {repo}: {exc}; reusing last verified {key.split(' ', 1)[0]}")
         return state[key]
     state = load_json_cache(PINNED_STATE_PATH)
