@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/nvda-addon-mirror
+EnvironmentFile=-/etc/nvda-addon-mirror.env
 ExecStart=/opt/nvda-addon-mirror/scripts/mirror-cron.sh
 # A routine run takes minutes, but a cold build (or one after a multi-day
 # gap, when every add-on's 24h recheck comes due at once) needs much longer.

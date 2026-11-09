@@ -236,7 +236,7 @@ The site runs on the owner's YunoHost server. One-time setup, as root:
 ```sh
 yunohost domain add nvda.serrebiradio.com
 yunohost app install my_webapp --args "domain=nvda.serrebiradio.com&path=/&is_public=1&with_sftp=0"
-yunohost domain cert-install nvda.serrebiradio.com
+yunohost domain cert install nvda.serrebiradio.com --no-checks
 git clone https://git.serrebiradio.com/serrebi/nvda-addon-mirror.git /opt/nvda-addon-mirror
 ```
 
