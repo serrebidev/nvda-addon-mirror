@@ -1335,6 +1335,29 @@ class GitHubOwnerTests(unittest.TestCase):
         self.assertEqual([candidate], kept)
         self.assertEqual([], rejected)
 
+    def test_rate_limited_fork_parent_reuses_verified_state_only(self):
+        candidate = {
+            "repo": "example/forked",
+            "asset_name": "example-2.0.nvda-addon",
+            "release_tag": "v2.0",
+        }
+
+        def limited(repo, previous_state=None):
+            raise httpError("https://api.github.invalid", 403, "rate limit")
+
+        with mock.patch.object(mirror, "_github_release_asset_state",
+                               side_effect=limited):
+            kept, _states, _rejected = mirror._filter_fork_candidates(
+                [candidate], {"example/forked": "upstream/original"}, {},
+                {"upstream/original": {"latest_version": [1, 5, 0]}},
+            )
+            self.assertEqual([candidate], kept)
+            with self.assertRaises(HTTPError):
+                mirror._filter_fork_candidates(
+                    [candidate], {"example/forked": "upstream/original"}, {},
+                    {"upstream/original": {"etag": '"e"'}},
+                )
+
     def test_equal_or_older_fork_release_is_rejected(self):
         candidate = {
             "repo": "example/forked",

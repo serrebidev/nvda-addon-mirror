@@ -1903,11 +1903,8 @@ def _pinned_cached(key, repo, fetch):
     try:
         value = fetch()
     except (HTTPError, *GITHUB_TRANSIENT_ERRORS) as exc:
-        if isinstance(exc, HTTPError) and exc.code not in (403, 408, 429) \
-                and not 500 <= exc.code < 600:
-            raise
         state = load_json_cache(PINNED_STATE_PATH)
-        if key not in state:
+        if not _github_outage(exc) or key not in state:
             raise
         if isinstance(exc, HTTPError):
             exc.close()
@@ -2123,6 +2120,17 @@ def _github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
     return headers
+
+
+def _github_outage(exc):
+    """True for a quota answer (403/429), 408, 5xx or network fault.
+
+    Those are the failures a last verified answer may stand in for; a 404 or
+    any other refusal is real and must fail.
+    """
+    if isinstance(exc, HTTPError):
+        return exc.code in (403, 408, 429) or 500 <= exc.code < 600
+    return isinstance(exc, GITHUB_TRANSIENT_ERRORS)
 
 
 def _github_quota_spent(exc):
@@ -2724,7 +2732,17 @@ def _filter_fork_candidates(
         }
         for future in concurrent.futures.as_completed(futures):
             parent_key, parent = futures[future]
-            _parent_candidates, state = future.result()
+            try:
+                _parent_candidates, state = future.result()
+            except (HTTPError, *GITHUB_TRANSIENT_ERRORS) as exc:
+                cached = parent_release_state.get(parent_key)
+                if not _github_outage(exc) or _release_state_version(cached) is None:
+                    raise
+                if isinstance(exc, HTTPError):
+                    exc.close()
+                log(f"GitHub fork parent {parent}: {exc}; reusing last "
+                    "verified release state")
+                state = cached
             states[parent_key] = state
 
     kept = []
@@ -2994,8 +3012,7 @@ def fetch_github_owners(
             except (HTTPError, *GITHUB_TRANSIENT_ERRORS) as exc:
                 # The listing only confirms repositories already cached; on
                 # the 60-an-hour quota, check those and list again next run.
-                if isinstance(exc, HTTPError) and exc.code not in (403, 429) \
-                        and not 500 <= exc.code < 600:
+                if not _github_outage(exc):
                     raise
                 if isinstance(exc, HTTPError):
                     exc.close()
