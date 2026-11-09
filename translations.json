@@ -1,5 +1,21 @@
 {
   "translations": {
+    "discordToTray": {
+      "summary": "Discord to Tray, AKA Discord в трей",
+      "description": "The DiscordToTray add-on hides the Discord program window to the system tray instead of closing it with Alt+F4."
+    },
+    "MouseReadAfterStopDelay": {
+      "summary": "Mouse Read After Stop Delay, AKA Lecture du contenu sous le pointeur après un arrêt",
+      "description": "Speaks the content under the mouse pointer only after a stop delay. The delay is adjustable in the NVDA settings."
+    },
+    "programRAMReporter": {
+      "summary": "ProgramRAMReporter (Report on the Program's RAM Usage), AKA ProgramRAMReporter (Отчет об использовании оперативной памяти программы)",
+      "description": "This add-on lets you check the RAM usage of the current program.\nPress NVDA+Shift+9 to find out how much memory the current program is using.\nThe keyboard shortcut can be changed in Input Gestures, in the Program RAM Usage Report subsection, for the 'Report the name of the current program and the amount of physical RAM it uses' shortcut."
+    },
+    "webAccess": {
+      "summary": "WebAccess (Web Access - Multicriteria Approach), AKA WebAccess (Web доступ - Многокритериальный подход)",
+      "description": "The WebAccess add-on provides support for web application modules for modern or complex websites.\nFor detailed information about the add-on, refer to the help documentation."
+    },
     "fasih": {
       "summary": "Fasih: Arabic RHVoice voices, AKA Fasih (فصيح): Arabic RHVoice voices",
       "description": "Fasih: non-neural Arabic voices for the RHVoice engine (Jamal, Nour, Sami), with Rawi diacritization from ClaritySynth and the WORLD vocoder."
