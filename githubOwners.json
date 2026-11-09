@@ -367,7 +367,7 @@
         "pctalker-nvda",
         "ssi263-speech",
         "TGSpeechBox",
-        "votraxsc01-nvda"
+        "votraxsc01-speech"
       ],
       "exclude_repositories": [
         "MagiskOnWSA"
