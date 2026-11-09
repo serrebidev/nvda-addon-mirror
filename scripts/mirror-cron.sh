@@ -111,6 +111,18 @@ elif [ -f findings.json ]; then
 translation_issue.log_queue(json.load(open("findings.json")))' || true
 fi
 
+# Automatic translation fill via the owner's muse.ai agent (report-only).
+# Only missing fields are ever added; existing human text is never touched.
+# Needs push access so the result commits for the next build to publish.
+PUSH_TOKEN_FILE="${FORGEJO_PUSH_TOKEN_FILE:-/root/.config/nvda-addon-mirror/forgejo-push-token}"
+if [ -f findings.json ] && [ -f "$PUSH_TOKEN_FILE" ]; then
+    FORGEJO_PUSH_TOKEN="$(cat "$PUSH_TOKEN_FILE")"
+    export FORGEJO_PUSH_TOKEN
+    python3 scripts/muse_translate.py findings.json --commit || true
+else
+    log "muse.ai translation fill skipped (no findings or no push token)"
+fi
+
 log "deploying to $WEBROOT"
 mkdir -p "$WEBROOT"
 if ! rsync -a --delete --exclude '.well-known' public/ "$WEBROOT"/; then

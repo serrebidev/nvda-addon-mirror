@@ -243,7 +243,9 @@ git clone https://git.serrebiradio.com/serrebi/nvda-addon-mirror.git /opt/nvda-a
 Then point the refresh at the app's web root
 (`/var/www/my_webapp__<n>/www`) via `MIRROR_WEBROOT`, store a Forgejo token
 with issue scope at `/root/.config/nvda-addon-mirror/forgejo-token` (mode
-0600) for the translation-gap sync, and install the timer:
+0600) for the translation-gap sync, a token with repository write scope at
+`/root/.config/nvda-addon-mirror/forgejo-push-token` (mode 0600) so the
+muse.ai translation fill can commit, and install the timer:
 
 ```sh
 cp /opt/nvda-addon-mirror/scripts/systemd/nvda-mirror-refresh.* /etc/systemd/system/

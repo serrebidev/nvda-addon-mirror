@@ -107,7 +107,7 @@ Their diffs are reviewed. Reformatting one buries a real change in thousands of
 lines, and it has happened twice.
 
 - `nvdaAPIVersions.json` — **tabs**, matching nvaccess/addon-datastore.
-- `translations.json` — `indent=1`, insertion order. Never `sort_keys`.
+- `translations.json` — `indent=2`, insertion order. Never `sort_keys`.
 
 `translations.json` is hand-written and always wins over the generated
 `autoTranslations.json`, merged per field. Never overwrite a human correction
@@ -158,7 +158,9 @@ into other locales.
 The Muse cloud agent is the maintainer when a gap is left open. Every
 scheduled refresh writes the queue into its log, before it touches the
 translation-gap issue, so the queue exists even when the API could not open
-or update the issue.
+or update the issue. The refresh itself runs `scripts/muse_translate.py`
+first, which fills missing fields through the owner's muse.ai agent and
+commits them; the manual flow below is the fallback when that step fails.
 
 1. Read the queue from the newest run:
    `ssh root@100.103.9.33 'grep TRANSLATION-QUEUE /var/log/nvda-addon-mirror.log | tail -40'`.
@@ -173,7 +175,7 @@ or update the issue.
    `description` to `translations.json` under that exact id. A name gets the
    English first and the original after `, AKA ` (`"Descriptor, AKA
    Betimleyici"`). Only add missing fields; never change a field a human
-   already wrote. Keep the file's format: `indent=1`, insertion order, real
+   already wrote. Keep the file's format: `indent=2`, insertion order, real
    UTF-8 characters rather than `\u` escapes, no `sort_keys`.
 4. Run `python -W error -m unittest discover -s tests`, commit only
    `translations.json`, and push to main. The next scheduled run rebuilds
