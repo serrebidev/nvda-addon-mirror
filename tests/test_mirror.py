@@ -1349,7 +1349,7 @@ class GitHubOwnerTests(unittest.TestCase):
                                side_effect=limited):
             kept, _states, _rejected = mirror._filter_fork_candidates(
                 [candidate], {"example/forked": "upstream/original"}, {},
-                {"upstream/original": {"latest_version": [1, 5, 0]}},
+                {"upstream/original": {"candidates": [], "latest_version": [1, 5, 0]}},
             )
             self.assertEqual([candidate], kept)
             with self.assertRaises(HTTPError):

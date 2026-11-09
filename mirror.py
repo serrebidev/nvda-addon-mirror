@@ -2736,7 +2736,9 @@ def _filter_fork_candidates(
                 _parent_candidates, state = future.result()
             except (HTTPError, *GITHUB_TRANSIENT_ERRORS) as exc:
                 cached = parent_release_state.get(parent_key)
-                if not _github_outage(exc) or _release_state_version(cached) is None:
+                verified = isinstance(cached, dict) and isinstance(
+                    cached.get("candidates"), list)
+                if not _github_outage(exc) or not verified:
                     raise
                 if isinstance(exc, HTTPError):
                     exc.close()
