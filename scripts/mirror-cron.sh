@@ -67,9 +67,20 @@ if ! python3 -W error -m unittest discover -s tests; then
 fi
 
 log "building mirror"
+REDUCED=0
 if ! python3 mirror.py --out public; then
-    log "BUILD FAILED; keeping the last deployed site"
-    exit 1
+    # The usual cause is GitHub API quota during the author backfill: a
+    # failed run still saves the release states it verified (see
+    # fetch_github_owners), so retries converge. Meanwhile publish what
+    # verified rather than nothing; stats.json records the reduced source
+    # list and the backfill notice below says so on the human pages.
+    log "FULL BUILD FAILED; retrying without the github_owner source"
+    if ! python3 mirror.py --out public \
+        --sources official,bestmidi,ru,es,forgejo_owner,pinned; then
+        log "BUILD FAILED; keeping the last deployed site"
+        exit 1
+    fi
+    REDUCED=1
 fi
 
 log "auditing catalog"
@@ -105,6 +116,9 @@ mkdir -p "$WEBROOT"
 if ! rsync -a --delete --exclude '.well-known' public/ "$WEBROOT"/; then
     log "DEPLOY FAILED"
     exit 1
+fi
+if [ "$REDUCED" = "1" ]; then
+    python3 scripts/backfill_banner.py "$WEBROOT" || true
 fi
 
 ACCEPTED="$(python3 -c 'import json; print(json.load(open("public/stats.json"))["accepted"])' 2>/dev/null || echo '?')"
