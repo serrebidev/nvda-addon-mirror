@@ -211,6 +211,12 @@ GITHUB_OWNER_CACHE_VERSION = "v2-displayname"
 GITHUB_OWNER_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
 DOWNLOAD_RECHECK_SECONDS = 24 * 60 * 60
 DOWNLOAD_RETRY_SECONDS = 6 * 60 * 60
+#: Longest one package download may take. The per-read socket timeout only
+#: fires on a fully idle connection, so a host dripping bytes keeps a worker
+#: forever -- three throttled 150+ MB bundles once held every build past the
+#: service timeout, and the next run retried the same files. Past this the
+#: download fails into the ordinary 6h backoff like any other slow host.
+DOWNLOAD_MAX_SECONDS = 10 * 60
 #: Download locations that no longer exist. Official entries carry their own
 #: hash, so nothing ever tests their URL, and they outrank a live copy of the
 #: same version. The integrumart GitHub account was deleted, which left 14
@@ -619,10 +625,15 @@ def sha256_stream(url, timeout=120, validators=None, capture_limit=0):
     digest = hashlib.sha256()
     size = 0
     buffered = [] if capture_limit else None
+    started = time.monotonic()
     with urlopen(req, timeout=timeout) as resp:
         etag = resp.headers.get("ETag")
         last_modified = resp.headers.get("Last-Modified")
         while True:
+            if time.monotonic() - started > DOWNLOAD_MAX_SECONDS:
+                raise TimeoutError(
+                    f"download exceeded {DOWNLOAD_MAX_SECONDS}s: {url}"
+                )
             chunk = resp.read(256 * 1024)
             if not chunk:
                 break

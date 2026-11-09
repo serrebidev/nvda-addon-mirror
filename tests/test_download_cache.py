@@ -270,6 +270,17 @@ class ManifestVersionRecoveryTests(unittest.TestCase):
         self.assertEqual(128, size)
         self.assertIsNone(body)
 
+    def test_slow_downloads_fail_past_the_deadline(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.headers = {}
+        response.read.side_effect = [b"x" * 64, b"y" * 64, b""]
+        clock = [1000.0, 1000.0, 1000.0 + mirror.DOWNLOAD_MAX_SECONDS + 1]
+        with mock.patch.object(mirror, "urlopen", return_value=response), \
+                mock.patch.object(mirror.time, "monotonic", side_effect=clock):
+            with self.assertRaises(TimeoutError):
+                mirror.sha256_stream(self.URL)
+
     def test_recovered_version_is_cached_so_it_costs_one_download(self):
         bundle = self._bundle('name = example\nversion = 3.2.1\n')
         entry = {"download_url": self.URL, "version": "unknown"}
