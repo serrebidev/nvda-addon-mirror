@@ -44,10 +44,20 @@ if ! git pull --ff-only origin main; then
 fi
 
 # GitHub API access for author discovery (60 unauthenticated requests an
-# hour cannot cover the scan). Reuses the host's existing gh OAuth token.
+# hour cannot cover the scan). Reuses the host's existing gh OAuth token,
+# but only after the API accepts it: a dead token fails every call, while
+# no token lets the build fall back to its reduced unauthenticated scan.
 if [ -z "${GITHUB_TOKEN:-}" ] && [ -f /root/.config/gh/hosts.yml ]; then
-    GITHUB_TOKEN="$(awk '/oauth_token:/ {print $2; exit}' /root/.config/gh/hosts.yml)"
-    export GITHUB_TOKEN
+    CANDIDATE="$(awk '/oauth_token:/ {print $2; exit}' /root/.config/gh/hosts.yml)"
+    if [ -n "$CANDIDATE" ] && [ "$(curl -s --max-time 20 -o /dev/null \
+        -w '%{http_code}' -H "Authorization: Bearer $CANDIDATE" \
+        https://api.github.com/rate_limit)" = "200" ]; then
+        GITHUB_TOKEN="$CANDIDATE"
+        export GITHUB_TOKEN
+        log "GitHub API token accepted"
+    else
+        log "stored GitHub token rejected by the API; building unauthenticated"
+    fi
 fi
 
 log "running tests"
