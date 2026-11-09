@@ -221,8 +221,9 @@ every mirrored add-on in a searchable table with download links, built from
   other than English (see below).
 - `scripts/mirror-cron.sh` — scheduled refresh (every half hour on the
   owner's server, via systemd), with persistent build caches on disk.
-  `.github/workflows/update.yml` is retired: the GitHub organization is gone
-  and Forgejo Actions is disabled, so the file is kept for reference only.
+  There is no CI workflow: the server is the only build host. Do not add a
+  GitHub or Forgejo Actions schedule beside it; a second builder would poll
+  every add-on author twice.
   Each build audits its own catalog for untranslated add-ons and manages the
   `translation-gap` issue (see below).
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
@@ -254,7 +255,12 @@ systemctl enable --now nvda-mirror-refresh.timer
 ```
 
 GitHub API access reuses the host's existing `gh` OAuth token
-(`/root/.config/gh/hosts.yml`); Forgejo needs no token for public releases.
+(`/root/.config/gh/hosts.yml`), or `GITHUB_TOKEN=` in
+`/etc/nvda-addon-mirror.env`; any GitHub account's token works, it only
+raises the read quota. Without one the build runs on 60 requests an hour:
+GitHub authors and pins it cannot re-check keep their last verified release,
+and when the full build still fails the run publishes without the
+`github_owner` source. Forgejo needs no token for public releases.
 The refresh log is `/var/log/nvda-addon-mirror.log`.
 
 ## Add-on names

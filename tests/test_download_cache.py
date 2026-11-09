@@ -186,6 +186,27 @@ class DownloadCacheTests(unittest.TestCase):
             mirror.cached_pinned_bundle(dict(asset, updated_at="replacement"))
             self.assertEqual(2, download.call_count)
 
+    def test_pinned_lookup_survives_rate_limit_only_when_verified_once(self):
+        def refuse(code):
+            def fetch():
+                raise HTTPError("https://api.github.com/x", code, "no", Message(), None)
+            return fetch
+
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(mirror, "PINNED_BUNDLE_CACHE_PATH", directory), \
+                mock.patch.object(mirror, "PINNED_STATE_PATH",
+                                  directory + "/state.json"):
+            with self.assertRaises(HTTPError):
+                mirror._pinned_cached("releases u", "o/r", refuse(403))
+            self.assertEqual([1], mirror._pinned_cached("releases u", "o/r", lambda: [1]))
+            for code in (403, 429, 502):
+                self.assertEqual([1], mirror._pinned_cached("releases u", "o/r", refuse(code)))
+            with self.assertRaises(HTTPError):
+                mirror._pinned_cached("releases u", "o/r", refuse(404))
+            self.assertEqual([1], mirror._pinned_cached(
+                "releases u", "o/r",
+                mock.Mock(side_effect=URLError("timed out"))))
+
     def test_invalid_pinned_bundle_is_not_persisted(self):
         asset = {"browser_download_url": self.entry["download_url"]}
         with tempfile.TemporaryDirectory() as directory, \

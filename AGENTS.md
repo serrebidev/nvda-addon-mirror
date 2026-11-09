@@ -39,7 +39,10 @@ re-downloads look like abuse.
   the GITHUB_TOKEN budget of 1000 requests an hour and polls authors less. Do
   not promise a ten-minute refresh anywhere; half-hourly is the honest number.
 - A build that cannot verify a repo reuses that repo's last verified
-  `release_state`. Only a rate-limited repo with no verified state blocks
+  `release_state`. Pinned GitHub/Forgejo pins do the same through
+  `_pinned_cached()` (`.bundlecache/pinnedState.json`): a 403/429/5xx or
+  network fault reuses the last verified release list and fork verdict; a
+  404 still fails. Only a rate-limited repo with no verified state blocks
   publication. Never trade catalog completeness for quiet logs.
 - A timeout, 408, 429 or 5xx on a file already verified for this version keeps
   it published for `DOWNLOAD_OUTAGE_GRACE_SECONDS`. nvda.ru times out from some
@@ -150,8 +153,7 @@ into other locales.
   queue now (`collect_work()`) and rebuilds `autoTranslations.json` from the
   existing cache.
 - Never put a provider key back into the refresh script or the code. The old
-  `OPENROUTER_API_KEY` secret was deleted; the retired
-  `.github/workflows/update.yml` still references it but the code ignores it.
+  `OPENROUTER_API_KEY` secret was deleted.
 
 ## Muse cloud check: finish the translation queue
 

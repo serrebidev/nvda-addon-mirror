@@ -180,8 +180,8 @@ _KNOWN_NON_ENGLISH_CHANGELOG_IDS = {
 _TEMPLATE_NAMES = {"addontemplate", "__addon_id__"}
 
 USER_AGENT = (
-    "Mozilla/5.0 (compatible; nvda-addon-mirror/1.0; +https://github.com/"
-    "serrebidev/nvda-addon-mirror)"
+    "Mozilla/5.0 (compatible; nvda-addon-mirror/1.0; +https://git.serrebiradio.com/"
+    "serrebi/nvda-addon-mirror)"
 )
 
 ALL_SOURCES = ("official", "bestmidi", "ru", "es", "github_owner", "forgejo_owner", "pinned")
@@ -1646,9 +1646,10 @@ def _fetch_one_pinned(spec, repo, addon_id):
             f"pinned entry {repo} has unknown host {host!r}; "
             "expected 'github' or 'forgejo'"
         )
-    releases = json.loads(http_get(
-        releases_url, headers=api_headers
-    ).decode("utf-8"))
+    releases = _pinned_cached(
+        f"releases {releases_url}", repo,
+        lambda: json.loads(http_get(releases_url, headers=api_headers).decode("utf-8")),
+    )
     glob = spec.get("asset_glob", "*.nvda-addon")
 
     release = next((r for r in releases if not r.get("prerelease")), None)
@@ -1879,9 +1880,45 @@ def _pinned_fork_release_qualifies(spec, repo, fork_version, host="github"):
             f"invalid pinned fork_policy {policy!r} for {repo}; "
             "expected 'newer' or 'include'"
         )
-    if host == "forgejo":
-        return _forgejo_fork_release_qualifies(repo, fork_version)
-    return _github_fork_release_qualifies(repo, fork_version)
+    check = (_forgejo_fork_release_qualifies if host == "forgejo"
+             else _github_fork_release_qualifies)
+    return _pinned_cached(
+        f"fork {host} {repo} {fork_version}", repo,
+        lambda: check(repo, fork_version),
+    )
+
+
+#: Last verified answer per pinned lookup (release list, fork verdict). Lives
+#: beside the cached bundles so the server keeps it between builds.
+PINNED_STATE_PATH = os.path.join(PINNED_BUNDLE_CACHE_PATH, "pinnedState.json")
+
+
+def _pinned_cached(key, repo, fetch):
+    """Run fetch(); on a rate limit or outage reuse its last verified answer.
+
+    A pin is never published without having been verified once. A 404 or any
+    other refusal still fails at once: only GitHub's 403/429 quota answers,
+    408, 5xx and network faults fall back, as for release_state elsewhere.
+    """
+    try:
+        value = fetch()
+    except (HTTPError, *GITHUB_TRANSIENT_ERRORS) as exc:
+        if isinstance(exc, HTTPError) and exc.code not in (403, 408, 429) \
+                and not 500 <= exc.code < 600:
+            raise
+        state = load_json_cache(PINNED_STATE_PATH)
+        if key not in state:
+            raise
+        log(f"pinned {repo}: {exc}; reusing last verified {key.split(' ', 1)[0]}")
+        return state[key]
+    state = load_json_cache(PINNED_STATE_PATH)
+    if state.get(key) != value:
+        state[key] = value
+        os.makedirs(PINNED_BUNDLE_CACHE_PATH, exist_ok=True)
+        with open(PINNED_STATE_PATH + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(state, f)
+        os.replace(PINNED_STATE_PATH + ".tmp", PINNED_STATE_PATH)
+    return value
 
 
 def _manifest_scalar(manifest_text, key):

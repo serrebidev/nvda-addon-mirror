@@ -12,6 +12,21 @@ from urllib.error import HTTPError
 import mirror
 
 
+_state_dir = tempfile.TemporaryDirectory()
+_real_state_path = mirror.PINNED_STATE_PATH
+
+
+def setUpModule():
+    # Pinned lookups record their last verified answer; keep tests off the
+    # real cache.
+    mirror.PINNED_STATE_PATH = os.path.join(_state_dir.name, "pinnedState.json")
+
+
+def tearDownModule():
+    mirror.PINNED_STATE_PATH = _real_state_path
+    _state_dir.cleanup()
+
+
 def httpError(url, code, message):
     """Build an HTTPError without leaking its response body.
 
