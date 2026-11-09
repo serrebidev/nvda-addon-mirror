@@ -1034,6 +1034,24 @@ class GitHubOwnerTests(unittest.TestCase):
             ["example/new"], written["__discovery__"]["pending_repositories"]
         )
 
+    def test_spent_quota_is_not_retried_but_secondary_limit_is(self):
+        from email.message import Message
+
+        def refuse(remaining):
+            headers = Message()
+            headers["X-RateLimit-Remaining"] = remaining
+            error = HTTPError("https://api.github.invalid", 403, "x", headers, None)
+            self.addCleanup(error.close)
+            return error
+
+        for remaining, calls in (("0", 1), ("12", 4)):
+            with mock.patch.object(mirror, "http_get_json",
+                                   side_effect=[refuse(remaining)] * 4) as get, \
+                    mock.patch.object(mirror.time, "sleep"):
+                with self.assertRaises(HTTPError):
+                    mirror._github_json("https://api.github.invalid/x")
+            self.assertEqual(calls, get.call_count)
+
     def test_rate_limited_owner_listing_checks_cached_repositories(self):
         cache = {
             "__discovery__": {

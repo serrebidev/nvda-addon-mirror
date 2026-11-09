@@ -2125,6 +2125,15 @@ def _github_headers():
     return headers
 
 
+def _github_quota_spent(exc):
+    """True when the hourly quota is gone: retrying before reset cannot help.
+
+    A secondary limit leaves quota remaining and is worth the short retries;
+    an exhausted primary one would only add 50 seconds per request.
+    """
+    return exc.headers is not None and exc.headers.get("X-RateLimit-Remaining") == "0"
+
+
 def _github_json(url, timeout=120):
     """Fetch GitHub JSON with bounded secondary-rate-limit retries."""
     for attempt, delay in enumerate((0, 5, 15, 30)):
@@ -2135,7 +2144,7 @@ def _github_json(url, timeout=120):
         except HTTPError as exc:
             if exc.code not in (403, 429) and not 500 <= exc.code < 600:
                 raise
-            if attempt == 3:
+            if attempt == 3 or _github_quota_spent(exc):
                 raise
         except GITHUB_TRANSIENT_ERRORS:
             if attempt == 3:
@@ -2161,7 +2170,7 @@ def _github_json_conditional(url, etag=None, timeout=120):
                 return None, etag, True
             if exc.code not in (403, 429) and not 500 <= exc.code < 600:
                 raise
-            if attempt == 3:
+            if attempt == 3 or _github_quota_spent(exc):
                 raise
         except GITHUB_TRANSIENT_ERRORS:
             if attempt == 3:
@@ -2191,7 +2200,7 @@ def _github_graphql(query, timeout=180):
         except HTTPError as exc:
             if exc.code not in (403, 429) and not 500 <= exc.code < 600:
                 raise
-            if attempt == 3:
+            if attempt == 3 or _github_quota_spent(exc):
                 raise
             continue
         except GITHUB_TRANSIENT_ERRORS:
