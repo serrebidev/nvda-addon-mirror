@@ -34,9 +34,10 @@ re-downloads look like abuse.
 - `apply_manifest_claims()` publishes the corrected version while
   `cached_download()` keeps keying on `catalog_version`. Comparing the corrected
   one would look like a new release and re-download the bundle.
-- The cron is hourly (`7 * * * *`). Hourly keeps the worst case inside the
-  GITHUB_TOKEN budget of 1000 requests an hour and polls authors less. Do not
-  promise a ten-minute refresh anywhere; hourly is the honest number.
+- The refresh runs every half hour from a systemd timer on the owner's
+  server (`scripts/mirror-cron.sh`). That cadence keeps the worst case inside
+  the GITHUB_TOKEN budget of 1000 requests an hour and polls authors less. Do
+  not promise a ten-minute refresh anywhere; half-hourly is the honest number.
 - A build that cannot verify a repo reuses that repo's last verified
   `release_state`. Only a rate-limited repo with no verified state blocks
   publication. Never trade catalog completeness for quiet logs.
@@ -54,8 +55,8 @@ needed for public releases — and outranks `github_owner` in dedupe, so a
 Forgejo release always wins over its GitHub sibling. Its entries and
 release state share `githubOwnerCache.json` under the `__forgejo__` key,
 which the GitHub source carries through every cache write; keep it that
-way (`.github/workflows` is not edited, so a second cache file would
-never persist in CI). A `pinned.json` entry names `"host": "forgejo"`
+way (one file, one restore path — a second cache file would need its own
+plumbing in the refresh script). A `pinned.json` entry names `"host": "forgejo"`
 to pin a Forgejo release. Keep `githubOwners.json` free of owner repos:
 every repo the owner publishes lives in `forgejoOwners.json`.
 
@@ -97,7 +98,7 @@ collapse into a single store row and one hides the other. Pin the fork in
 `"optional": true`; the original keeps the name. Catalog rows whose download
 URL is in a pinned repo are dropped, or they would take the shared name back.
 A failed optional pin hides only that fork for one build. Do not pin a fork
-over the GitHub Pages size budget (Supertonic 1.0.0 is 281 MB): the site is
+over the site size budget (Supertonic 1.0.0 is 281 MB): the site is
 already past the 1 GB soft limit.
 
 ## Do not reformat the data files
@@ -115,7 +116,7 @@ with a model's answer.
 ## Checks
 
 ```
-python -W error -m unittest discover -s tests   # what CI runs
+python -W error -m unittest discover -s tests   # what the refresh runs first
 python mirror.py --sources ru --limit 6 --skip-download --locales en
 ```
 
@@ -148,25 +149,25 @@ into other locales.
   per add-on ID to `translations.json`. `auto_translate.py` only reports the
   queue now (`collect_work()`) and rebuilds `autoTranslations.json` from the
   existing cache.
-- Never put a provider key back into the workflow or the code. The old
-  `OPENROUTER_API_KEY` secret was deleted; the workflow still references it
-  but the code ignores it (`.github/workflows` is not to be edited).
+- Never put a provider key back into the refresh script or the code. The old
+  `OPENROUTER_API_KEY` secret was deleted; the retired
+  `.github/workflows/update.yml` still references it but the code ignores it.
 
 ## Muse cloud check: finish the translation queue
 
-The Muse cloud agent is the maintainer when a gap is left open. Every hourly
-update-mirror run writes the queue into its own log, before it touches the
-translation-gap issue, so the queue exists even when `gh` could not open or
-update the issue.
+The Muse cloud agent is the maintainer when a gap is left open. Every
+scheduled refresh writes the queue into its log, before it touches the
+translation-gap issue, so the queue exists even when the API could not open
+or update the issue.
 
 1. Read the queue from the newest run:
-   `gh run list -w update-mirror -L 1 --json databaseId -q '.[0].databaseId'`,
-   then `gh run view <id> --log | grep -o 'TRANSLATION-QUEUE {.*'`. Each line
-   after the prefix is one JSON finding: `addonId`, `sourceURL`, and `fields`
-   with the full non-English `text`. `TRANSLATION-QUEUE-EMPTY` means nothing
-   to do. The open `translation-gap` issue shows the same list, truncated.
-2. If `gh` itself is unavailable, run the auditor directly; it reads the live
-   site and needs no GitHub access:
+   `ssh root@100.103.9.33 'grep TRANSLATION-QUEUE /var/log/nvda-addon-mirror.log | tail -40'`.
+   Each line after the prefix is one JSON finding: `addonId`, `sourceURL`,
+   and `fields` with the full non-English `text`.
+   `TRANSLATION-QUEUE-EMPTY` means nothing to do. The open `translation-gap`
+   issue shows the same list, truncated.
+2. If the server is unreachable, run the auditor directly; it reads the live
+   site and needs no server access:
    `python audit_translations.py --json findings.json`.
 3. For each `addonId`, add an English `summary` (for `displayName`) and/or
    `description` to `translations.json` under that exact id. A name gets the
@@ -175,14 +176,14 @@ update the issue.
    already wrote. Keep the file's format: `indent=1`, insertion order, real
    UTF-8 characters rather than `\u` escapes, no `sort_keys`.
 4. Run `python -W error -m unittest discover -s tests`, commit only
-   `translations.json`, and push to main. The push rebuilds the mirror, and
-   the next audit closes the issue on its own.
+   `translations.json`, and push to main. The next scheduled run rebuilds
+   the mirror, and its audit closes the issue on its own.
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues are tracked in this repo's GitHub Issues, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues are tracked in this repo's Forgejo Issues, via the Forgejo API (`tea` CLI). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

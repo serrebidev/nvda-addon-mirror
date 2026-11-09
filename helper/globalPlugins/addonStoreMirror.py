@@ -27,7 +27,7 @@ from logHandler import log
 
 addonHandler.initTranslation()
 
-MIRROR_STORE_URL = "https://serrebidev.github.io/nvda-addon-mirror"
+MIRROR_STORE_URL = "https://nvda.serrebiradio.com"
 # An empty baseServerURL means NVDA's official store.
 OFFICIAL_STORE_URL = ""
 STORE_SOURCE_KEY = "storeSource"

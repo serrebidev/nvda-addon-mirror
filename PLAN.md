@@ -3,8 +3,8 @@
 ## Goal
 
 Publish a self-updating, English-metadata mirror in the wire format consumed by
-NVDA's built-in Add-on Store. Known upstream add-ons are checked hourly and
-deployed through GitHub Pages.
+NVDA's built-in Add-on Store. Known upstream add-ons are checked every half
+hour and deployed to the static site at https://nvda.serrebiradio.com.
 
 ## Sources
 
@@ -15,8 +15,9 @@ deployed through GitHub Pages.
   already covered by a valid stronger source in the same channel are retained.
 - Direct `.nvda-addon` release assets from owners in `githubOwners.json`;
   forks are retained only when released beyond their parent repository.
-- Explicit variants and packages in `pinned.json`, which pins either a GitHub
-  `repo` or a plain `url`. The `url` form reaches add-ons an author publishes
+- Explicit variants and packages in `pinned.json`, which pins a `repo`
+  (GitHub, or Forgejo with `"host": "forgejo"`) or a plain `url`. The `url`
+  form reaches add-ons an author publishes
   only from their own website, which no catalog lists and no GitHub scan can
   find; it is repackaged and rehosted only when it renames the add-on.
 
@@ -32,10 +33,10 @@ files with a root `manifest.ini` and a non-template add-on ID. Invalid bundles,
 removed assets, and unrelated repositories are recorded as rejections.
 
 `githubOwnerCache.json` stores validated manifests, the repository baseline,
-and GitHub ETags. Every hourly run conditionally checks all known add-on
-repositories. Once per day a lightweight owner scan discovers newly created
-repositories; only repositories not previously examined receive a baseline
-release scan.
+and GitHub ETags (plus the Forgejo entries under `__forgejo__`). Every
+scheduled run conditionally checks all known add-on repositories. Once per
+day a lightweight owner scan discovers newly created repositories; only
+repositories not previously examined receive a baseline release scan.
 
 ## Pipeline
 
@@ -64,18 +65,17 @@ release scan.
    deliberately not treated as Spanish or Portuguese.
 7. Emit `addons.json`, `cacheHash.json`, rejection reports, compatibility-filtered
    API-version files, and `latest.json` for every supported locale.
-8. Deploy the generated static site through GitHub Pages.
+8. Sync the generated static site to the web root.
 
 ## Scheduling and reliability
 
-The workflow runs on an offset hourly cron; GitHub throttles schedule delivery
-on this repository, so hourly is the cadence it reliably honors. Download
-socket stalls are capped at two minutes. Source-wide network
-or API failures stop publication so a partial catalog cannot replace a complete
-deployment. Permanent invalid or removed individual release assets are rejected
-with an auditable reason.
+The refresh runs on a half-hour systemd timer on the owner's server
+(`scripts/mirror-cron.sh`). Download socket stalls are capped at two minutes.
+Source-wide network or API failures stop publication so a partial catalog
+cannot replace a complete deployment. Permanent invalid or removed individual
+release assets are rejected with an auditable reason.
 
-The hourly update workflow audits each build's own catalog for add-ons still
+The scheduled refresh audits each build's own catalog for add-ons still
 lacking English metadata and manages a `translation-gap` issue: new findings
 create or update it, a clean audit closes it, and the issue is edited only
 when its content changes. Findings are report-only; a gap never blocks the
@@ -91,7 +91,7 @@ mirror build.
 - Validate `githubOwners.json` and `translations.json` with `json.tool`.
 - Run a full-source English smoke build and parse every generated JSON file.
 - Confirm a second GitHub-owner scan uses conditional 304 responses and does
-  not materially consume the hourly API quota.
+  not materially consume the API quota.
 - Inspect the helper archive to ensure it contains only `manifest.ini` and the
   global plugin source and never calls `dataManager.initialize()`.
 

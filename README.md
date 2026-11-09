@@ -2,8 +2,8 @@
 
 A self-updating mirror of NVDA add-on catalogs, direct author releases, and
 explicitly pinned releases, published in the exact wire format NVDA's built-in Add-on Store
-consumes. It refreshes hourly via GitHub Actions and is served from
-GitHub Pages.
+consumes. A scheduled run on the owner's server refreshes it every half
+hour and publishes it at https://nvda.serrebiradio.com.
 
 Sources:
 
@@ -113,7 +113,7 @@ Sources:
 6. Writes `cacheHash.json`, `addons.json`, and
    `{lang}/{channel}/{apiVersion}.json` for every NVDA locale, channel, and a
    curated set of recent API versions.
-7. Publishes everything to GitHub Pages.
+7. Publishes everything to the static site at https://nvda.serrebiradio.com.
 
 > These add-ons are **untested**. bestmidi's disclaimer: *"These add-ons have
 > not been tested and this is not an official NVDA add-on repository."* The
@@ -132,13 +132,13 @@ NVDA downloads an add-on when the user installs or updates it.
 Point NVDA's Add-on Store at the live mirror:
 
 ```
-https://serrebidev.github.io/nvda-addon-mirror
+https://nvda.serrebiradio.com
 ```
 
 Three ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [Download addonStoreMirror 1.6.0](https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases/download/v1.6.0/addonStoreMirror-1.6.0.nvda-addon).
+   [Download addonStoreMirror 1.6.1](https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases/download/v1.6.1/addonStoreMirror-1.6.1.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
@@ -190,12 +190,12 @@ before installing.
 2. **Edit `nvda.ini`** manually:
    ```ini
    [addonStore]
-   baseServerURL = https://serrebidev.github.io/nvda-addon-mirror
+   baseServerURL = https://nvda.serrebiradio.com
    ```
    then restart NVDA.
 3. **Use NVDA's built-in mirror setting** — NVDA menu > Preferences > Settings >
    Add-on Store > Mirror server > Change..., paste
-   `https://serrebidev.github.io/nvda-addon-mirror`, then OK. Available since
+   `https://nvda.serrebiradio.com`, then OK. Available since
    NVDA 2025.1; it writes the same `[addonStore] baseServerURL` key as the two
    options above, so it works exactly as well as they do — it just won't
    restore the official URL for you when you want to stop using the mirror,
@@ -203,22 +203,57 @@ before installing.
 
 ## Browsing what was rejected
 
-The site publishes [rejected.html](https://serrebidev.github.io/nvda-addon-mirror/rejected.html)
+The site publishes [rejected.html](https://nvda.serrebiradio.com/rejected.html)
 — every candidate excluded while building the mirror, grouped by reason
 (voice/data packs skipped, no download URL, …), with an
 in-page filter. The same data is available as JSON at `rejected.json`.
+
+## Browsing the catalog on the web
+
+The site publishes [store.html](https://nvda.serrebiradio.com/store.html) —
+every mirrored add-on in a searchable table with download links, built from
+`addons.json` in the browser, so the whole store is visible without NVDA.
 
 ## Repo layout
 
 - `mirror.py` — the whole pipeline (stdlib only, Python 3.11+).
 - `audit_translations.py` — reports add-ons still published in a language
   other than English (see below).
-- `.github/workflows/update.yml` — hourly cron, with persistent build caches.
-  GitHub may delay or drop scheduled events. Each build audits its own catalog
-  for untranslated add-ons and manages the `translation-gap` issue (see below).
+- `scripts/mirror-cron.sh` — scheduled refresh (every half hour on the
+  owner's server, via systemd), with persistent build caches on disk.
+  `.github/workflows/update.yml` is retired: the GitHub organization is gone
+  and Forgejo Actions is disabled, so the file is kept for reference only.
+  Each build audits its own catalog for untranslated add-ons and manages the
+  `translation-gap` issue (see below).
 - `helper/` — source of the `addonStoreMirror` helper add-on; `build_helper.py`
   packs it into `dist/`.
-- `public/` — generated site (published to GitHub Pages by Actions).
+- `public/` — generated site (synced to the web root by the scheduled run).
+
+## Server setup
+
+The site runs on the owner's YunoHost server. One-time setup, as root:
+
+```sh
+yunohost domain add nvda.serrebiradio.com
+yunohost app install my_webapp --args "domain=nvda.serrebiradio.com&path=/&is_public=1&with_sftp=0"
+yunohost domain cert-install nvda.serrebiradio.com
+git clone https://git.serrebiradio.com/serrebi/nvda-addon-mirror.git /opt/nvda-addon-mirror
+```
+
+Then point the refresh at the app's web root
+(`/var/www/my_webapp__<n>/www`) via `MIRROR_WEBROOT`, store a Forgejo token
+with issue scope at `/root/.config/nvda-addon-mirror/forgejo-token` (mode
+0600) for the translation-gap sync, and install the timer:
+
+```sh
+cp /opt/nvda-addon-mirror/scripts/systemd/nvda-mirror-refresh.* /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now nvda-mirror-refresh.timer
+```
+
+GitHub API access reuses the host's existing `gh` OAuth token
+(`/root/.config/gh/hosts.yml`); Forgejo needs no token for public releases.
+The refresh log is `/var/log/nvda-addon-mirror.log`.
 
 ## Add-on names
 
@@ -357,12 +392,12 @@ text. It is biased towards precision: a very short Latin-script product name
 carries too little signal to separate from English, so a few of those are
 missed, but every description long enough to read as prose is caught.
 
-The hourly update workflow runs the auditor against the freshly built catalog
+The scheduled refresh runs the auditor against the freshly built catalog
 and manages the `translation-gap` issue (`translation_issue.py sync` creates
 the issue on new findings, edits it only when its content changed, and closes
 it once the audit passes). New untranslated add-ons therefore surface within
-an hour of their first build, and translating them in `translations.json`
-closes the issue on the next hourly run — no manual issue management. The
+a run of their first build, and translating them in `translations.json`
+closes the issue on the next run — no manual issue management. The
 audit is report-only: it never blocks the mirror's deployment.
 
 ## Running locally
@@ -374,8 +409,8 @@ python mirror.py --sources official --locales en,fr,ja --skip-download  # check 
 python mirror.py --no-translate                                       # English everywhere
 ```
 
-The mirror writes real files rather than symlinks because GitHub Pages rejects
-artifacts that contain symlinks.
+The mirror writes real files rather than symlinks so the output deploys to
+any static host unchanged.
 
 ## Notes and trade-offs
 
@@ -394,14 +429,14 @@ artifacts that contain symlinks.
     2018–2022 has no Add-on Store at all. The mirror publishes no endpoint
     below `2025.1.0`: files for older API versions could never be requested by
     any NVDA ever released, and they were about a third of the deployed site.
-  - GitHub Pages forbids symlinks in Actions artifacts (and dereferences them
-    on upload anyway), so the mirror writes **real copies** for every locale.
+  - The mirror writes **real copies** for every locale, so the output
+    deploys to any static host unchanged.
     Every build reads NV Access's live `addon-datastore` metadata; the bundled
     `nvdaAPIVersions.json` is the offline fallback and also supplies each
     version's `BACK_COMPAT_TO`.
   - **Which API versions are published.** Each API version costs one filtered
     copy of the catalog per locale — around 120 MB across all locales — so
-    publishing every version since 2025.1 outgrew GitHub Pages' 1 GB soft limit
+    publishing every version since 2025.1 outgrew the site's 1 GB size budget
     (the site reached 1.79 GB). `--api-version-years` (default 2) keeps every
     version from the current and previous NVDA years, patches included, plus
     the newest version of each older year. NVDA requests its exact version and
@@ -423,8 +458,8 @@ artifacts that contain symlinks.
   Failed downloads wait six hours before retrying. Existing legacy hashes seed
   the daily interval without a bulk download during migration. `--no-head-check`
   explicitly forces downloads and bypasses these protections.
-  GitHub Actions saves build caches even after build/publication failures. On a
-  cache miss, it requires a valid cache from the last deployment before building.
+  The scheduled run keeps its build caches on disk, so they survive even
+  after build/publication failures.
   Pinned bundles are cached by release asset identity and update time, so
   repackaging also avoids downloading unchanged assets on each run.
   `githubOwnerCache.json` stores validated manifests, repository discovery, and

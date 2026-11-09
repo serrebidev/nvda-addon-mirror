@@ -9,7 +9,7 @@ import threading
 from urllib.parse import urlparse
 
 OFFICIAL = ""
-MIRROR = "https://serrebidev.github.io/nvda-addon-mirror"
+MIRROR = "https://nvda.serrebiradio.com"
 _source = contextvars.ContextVar("serrebiAddonStoreSource", default=None)
 
 

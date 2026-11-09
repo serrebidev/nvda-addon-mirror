@@ -1,0 +1,13 @@
+[Unit]
+Description=NVDA addon mirror half-hour refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/nvda-addon-mirror
+ExecStart=/opt/nvda-addon-mirror/scripts/mirror-cron.sh
+# A routine run takes minutes, but a cold build (or one after a multi-day
+# gap, when every add-on's 24h recheck comes due at once) needs much longer.
+# Never let systemd kill a build that is still downloading hashes.
+TimeoutStartSec=2h

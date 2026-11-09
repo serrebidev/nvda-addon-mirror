@@ -33,7 +33,7 @@ import urllib.request
 
 import mirror
 
-DEFAULT_ADDONS_URL = "https://serrebidev.github.io/nvda-addon-mirror/addons.json"
+DEFAULT_ADDONS_URL = "https://nvda.serrebiradio.com/addons.json"
 
 #: Fields carrying prose a user reads in the store. ``displayName`` and
 #: ``description`` are checked separately on purpose: several real gaps had a

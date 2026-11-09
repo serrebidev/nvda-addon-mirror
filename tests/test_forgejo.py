@@ -564,5 +564,34 @@ class ForgejoAssetEntryTests(unittest.TestCase):
         self.assertEqual("https://github.com/owner/demo", entry["source_url"])
 
 
+class PinnedRepoPrefixTests(unittest.TestCase):
+    def test_github_and_forgejo_pins_both_suppress(self):
+        todo = [
+            {"source": "pinned",
+             "source_url": "https://github.com/owner/demo"},
+            {"source": "pinned",
+             "source_url": f"{mirror.FORGEJO_WEB}/serrebi/logCollector"},
+            {"source": "pinned",
+             "source_url": "https://example.invalid/outside"},
+            {"source": "github_owner",
+             "source_url": "https://github.com/other/row"},
+        ]
+        self.assertEqual(
+            (
+                "https://github.com/owner/demo/",
+                f"{mirror.FORGEJO_WEB.casefold()}/serrebi/logcollector/",
+            ),
+            mirror._pinned_repo_prefixes(todo),
+        )
+
+    def test_non_pin_and_foreign_hosts_are_ignored(self):
+        self.assertEqual((), mirror._pinned_repo_prefixes([
+            {"source": "official",
+             "source_url": "https://github.com/nvaccess/addon-datastore"},
+            {"source": "pinned", "source_url": ""},
+            {"source": "pinned"},
+        ]))
+
+
 if __name__ == "__main__":
     unittest.main()

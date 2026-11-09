@@ -33,7 +33,7 @@ import wx
 BUNDLE_EXTENSION = ".nvda-bundle"
 BUNDLE_FORMAT = "nvda-addon-bundle"
 BUNDLE_FORMAT_VERSION = 1
-MIRROR_CATALOG_URL = "https://serrebidev.github.io/nvda-addon-mirror/addons.json"
+MIRROR_CATALOG_URL = "https://nvda.serrebiradio.com/addons.json"
 
 MODE_LATEST = "latest"
 MODE_PINNED = "pinned"

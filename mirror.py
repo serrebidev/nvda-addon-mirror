@@ -79,8 +79,8 @@ LOCALES = [
 
 # NVDA always requests channel "all" (its _preferredChannel is fixed) and
 # filters stable/beta/dev client-side, so only "all" is emitted. That keeps the
-# published site small enough for GitHub Pages, which also forbids symlinks --
-# so every path below is a real copy.
+# published site small, and every path below is a real copy rather than a
+# symlink, so the output deploys to any static host unchanged.
 CHANNELS = ["all"]
 
 # API versions for NVDA releases still in active use. NVDA requests
@@ -107,7 +107,7 @@ ADDON_STORE_FIRST_API_VERSION = (2025, 1, 0)
 #: How many NVDA release years to publish in full. Each release line
 #: (year.major) costs one filtered copy of the catalog per locale -- about
 #: 120 MB across the 74 locales -- and NVDA ships roughly three lines a year,
-#: so publishing every line since 2025.1 outgrows what GitHub Pages will hold.
+#: so publishing every line since 2025.1 outgrows the site's size budget.
 #:
 #: Retention follows where users actually are. The current and previous years
 #: keep every line, because that is where nearly everyone sits and a missing
@@ -120,9 +120,9 @@ ADDON_STORE_FIRST_API_VERSION = (2025, 1, 0)
 #: candidate, which broke the Add-on Store for everyone on stable NVDA.
 API_VERSION_YEARS_IN_FULL = 2
 
-#: Warn when the built site passes this. GitHub Pages documents 1 GB as a soft
-#: limit; going over is not refused outright but does invite throttling and a
-#: warning mail, so the build says so rather than letting it be a surprise.
+#: Warn when the built site passes this. The static host holds about 1 GB
+#: comfortably; going over invites slow deploys and long client fetches, so
+#: the build says so rather than letting it be a surprise.
 SITE_SIZE_WARN_BYTES = 1_000_000_000
 
 # API version regex mirrors NVDA source/addonAPIVersion.py: year.major(.minor)
@@ -292,6 +292,21 @@ GITHUB_API = "https://api.github.com"
 #: /api/v1/repos/{owner}/{repo}/releases. Public releases need no token.
 FORGEJO_WEB = "https://git.serrebiradio.com"
 FORGEJO_API = FORGEJO_WEB + "/api/v1"
+#: Public base URL of the published mirror. NVDA fetches
+#: {base}/{lang}/{channel}/{apiVersion}.json from here, and hosted pinned
+#: bundles are rewritten under {base}/downloads/.
+DEFAULT_SITE_BASE_URL = "https://nvda.serrebiradio.com"
+#: Helper add-on release the site's home page offers for download. Bump with
+#: helper/manifest.ini; the tagged Forgejo release carries the asset.
+HELPER_VERSION = "1.6.1"
+HELPER_RELEASES_URL = (
+    "https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases"
+)
+HELPER_DOWNLOAD_URL = (
+    "https://git.serrebiradio.com/serrebi/nvda-addon-mirror"
+    f"/releases/download/v{HELPER_VERSION}/"
+    f"addonStoreMirror-{HELPER_VERSION}.nvda-addon"
+)
 FORGEJO_OWNERS_PATH = "forgejoOwners.json"
 #: Section of the shared author cache file holding the Forgejo entries and
 #: release state. One file keeps the existing workflow cache steps and the
@@ -4848,6 +4863,167 @@ browsing; they are not available in the mirror's add-on store data.
 """
 
 
+def _build_index_html(stats, rejected, site_base_url):
+    """Home page: helper download, mirror setup steps, catalog links."""
+    accepted = stats.get("accepted", 0)
+    generated = stats.get("generated_at", "")
+    return (
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<title>NVDA Add-on Store Mirror</title></head><body>"
+        "<h1>NVDA Add-on Store Mirror</h1>"
+        f"<p>{accepted} add-ons mirrored from the "
+        "<a href='https://github.com/nvaccess/addon-datastore'>official NV Access "
+        "add-on store</a> (with the "
+        "<a href='https://github.com/nvdacn/NVDAUpdateMirror'>Chinese community "
+        "mirror</a> as failover), "
+        "<a href='https://bestmidi.com/addons/'>bestmidi.com/addons/</a>, "
+        "<a href='https://nvda-addons.ru/'>nvda-addons.ru</a>, "
+        "<a href='https://nvda.es/'>nvda.es</a> (with "
+        "<a href='https://nvda-addons.org/'>nvda-addons.org</a> failover), and "
+        "validated direct author releases from GitHub and Forgejo.</p>"
+        f"<p>Catalog built {generated}.</p>"
+        "<h2>Download the helper add-on</h2>"
+        f"<p><a href='{HELPER_DOWNLOAD_URL}'>Download addonStoreMirror "
+        f"{HELPER_VERSION}</a> "
+        f"(or pick a version from the <a href='{HELPER_RELEASES_URL}'>releases "
+        "page</a>). It points NVDA's Add-on Store at this mirror on startup "
+        "and restores the official store when disabled. Requires NVDA 2025.1 "
+        "or newer.</p>"
+        "<h2>Point NVDA at the mirror</h2>"
+        "<ol>"
+        "<li><strong>Install the helper add-on</strong> (recommended) as above.</li>"
+        "<li><strong>Edit nvda.ini</strong> manually, then restart NVDA:"
+        "<pre>[addonStore]\n"
+        f"baseServerURL = {site_base_url}</pre></li>"
+        "<li><strong>Use NVDA's built-in mirror setting</strong>: NVDA menu, "
+        "Preferences, Settings, Add-on Store, Mirror server, Change..., paste "
+        f"<code>{site_base_url}</code>, then OK. Available since NVDA 2025.1.</li>"
+        "</ol>"
+        "<h2>Browse the catalog</h2>"
+        "<p><a href='store.html'>Browse every mirrored add-on</a> with search "
+        "and download links, without NVDA.</p>"
+        "<h2>Data</h2>"
+        "<ul>"
+        "<li><a href='addons.json'>addons.json</a>: the full English catalog.</li>"
+        "<li><a href='stats.json'>stats.json</a>: build counts and API versions.</li>"
+        "<li><a href='cacheHash.json'>cacheHash.json</a>: the global catalog hash.</li>"
+        f"<li><a href='rejected.html'>{len(rejected)} rejected candidates</a>, "
+        "grouped by reason.</li>"
+        "</ul>"
+        "<p>NVDA itself fetches {lang}/all/{apiVersion}.json for the running "
+        "NVDA's own language and API version.</p>"
+        "<p>Community add-ons are untested; install at your own risk. Official "
+        "store add-ons include VirusTotal scan results.</p>"
+        "</body></html>"
+    )
+
+
+def _build_store_html(stats):
+    """Browsable catalog page; rows load from addons.json in the browser."""
+    template = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browse the NVDA Add-on Store Mirror</title>
+</head>
+<body>
+<h1>NVDA Add-on Store Mirror catalog</h1>
+<p>__ACCEPTED__ add-ons, catalog built __GENERATED_AT__.
+<a href="index.html">Back to the mirror home page</a></p>
+<p>
+<label for="search">Search name, publisher, description or add-on ID:</label>
+<input type="search" id="search" autocomplete="off">
+<span id="count" role="status" aria-live="polite"></span>
+</p>
+<noscript><p>Searching needs JavaScript. The raw catalog is
+<a href="addons.json">addons.json</a>.</p></noscript>
+<table>
+<thead><tr>
+<th scope="col">Name</th><th scope="col">Version</th>
+<th scope="col">Publisher</th><th scope="col">Channel</th>
+<th scope="col">NVDA</th><th scope="col">Source</th>
+<th scope="col">Download</th>
+</tr></thead>
+<tbody id="rows"></tbody>
+</table>
+<script>
+(function () {
+  var input = document.getElementById("search");
+  var count = document.getElementById("count");
+  var body = document.getElementById("rows");
+  function versionText(value) {
+    if (!value) return "";
+    return value.major + "." + value.minor + "." + value.patch;
+  }
+  function makeRow(row) {
+    var tr = document.createElement("tr");
+    var name = document.createElement("td");
+    var strong = document.createElement("strong");
+    strong.textContent = row.displayName || row.addonId;
+    name.appendChild(strong);
+    if (row.description) {
+      name.appendChild(document.createElement("br"));
+      var small = document.createElement("small");
+      small.textContent = row.description;
+      name.appendChild(small);
+    }
+    tr.appendChild(name);
+    [["addonVersionName"], ["publisher"], ["channel"]].forEach(function (key) {
+      var cell = document.createElement("td");
+      cell.textContent = row[key[0]] || "";
+      tr.appendChild(cell);
+    });
+    var range = document.createElement("td");
+    range.textContent = versionText(row.minNVDAVersion) + " - " + versionText(row.lastTestedVersion);
+    tr.appendChild(range);
+    var source = document.createElement("td");
+    source.textContent = row.storeSource || "";
+    tr.appendChild(source);
+    var download = document.createElement("td");
+    if (row.URL && /^https?:\\/\\//.test(row.URL)) {
+      var link = document.createElement("a");
+      link.href = row.URL;
+      link.textContent = "Download";
+      download.appendChild(link);
+    }
+    tr.appendChild(download);
+    tr._haystack = [row.displayName, row.addonId, row.publisher,
+      row.description, row.storeSource].join(" ").toLowerCase();
+    return tr;
+  }
+  function update() {
+    var q = input.value.trim().toLowerCase();
+    var rows = body.children;
+    var shown = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var match = !q || rows[i]._haystack.indexOf(q) !== -1;
+      rows[i].style.display = match ? "" : "none";
+      if (match) shown++;
+    }
+    count.textContent = q ? shown + " matching of " + rows.length : rows.length + " add-ons";
+  }
+  input.addEventListener("input", update);
+  fetch("addons.json").then(function (response) {
+    if (!response.ok) throw new Error(response.status);
+    return response.json();
+  }).then(function (rows) {
+    rows.forEach(function (row) { body.appendChild(makeRow(row)); });
+    update();
+  }).catch(function () {
+    count.textContent = "Could not load addons.json.";
+  });
+})();
+</script>
+</body>
+</html>
+"""
+    return template.replace("__ACCEPTED__", str(stats.get("accepted", 0))).replace(
+        "__GENERATED_AT__", str(stats.get("generated_at", ""))
+    )
+
+
 def emit(
     out_dir,
     canonical_bytes,
@@ -4862,13 +5038,15 @@ def emit(
     localize,
     dump,
     back_compat_by_ver,
+    site_base_url=None,
 ):
     """Write the site.
 
     ``localize(lang)`` returns the catalog as that language sees it and
     ``dump`` serialises a catalog the way NVDA expects; ``canonical_bytes``
     and ``compatible_bytes`` are the English renderings, kept for the
-    top-level addons.json and the recorded counts.
+    top-level addons.json and the recorded counts. ``site_base_url`` is the
+    public base URL printed on the home page's setup steps.
     """
     os.makedirs(out_dir, exist_ok=True)
 
@@ -4894,38 +5072,21 @@ def emit(
             with open(os.path.join(out_dir, rel), "wb") as f:
                 f.write(blob)
 
-    index_html = (
-        "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
-        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<title>NVDA Add-on Mirror</title></head><body>"
-        "<h1>NVDA Add-on Store Mirror</h1>"
-        f"<p>{stats['accepted']} add-ons mirrored from the "
-        "<a href='https://github.com/nvaccess/addon-datastore'>official NV Access "
-        "add-on store</a> (with the "
-        "<a href='https://github.com/nvdacn/NVDAUpdateMirror'>Chinese community "
-        "mirror</a> as failover), "
-        "<a href='https://bestmidi.com/addons/'>bestmidi.com/addons/</a> and "
-        "<a href='https://nvda-addons.ru/'>nvda-addons.ru</a>, "
-        "<a href='https://nvda.es/'>nvda.es</a> (with "
-        "<a href='https://nvda-addons.org/'>nvda-addons.org</a> failover), and "
-        "validated direct releases from the configured GitHub authors.</p>"
-        "<p>Set the NVDA Add-on Store base URL to this site to use it. "
-        "Community add-ons are untested; install at your own risk. Official "
-        "store add-ons include VirusTotal scan results.</p>"
-        f"<p><a href='rejected.html'>{len(rejected)} rejected candidates</a> "
-        "are listed on a separate page.</p>"
-        "</body></html>"
-    )
     with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
-        f.write(index_html)
+        f.write(_build_index_html(
+            stats, rejected, site_base_url or DEFAULT_SITE_BASE_URL
+        ))
+
+    with open(os.path.join(out_dir, "store.html"), "w", encoding="utf-8") as f:
+        f.write(_build_store_html(stats))
 
     with open(os.path.join(out_dir, "rejected.html"), "w", encoding="utf-8") as f:
         f.write(build_rejected_page(rejected, stats))
 
     def write_bytes(rel_path, data):
-        # GitHub Pages rejects artifacts containing symlinks, and the artifact
-        # upload follows them anyway (ballooning size), so always write real
-        # copies rather than symlinks.
+        # Static hosts and deploy tools handle symlinks inconsistently (some
+        # refuse them, some dereference them and balloon size), so always
+        # write real copies rather than symlinks.
         target = os.path.join(out_dir, rel_path)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, "wb") as f:
@@ -5105,6 +5266,24 @@ def audit_catalog(out_dir, api_version_path=NVDA_API_VERSIONS_PATH):
 # Main
 # ---------------------------------------------------------------------------
 
+def _pinned_repo_prefixes(todo):
+    """Download-URL prefixes of pinned repos, for catalog-row suppression.
+
+    A pinned fork is renamed so it can sit beside the original sharing its
+    manifest name. Any non-pinned row whose download URL sits under the
+    fork's repo still carries that shared name, so the build drops it.
+    Pins live on GitHub or the owner's Forgejo instance; both count.
+    """
+    return tuple(
+        e["source_url"].rstrip("/").casefold() + "/"
+        for e in todo
+        if e.get("source") == "pinned"
+        and (e.get("source_url") or "").casefold().startswith(
+            ("https://github.com/", FORGEJO_WEB.casefold() + "/")
+        )
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build a NVDA add-on store mirror.")
     parser.add_argument("--out", default="public")
@@ -5133,7 +5312,7 @@ def main():
     parser.add_argument("--hashcache", default="hashcache.json",
                         help="path to persistent sha256 cache")
     parser.add_argument("--site-base-url",
-                        default="https://serrebidev.github.io/nvda-addon-mirror",
+                        default=DEFAULT_SITE_BASE_URL,
                         help="public base URL of the mirror (used for hosted pinned add-ons)")
     parser.add_argument("--workers", type=int, default=10)
     args = parser.parse_args()
@@ -5298,12 +5477,7 @@ def main():
     # A pinned fork is renamed so it can sit beside the original that shares
     # its manifest name. Any catalog row for the fork's repo still carries
     # that shared name, and would take it from the original in dedupe.
-    pinned_repos = tuple(
-        e["source_url"].rstrip("/").casefold() + "/"
-        for e in todo
-        if e.get("source") == "pinned"
-        and (e.get("source_url") or "").casefold().startswith("https://github.com/")
-    )
+    pinned_repos = _pinned_repo_prefixes(todo)
     if excluded_names or pinned_repos:
         kept = []
         excluded_count = 0
@@ -5577,6 +5751,7 @@ def main():
         localize,
         dump,
         back_compat_by_ver,
+        site_base_url=args.site_base_url,
     )
 
     # Persist the hash cache so the next run only re-downloads changed add-ons.
