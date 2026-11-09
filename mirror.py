@@ -3012,11 +3012,6 @@ def fetch_github_owners(
                     vanished.add(source_name)
                     continue
                 failures.append(f"{source_name}: {exc}")
-    if failures:
-        raise RuntimeError(
-            "refusing to publish incomplete GitHub author discovery: "
-            + "; ".join(failures)
-        )
     if vanished:
         log(
             "GitHub repositories no longer exist and were dropped: "
@@ -3071,6 +3066,24 @@ def fetch_github_owners(
         "fork_parents": fork_parents,
         "parent_release_state": parent_release_state,
     }
+    if failures:
+        # Discovery still saves what it verified: the next run re-checks the
+        # saved release states through their ETags for free and retries only
+        # the rest, so a quota burst converges across runs instead of
+        # refetching everything. Old entries are preserved untouched -- this
+        # is a progress save, not a publish, and the raise below still stops
+        # this build from publishing an incomplete author set.
+        progress = dict(old_cache)
+        progress["__discovery__"] = discovery_snapshot
+        _write_github_owner_cache(progress, cache_path)
+        log(
+            f"GitHub author discovery saved {len(new_release_state)} verified "
+            f"release states and will retry {len(failures)} repositories next run"
+        )
+        raise RuntimeError(
+            "refusing to publish incomplete GitHub author discovery: "
+            + "; ".join(failures)
+        )
     existing_by_url = {
         entry.get("download_url"): entry
         for entry in (existing_entries or [])

@@ -1052,6 +1052,71 @@ class GitHubOwnerTests(unittest.TestCase):
                 ):
                     mirror.fetch_github_owners(config_path, cache_path)
 
+    def test_failed_discovery_saves_verified_release_states(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": ["example/ok", "example/blocked"],
+                "scanned_repositories": ["example/ok", "example/blocked"],
+                "release_state": {},
+            },
+            "old-entry": {"source": "github_owner"},
+            "__forgejo__": {"release_state": {}, "entries": {}},
+        }
+
+        def release_state(repo, previous_state=None):
+            if repo == "example/ok":
+                return [], {
+                    "etag": '"ok"',
+                    "candidates": [],
+                    "latest_version": "1.0",
+                }
+            raise httpError(
+                "https://api.github.invalid", 403, "rate limit"
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump(
+                    {"owners": [{
+                        "login": "example",
+                        "repositories": ["ok", "blocked"],
+                    }]},
+                    config_file,
+                )
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+
+            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(
+                    mirror,
+                    "_github_owner_repositories",
+                    return_value=(["example/ok", "example/blocked"], {}),
+                ),                 mock.patch.object(
+                    mirror, "_github_release_asset_state", side_effect=release_state
+                ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "refusing to publish incomplete GitHub author discovery",
+                ):
+                    mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        # The verified state persists so the next run retries only the rest;
+        # old entries and the Forgejo section ride along untouched.
+        self.assertEqual(
+            '"ok"',
+            written["__discovery__"]["release_state"]["example/ok"]["etag"],
+        )
+        self.assertNotIn(
+            "example/blocked",
+            written["__discovery__"]["release_state"],
+        )
+        self.assertEqual({"source": "github_owner"}, written["old-entry"])
+        self.assertIn("__forgejo__", written)
+
     def test_rate_limited_repository_reuses_verified_release_state(self):
         cached_candidates = [{
             "repo": "example/published",
