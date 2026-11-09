@@ -2978,7 +2978,21 @@ def fetch_github_owners(
         candidates = []
     else:
         for spec in owners:
-            owner_repositories, owner_fork_parents = _github_owner_repositories(spec)
+            try:
+                owner_repositories, owner_fork_parents = (
+                    _github_owner_repositories(spec)
+                )
+            except (HTTPError, *GITHUB_TRANSIENT_ERRORS) as exc:
+                # The listing only confirms repositories already cached; on
+                # the 60-an-hour quota, check those and list again next run.
+                if isinstance(exc, HTTPError) and exc.code not in (403, 429) \
+                        and not 500 <= exc.code < 600:
+                    raise
+                if isinstance(exc, HTTPError):
+                    exc.close()
+                log(f"GitHub owner {spec.get('login')}: repository list "
+                    f"unavailable ({exc}); checking its cached repositories")
+                continue
             repositories.update(owner_repositories)
             fork_parents.update(owner_fork_parents)
         candidates = []

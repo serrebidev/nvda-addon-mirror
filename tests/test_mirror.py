@@ -1034,6 +1034,45 @@ class GitHubOwnerTests(unittest.TestCase):
             ["example/new"], written["__discovery__"]["pending_repositories"]
         )
 
+    def test_rate_limited_owner_listing_checks_cached_repositories(self):
+        cache = {
+            "__discovery__": {
+                "addon_repositories": ["example/published"],
+                "scanned_repositories": ["example/published"],
+            }
+        }
+        checked = []
+
+        def release_state(repo, previous_state=None):
+            checked.append(repo)
+            return [], {}
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = os.path.join(directory, "githubOwners.json")
+            cache_path = os.path.join(directory, "githubOwnerCache.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                json.dump({"owners": [{"login": "example",
+                                       "repositories": ["published"]}]},
+                          config_file)
+            with open(cache_path, "w", encoding="utf-8") as cache_file:
+                json.dump(cache, cache_file)
+            for code in (403, 404):
+                checked.clear()
+                with mock.patch.object(mirror, "GITHUB_TOKEN", ""), \
+                        mock.patch.object(
+                            mirror, "_github_owner_repositories",
+                            side_effect=httpError(
+                                "https://api.github.invalid", code, "x")
+                        ), mock.patch.object(
+                            mirror, "_github_release_asset_state",
+                            side_effect=release_state):
+                    if code == 404:
+                        with self.assertRaises(HTTPError):
+                            mirror.fetch_github_owners(config_path, cache_path)
+                    else:
+                        mirror.fetch_github_owners(config_path, cache_path)
+                        self.assertEqual(["example/published"], checked)
+
     def test_rate_limited_published_repository_still_stops_publication(self):
         cache = {
             "__discovery__": {
