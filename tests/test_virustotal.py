@@ -90,9 +90,9 @@ class VirusTotalTests(unittest.TestCase):
         many = [entry("bestmidi", "1.0", sha=f"{i:064x}") for i in range(30)]
         with mock.patch.object(mirror, "VT_CALLS_PER_BUILD", 10):
             self.scan([store] + many)
-        self.assertEqual(mirror.VT_CALLS_PER_BUILD, len(self.calls))
+        self.assertEqual(10, len(self.calls))
         with open(self.cache, encoding="utf-8") as f:
-            self.assertEqual(mirror.VT_CALLS_PER_BUILD, json.load(f)["__budget__"]["used"])
+            self.assertEqual(10, json.load(f)["__budget__"]["used"])
 
     def test_a_spent_quota_stops_the_build_asking(self):
         self.answers["files/" + "a" * 64] = (429, None)
