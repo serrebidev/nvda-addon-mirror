@@ -61,7 +61,9 @@ if [ -z "${GITHUB_TOKEN:-}" ] && [ -f /root/.config/gh/hosts.yml ]; then
 fi
 
 log "running tests"
-if ! python3 -W error -m unittest discover -s tests; then
+# Tests never see production secrets: a test that reaches for VT_API_KEY
+# would spend the real VirusTotal quota.
+if ! env -u VT_API_KEY python3 -W error -m unittest discover -s tests; then
     log "TESTS FAILED; keeping the last deployed site"
     exit 1
 fi

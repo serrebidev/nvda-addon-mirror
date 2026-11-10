@@ -349,7 +349,7 @@ def run_build(scenario, directory, now):
         api_entries = json.load(f)
     with mock.patch.object(sys, "argv", argv), \
             mock.patch.object(mirror.time, "time", lambda: now), \
-            mock.patch.object(mirror, "urlopen", scenario.internet), \
+            mock.patch.object(mirror, "urlopen", scenario.internet),             mock.patch.dict(os.environ, {"VT_API_KEY": ""}), \
             mock.patch.object(mirror, "MANIFEST_CAPTURE_LIMIT", CAPTURE_LIMIT), \
             mock.patch.object(mirror, "fetch_official",
                               lambda: copy.deepcopy(scenario.official)), \
