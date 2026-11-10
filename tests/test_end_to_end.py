@@ -281,6 +281,17 @@ class Scenario:
         serve(self.template, bundle(manifest_text("addonTemplate")))
         self.bestmidi.append(row("Template User", self.template))
 
+        # Reloq-C 1.3.0: a new release under a catalog display name, whose
+        # manifest name an author source already publishes. The first build
+        # downloads it, so only the bytes say what it really is.
+        self.claimed = BASE + "claimedAuthor-1.0.nvda-addon"
+        serve(self.claimed, bundle(manifest_text("claimedAddon", "1.0")))
+        self.forgejo.append(row(
+            "claimedAddon", self.claimed, "1.0", source="forgejo_owner"))
+        self.claimer = BASE + "claimedUpstream-2.0.nvda-addon"
+        serve(self.claimer, bundle(manifest_text("claimedAddon", "2.0")))
+        self.bestmidi.append(row("Hörtest (x64-DLL)", self.claimer, "0.1.5"))
+
     def _fresh(self, name, url, text, **fields):
         self.internet.serve(url, bundle(text))
         self.bestmidi.append(row(name, url, **fields))
@@ -387,6 +398,8 @@ class EndToEndTests(unittest.TestCase):
 
         cls.first = run_build(cls.scenario, cls.directory.name, T0)
         cls.first_hash = cls.first.text("cacheHash.json")
+        # Every build writes the same directory: keep what the first one said.
+        cls.first_rows = cls.first.rows()
         cls.second = run_build(cls.scenario, cls.directory.name, T0 + HOUR)
         cls.second_hash = cls.second.text("cacheHash.json")
         cls.second_rows = cls.second.rows()
@@ -434,6 +447,32 @@ class EndToEndTests(unittest.TestCase):
                     )
                     checked += 1
         self.assertGreater(checked, 30)
+
+    def test_a_new_release_installs_in_the_build_that_first_fetched_it(self):
+        # The manifest is read from that very download, not one build later.
+        limits = {self.s.refuser, self.s.template}
+        checked = 0
+        for ver in API_VERSIONS:
+            for published in self.first_rows:
+                if published["URL"] in limits:
+                    continue
+                if nvda_contract.store_action(
+                        published, API_TUPLE[ver], BACK_COMPAT[ver]) == "unavailable":
+                    continue
+                with self.subTest(addon=published["addonId"], ver=ver):
+                    nvda_contract.install_from_store(
+                        published, self.s.internet.files[published["URL"]]["raw"],
+                        API_TUPLE[ver], BACK_COMPAT[ver],
+                    )
+                    checked += 1
+        self.assertGreater(checked, 30)
+
+    def test_a_manifest_name_already_published_waits_for_dedupe(self):
+        for rows in (self.first_rows, self.third.rows()):
+            self.assertEqual([], [r for r in rows if r["URL"] == self.s.claimer])
+            self.assertEqual(
+                [self.s.claimed],
+                [r["URL"] for r in rows if r["addonId"] == "claimedAddon"])
 
     def test_a_compatible_list_never_needs_an_override(self):
         for ver in API_VERSIONS:

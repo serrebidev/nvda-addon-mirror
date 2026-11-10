@@ -5765,6 +5765,39 @@ def main():
 
     log(f"Hashed {len(results)}, download-failed {len(download_failed)}")
 
+    # 4b. A bundle first fetched in this build only now shows its manifest,
+    # after step 1 corrected everything already cached. Publishing the
+    # catalog's ID or compatibility claim for one build gives NVDA a row it
+    # refuses as "Add-on not supported" (Reloq-C 1.3.0, 2026-11-10), so apply
+    # the manifest now. Free: the bytes were streamed for the hash anyway.
+    if not args.skip_download:
+        before = {id(e): e["name"] for e, _digest, _size in results}
+        fresh = [e for e, _digest, _size in results]
+        if apply_manifest_names(fresh, new_hashcache):
+            # Dedupe already ran: a renamed row may now share an ID and
+            # channel with a row that won its own group. That row keeps it,
+            # and the next build dedupes the two properly.
+            taken = {
+                (e["name"].casefold(), e.get("channel") or "stable")
+                for e in fresh if e["name"] == before[id(e)]
+            }
+            kept = []
+            for item in results:
+                e = item[0]
+                key = (e["name"].casefold(), e.get("channel") or "stable")
+                if e["name"] != before[id(e)] and key in taken:
+                    rejected.append({
+                        "addonId": before[id(e)],
+                        "source": e.get("source"),
+                        "reason": (f"bundle manifest names it {e['name']!r}, "
+                                   "already published; dedupes next build"),
+                    })
+                    continue
+                taken.add(key)
+                kept.append(item)
+            results = kept
+        apply_manifest_claims(fresh, new_hashcache)
+
     # Rewrite pinned variants' download URL to the hosted copy (their original
     # release asset carries the colliding manifest name).
     base = args.site_base_url.rstrip("/")
