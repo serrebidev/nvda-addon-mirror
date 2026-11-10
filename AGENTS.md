@@ -98,6 +98,24 @@ Catalog feeds are not authoritative about channels either. nvda-addons.ru marks
 89% of its links "Dev", so a pre-release label from it is honoured only when the
 version string corroborates it.
 
+## Newest release wins; VirusTotal covers what the store did not scan
+
+Since 2026-11-10 `dedupe()` picks the newest version from any source; source
+priority only breaks ties. A pin still beats everything, and a Forgejo
+release still beats its GitHub sibling whatever version that claims. The
+owner chose this: bestmidi carried newer GitHub releases than the published
+store or RU copy for 76 add-ons.
+
+`virustotal_scans()` gives every non-store file the same `scanResults` the
+official store ships. It looks up the SHA-256; a file VirusTotal has never
+seen is submitted by its download URL, so VirusTotal fetches it once itself
+(verified: its URL object records our SHA-256). Never upload bytes and never
+re-download for a scan. Answers live in `.bundlecache/virusTotal.json`,
+refresh weekly, and stay inside the free key's limits (`VT_CALLS_PER_BUILD`,
+`VT_DAILY_BUDGET`). `VT_MALICIOUS_BLOCK` or more "malicious" verdicts reject
+the file. The key is `VT_API_KEY` in `/etc/nvda-addon-mirror.env` on the
+server only.
+
 ## Two add-ons, one manifest name
 
 NVDA keys add-ons by manifest `name`, so two authors' add-ons sharing one

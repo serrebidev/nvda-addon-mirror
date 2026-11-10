@@ -40,7 +40,7 @@ from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from email.utils import parsedate_to_datetime
-from urllib.parse import quote, unquote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urlencode, urlsplit, urlunsplit
 
 BESTMIDI_URL = "https://bestmidi.com/addons/addons.json"
 RU_ADDONS_URL = "https://nvda-addons.ru/get.php?addonslist"
@@ -4160,6 +4160,145 @@ def _has_cyrillic(text):
     return bool(text and _CYRILLIC_RE.search(text))
 
 
+VT_API = "https://www.virustotal.com/api/v3"
+VT_CACHE_PATH = os.path.join(PINNED_BUNDLE_CACHE_PATH, "virusTotal.json")
+#: Free public API: 4 requests a minute, 500 a day. A build every half hour
+#: spending at most 10 stays under both with room for manual runs.
+VT_CALLS_PER_BUILD = 10
+VT_DAILY_BUDGET = 450
+VT_CALL_SPACING_SECONDS = 15
+VT_REFRESH_SECONDS = 7 * 24 * 60 * 60
+#: After a URL submission VirusTotal fetches and scans the file itself.
+VT_PENDING_RECHECK_SECONDS = 30 * 60
+VT_RESUBMIT_SECONDS = 7 * 24 * 60 * 60
+#: One engine alone flags Python bundles often enough to be noise.
+VT_MALICIOUS_BLOCK = 3
+
+
+def _vt_request(path, key, data=None):
+    """One VirusTotal API call: (status, json or None). 404 is an answer."""
+    request = Request(
+        f"{VT_API}/{path}",
+        data=urlencode(data).encode() if data else None,
+        headers={"x-apikey": key, "User-Agent": USER_AGENT},
+    )
+    try:
+        with urlopen(request, timeout=60) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        exc.close()
+        return exc.code, None
+
+
+def _vt_scan_result(sha256, record):
+    stats = record.get("stats") if isinstance(record, dict) else None
+    if not isinstance(stats, dict):
+        return None
+    return {
+        "virusTotal": [{"last_analysis_stats": stats}],
+        "vtScanUrl": f"https://www.virustotal.com/gui/file/{sha256}",
+    }
+
+
+def virustotal_scans(entries, now=None, cache_path=None, key=None):
+    """Attach VirusTotal results to every published file the store lacks them for.
+
+    The official store scans what it publishes; nothing else does. A file is
+    looked up by its SHA-256 (no bytes leave here). One VirusTotal has never
+    seen is submitted by its download URL, so VirusTotal fetches it once
+    itself -- never a re-download by this mirror -- and a later build reads
+    the verdict. Answers are cached per SHA-256 and refreshed weekly, inside
+    the free API's per-minute and daily limits. Without VT_API_KEY nothing is
+    asked and cached answers still apply.
+
+    Returns the entries VT_MALICIOUS_BLOCK or more engines call malicious.
+    """
+    key = key if key is not None else os.environ.get("VT_API_KEY", "").strip()
+    now = time.time() if now is None else now
+    cache_path = cache_path or VT_CACHE_PATH
+    cache = load_json_cache(cache_path)
+    budget = cache.get("__budget__") if isinstance(cache.get("__budget__"), dict) else {}
+    today = time.strftime("%Y-%m-%d", time.gmtime(now))
+    if budget.get("day") != today:
+        budget = {"day": today, "used": 0}
+    scannable = [
+        e for e in entries
+        if not e.get("scan_results") and (e.get("sha256") or "").strip()
+    ]
+
+    def due(e):
+        record = cache.get(e["sha256"].lower())
+        if not isinstance(record, dict):
+            return True
+        if record.get("stats"):
+            return now - record.get("checked", 0) >= VT_REFRESH_SECONDS
+        return now - record.get("checked", 0) >= VT_PENDING_RECHECK_SECONDS
+
+    calls = 0
+    if key:
+        # Never asked first, then the newest releases.
+        queue = sorted(
+            (e for e in scannable if due(e)),
+            key=lambda e: (e["sha256"].lower() in cache,
+                           -(e.get("submission_ms") or 0)),
+        )
+        for e in queue:
+            if calls >= VT_CALLS_PER_BUILD or budget["used"] >= VT_DAILY_BUDGET:
+                break
+            sha = e["sha256"].lower()
+            record = dict(cache.get(sha) or {})
+            if calls:
+                time.sleep(VT_CALL_SPACING_SECONDS)
+            status, body = _vt_request(f"files/{sha}", key)
+            calls += 1
+            budget["used"] += 1
+            if status == 429:
+                log("VirusTotal quota reached; the rest wait for a later build")
+                break
+            if status == 200:
+                attributes = (body or {}).get("data", {}).get("attributes", {})
+                record.update(stats=attributes.get("last_analysis_stats"),
+                              checked=now)
+            elif status == 404:
+                record["checked"] = now
+                url = e.get("download_url") or ""
+                if (url.startswith("https://")
+                        and ("submitted" not in record
+                             or now - record["submitted"] >= VT_RESUBMIT_SECONDS)
+                        and calls < VT_CALLS_PER_BUILD
+                        and budget["used"] < VT_DAILY_BUDGET):
+                    time.sleep(VT_CALL_SPACING_SECONDS)
+                    status, _body = _vt_request("urls", key, {"url": url})
+                    calls += 1
+                    budget["used"] += 1
+                    if status == 200:
+                        record["submitted"] = now
+            else:
+                log(f"VirusTotal answered HTTP {status} for {e.get('name')}; retried later")
+                continue
+            cache[sha] = record
+        if calls:
+            cache["__budget__"] = budget
+            os.makedirs(os.path.dirname(cache_path) or ".", exist_ok=True)
+            with open(cache_path + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(cache, f)
+            os.replace(cache_path + ".tmp", cache_path)
+
+    blocked = []
+    scanned = 0
+    for e in scannable:
+        scan = _vt_scan_result(e["sha256"].lower(), cache.get(e["sha256"].lower()))
+        if not scan:
+            continue
+        scanned += 1
+        e["scan_results"] = scan
+        if (scan["virusTotal"][0]["last_analysis_stats"].get("malicious") or 0) >= VT_MALICIOUS_BLOCK:
+            blocked.append(e)
+    log(f"VirusTotal: {scanned}/{len(scannable)} non-store files scanned; "
+        f"{calls} API calls this build, {budget.get('used', 0)} today")
+    return blocked
+
+
 def dedupe(entries):
     """Dedupe by (addonId, channel).
 
@@ -4169,12 +4308,13 @@ def dedupe(entries):
     catalogs list one entry per add-on, which lands in whatever channel the
     catalog declares.
 
-    Preference order within the same (addonId, channel): explicitly pinned
-    releases > Forgejo author releases > GitHub author releases > official
-    (NV Access-reviewed,
-    VirusTotal data, upstream hash) > nvda-addons.ru (curated, direct links) >
-    bestmidi > the shared Spanish catalog. Within one source the newer parseable
-    version wins; an entry with a download URL beats one without.
+    Preference order within the same (addonId, channel): an entry with a
+    download URL beats one without; an explicitly pinned release beats
+    everything; then the newest parseable version wins, from any source. Only
+    a tie falls to source: Forgejo author releases > GitHub author releases >
+    official (NV Access-reviewed, VirusTotal data, upstream hash) >
+    nvda-addons.ru (curated, direct links) > bestmidi > the shared Spanish
+    catalog.
 
     When the winning entry's text is Russian, English summary/description/
     changelog are adopted from a non-Cyrillic sibling (official first, then
@@ -4196,12 +4336,21 @@ def dedupe(entries):
 
     result = []
     for group in by_key.values():
+        # The owner moved to Forgejo: a GitHub copy of one of their add-ons
+        # never wins, whatever version it claims.
+        if any(e["source"] == "forgejo_owner" for e in group):
+            group = [e for e in group if e["source"] != "github_owner"]
         winner = max(
             group,
             key=lambda e: (
                 1 if e["download_url"] else 0,
-                priority.get(e["source"], 0),
+                # A pin is a deliberate choice of file; nothing outranks it.
+                1 if e["source"] == "pinned" else 0,
+                # Newest release next (2026-11-10): an author's GitHub release
+                # beat a stale store copy 76 times. Every non-store file now
+                # carries its own VirusTotal result (virustotal_scans).
                 sanitize_version(e.get("version")) or (0, 0, 0),
+                priority.get(e["source"], 0),
             ),
         )
         if _has_cyrillic(winner.get("summary")) or _has_cyrillic(winner.get("description")):
@@ -5797,6 +5946,22 @@ def main():
                 kept.append(item)
             results = kept
         apply_manifest_claims(fresh, new_hashcache)
+
+    # 4c. VirusTotal for every file the official store did not scan.
+    if not args.skip_download:
+        for e, digest, _size in results:
+            e.setdefault("sha256", digest)
+        flagged = {id(e) for e in virustotal_scans([e for e, _d, _s in results])}
+        if flagged:
+            for e, _digest, _size in results:
+                if id(e) in flagged:
+                    stats = e["scan_results"]["virusTotal"][0]["last_analysis_stats"]
+                    rejected.append({
+                        "addonId": e.get("name"), "source": e.get("source"),
+                        "reason": (f"VirusTotal: {stats.get('malicious')} engines "
+                                   "flag it as malicious"),
+                    })
+            results = [item for item in results if id(item[0]) not in flagged]
 
     # Rewrite pinned variants' download URL to the hosted copy (their original
     # release asset carries the colliding manifest name).

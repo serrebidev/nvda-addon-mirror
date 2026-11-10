@@ -468,11 +468,12 @@ class EndToEndTests(unittest.TestCase):
         self.assertGreater(checked, 30)
 
     def test_a_manifest_name_already_published_waits_for_dedupe(self):
-        for rows in (self.first_rows, self.third.rows()):
-            self.assertEqual([], [r for r in rows if r["URL"] == self.s.claimer])
+        # First build: the rename collides after dedupe, so the row that won
+        # its group keeps the ID. Next build dedupes them: newest wins.
+        for rows, url in ((self.first_rows, self.s.claimed),
+                          (self.third.rows(), self.s.claimer)):
             self.assertEqual(
-                [self.s.claimed],
-                [r["URL"] for r in rows if r["addonId"] == "claimedAddon"])
+                [url], [r["URL"] for r in rows if r["addonId"] == "claimedAddon"])
 
     def test_a_compatible_list_never_needs_an_override(self):
         for ver in API_VERSIONS:
