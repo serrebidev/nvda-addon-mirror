@@ -4178,7 +4178,7 @@ VT_API = "https://www.virustotal.com/api/v3"
 VT_CACHE_PATH = os.path.join(PINNED_BUNDLE_CACHE_PATH, "virusTotal.json")
 #: Free public API: 4 requests a minute, 500 a day. A build every half hour
 #: spending at most 10 stays under both with room for manual runs.
-VT_CALLS_PER_BUILD = 10
+VT_CALLS_PER_BUILD = int(os.environ.get("MIRROR_VT_CALLS_PER_BUILD") or 10)
 VT_DAILY_BUDGET = 450
 VT_CALL_SPACING_SECONDS = 15
 VT_REFRESH_SECONDS = 7 * 24 * 60 * 60
@@ -4363,7 +4363,9 @@ def virustotal_gate(results, previous, gate):
             })
             prior = previous_rows.get(
                 (e["name"].casefold(), e.get("channel") or "stable"))
-            if prior is not None:
+            # Same URL, new hash: the author replaced that very file, so the
+            # old row would only fail NVDA's checksum.
+            if prior is not None and prior.get("URL") != e.get("download_url"):
                 carried.append(prior)
         else:
             kept.append(item)

@@ -128,6 +128,11 @@ class ScanFirstGateTests(unittest.TestCase):
         self.assertEqual("waiting for its VirusTotal scan", held[0]["reason"])
         self.assertEqual([self.old], carried)
 
+    def test_a_file_replaced_under_its_url_never_carries_the_stale_row(self):
+        stale = dict(self.old, URL="https://host.invalid/x.nvda-addon")
+        kept, held, carried = self.gate([entry("bestmidi", "1.0")], [stale])
+        self.assertEqual(([], 1, []), (kept, len(held), carried))
+
     def test_published_files_exempt_sources_and_scanned_files_go_out(self):
         published = entry("bestmidi", "1.0", sha="0" * 64)
         forgejo = dict(entry("forgejo_owner", "1.0", sha="f" * 64), name="mine")
