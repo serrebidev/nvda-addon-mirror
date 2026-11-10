@@ -1254,6 +1254,79 @@ class GitHubOwnerTests(unittest.TestCase):
             written["__discovery__"]["release_state"]["example/published"]["etag"],
         )
 
+    def test_rate_limited_artifact_repository_reuses_verified_file_list(self):
+        candidate = {
+            "repo": "example/artifacts",
+            "channel": "stable",
+            "asset_name": "demo-1.0.nvda-addon",
+            "download_url": "https://example.invalid/raw/demo-1.0.nvda-addon",
+            "cache_key": "https://example.invalid/raw/demo-1.0.nvda-addon#s",
+            "release_tag": "",
+            "published_at": None,
+            "changelog": "",
+        }
+        entry = {
+            "addonId": "demo",
+            "displayName": "Demo",
+            "download_url": candidate["download_url"],
+            "sha256": "a" * 64,
+            "size": 123,
+        }
+        config = {"owners": [{
+            "login": "example",
+            "repositories": [],
+            "artifact_repositories": [
+                {"repo": "example/artifacts", "ref": "master"},
+            ],
+        }]}
+
+        def run(cache, artifact_result):
+            with tempfile.TemporaryDirectory() as directory:
+                config_path = os.path.join(directory, "githubOwners.json")
+                cache_path = os.path.join(directory, "githubOwnerCache.json")
+                with open(config_path, "w", encoding="utf-8") as config_file:
+                    json.dump(config, config_file)
+                with open(cache_path, "w", encoding="utf-8") as cache_file:
+                    json.dump(cache, cache_file)
+                with mock.patch.object(mirror, "GITHUB_TOKEN", ""), \
+                        mock.patch.object(
+                            mirror, "_github_owner_repositories",
+                            return_value=([], {}),
+                        ), \
+                        mock.patch.object(
+                            mirror, "_github_artifact_candidates",
+                            side_effect=artifact_result,
+                        ):
+                    entries = mirror.fetch_github_owners(config_path, cache_path)
+                with open(cache_path, "r", encoding="utf-8") as cache_file:
+                    return entries, json.load(cache_file)
+
+        cache_key = mirror._owner_cache_key(candidate)
+        # A verified run records the file list.
+        entries, written = run({cache_key: entry}, lambda spec: [candidate])
+        self.assertEqual(1, len(entries))
+        self.assertEqual(
+            [candidate],
+            written["__discovery__"]["artifact_state"]["example/artifacts"],
+        )
+
+        def spent(spec):
+            raise httpError("https://api.github.invalid", 403, "rate limit")
+
+        # A spent quota publishes that list instead of failing the source.
+        entries, written = run(written, spent)
+        self.assertEqual(
+            [candidate["download_url"]], [e["download_url"] for e in entries]
+        )
+        self.assertEqual(
+            [candidate],
+            written["__discovery__"]["artifact_state"]["example/artifacts"],
+        )
+
+        # Never verified: nothing to stand in, so publication still stops.
+        with self.assertRaises(RuntimeError):
+            run({}, spent)
+
     def test_telegram_configuration_selects_original_owner(self):
         owners = mirror._load_github_owners()
         by_login = {spec["login"].casefold(): spec for spec in owners}

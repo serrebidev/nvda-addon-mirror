@@ -2877,6 +2877,10 @@ def fetch_github_owners(
     parent_release_state = discovery.get("parent_release_state")
     if not isinstance(parent_release_state, dict):
         parent_release_state = {}
+    artifact_state = discovery.get("artifact_state")
+    if not isinstance(artifact_state, dict):
+        artifact_state = {}
+    new_artifact_state = {}
     new_release_state = {
         repo: state
         for repo, state in release_state.items()
@@ -3043,7 +3047,13 @@ def fetch_github_owners(
     failures = []
     vanished = set()
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        # Artifact repositories first: they cost two requests and, until one
+        # verifies, have no saved answer to stand in for a spent quota.
         futures = {
+            pool.submit(_github_artifact_candidates, spec): ("artifact", spec.get("repo"))
+            for spec in artifact_specs
+        }
+        futures.update({
             pool.submit(
                 _github_release_asset_state,
                 repo,
@@ -3055,10 +3065,6 @@ def fetch_github_owners(
                 (release_state.get(repo.casefold()) or {}).get("candidates"),
                 list,
             ))
-        }
-        futures.update({
-            pool.submit(_github_artifact_candidates, spec): ("artifact", spec.get("repo"))
-            for spec in artifact_specs
         })
         for future in concurrent.futures.as_completed(futures):
             source_kind, source_name = futures[future]
@@ -3070,7 +3076,25 @@ def fetch_github_owners(
                     new_release_state[source_name.casefold()] = repo_state
                 else:
                     candidates.extend(result)
+                    new_artifact_state[(source_name or "").casefold()] = result
             except Exception as exc:  # noqa: BLE001 - aggregate source failures
+                stale = artifact_state.get((source_name or "").casefold())
+                if (
+                    source_kind == "artifact"
+                    and _github_outage(exc)
+                    and isinstance(stale, list)
+                ):
+                    # Same rule as release states: an outage or spent quota
+                    # publishes the last verified file list, never nothing.
+                    if isinstance(exc, HTTPError):
+                        exc.close()
+                    new_artifact_state[source_name.casefold()] = stale
+                    candidates.extend(stale)
+                    log(
+                        "GitHub rate limit hit; reusing last verified "
+                        f"artifact list for {source_name}"
+                    )
+                    continue
                 if (
                     source_kind == "release"
                     and isinstance(exc, HTTPError)
@@ -3162,6 +3186,7 @@ def fetch_github_owners(
         "release_state": new_release_state,
         "fork_parents": fork_parents,
         "parent_release_state": parent_release_state,
+        "artifact_state": new_artifact_state,
     }
     if failures:
         # Discovery still saves what it verified: the next run re-checks the

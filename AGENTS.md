@@ -39,7 +39,8 @@ re-downloads look like abuse.
   the GITHUB_TOKEN budget of 1000 requests an hour and polls authors less. Do
   not promise a ten-minute refresh anywhere; half-hourly is the honest number.
 - A build that cannot verify a repo reuses that repo's last verified
-  `release_state`. Pinned GitHub/Forgejo pins do the same through
+  `release_state` (`artifact_state` for `artifact_repositories`, which run
+  first so a fresh quota verifies them). Pinned GitHub/Forgejo pins do the same through
   `_pinned_cached()` (`.bundlecache/pinnedState.json`): a 403/429/5xx or
   network fault reuses the last verified release list and fork verdict; a
   404 still fails. Only a rate-limited repo with no verified state blocks
