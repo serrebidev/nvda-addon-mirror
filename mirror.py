@@ -984,9 +984,20 @@ def cached_download(entry, cached=None, force=False, now=None, capture_limit=0,
         and not cached.get("error")
         and "failing_since" not in cached
     )
+    # The catalog reports a size our hash was not taken from: the author
+    # replaced the file under the same URL, and the published hash now fails
+    # NVDA's checksum (Reloq-C 1.3.0, 2026-11-10). One conditional GET per
+    # distinct claim, so a catalog stuck on a wrong size never polls.
+    claimed_size = entry.get("catalog_size")
+    size_claim_new = bool(
+        usable and claimed_size and claimed_size != cached.get("size")
+        and claimed_size != cached.get("size_claim_checked")
+    )
     if not force and not unexamined:
         if same_version and cached.get("next_check", 0) > now:
-            if _fresh_upload_recheck_due(cached, usable, same_version, now):
+            if size_claim_new:
+                log(f"Catalog size changed, rechecking: {entry.get('download_url')}")
+            elif _fresh_upload_recheck_due(cached, usable, same_version, now):
                 # Recently uploaded and the hourly recheck is due: fall
                 # through to the conditional GET rather than trust the record
                 # for a day. A 304 costs the host nothing.
@@ -3689,6 +3700,9 @@ def fetch_bestmidi():
                 "license_url": (a.get("addon_license_url") or "").strip(),
                 "changelog": clean_text(a.get("changelog")),
                 "download_url": download_url,
+                # The asset's size per GitHub: a change means the author
+                # replaced the file under the same URL (see cached_download).
+                "catalog_size": a.get("download_size_bytes") or None,
                 "submission_ms": parse_iso8601_to_ms(a.get("last_pushed"))
                 or parse_iso8601_to_ms(a.get("created_at")),
                 "min_nvda": parse_api_version(a.get("minimum_nvda_version")),
@@ -4173,6 +4187,9 @@ VT_PENDING_RECHECK_SECONDS = 30 * 60
 VT_RESUBMIT_SECONDS = 7 * 24 * 60 * 60
 #: One engine alone flags Python bundles often enough to be noise.
 VT_MALICIOUS_BLOCK = 3
+#: Never held back for a scan: the store scans its own, a pin is bytes this
+#: mirror repackaged, and Forgejo releases are the owner's own.
+VT_EXEMPT_SOURCES = ("official", "pinned", "forgejo_owner")
 
 
 def _vt_request(path, key, data=None):
@@ -4200,7 +4217,7 @@ def _vt_scan_result(sha256, record):
     }
 
 
-def virustotal_scans(entries, now=None, cache_path=None, key=None):
+def virustotal_scans(entries, now=None, cache_path=None, key=None, priority=()):
     """Attach VirusTotal results to every published file the store lacks them for.
 
     The official store scans what it publishes; nothing else does. A file is
@@ -4211,7 +4228,9 @@ def virustotal_scans(entries, now=None, cache_path=None, key=None):
     the free API's per-minute and daily limits. Without VT_API_KEY nothing is
     asked and cached answers still apply.
 
-    Returns the entries VT_MALICIOUS_BLOCK or more engines call malicious.
+    ``priority`` holds SHA-256s waiting on a verdict before they may publish;
+    they are asked about before any backfill. Returns the entries
+    VT_MALICIOUS_BLOCK or more engines call malicious.
     """
     key = key if key is not None else os.environ.get("VT_API_KEY", "").strip()
     now = time.time() if now is None else now
@@ -4236,10 +4255,11 @@ def virustotal_scans(entries, now=None, cache_path=None, key=None):
 
     calls = 0
     if key:
-        # Never asked first, then the newest releases.
+        # Files held back for a verdict first, then never asked, then newest.
         queue = sorted(
             (e for e in scannable if due(e)),
-            key=lambda e: (e["sha256"].lower() in cache,
+            key=lambda e: (e["sha256"].lower() not in priority,
+                           e["sha256"].lower() in cache,
                            -(e.get("submission_ms") or 0)),
         )
         for e in queue:
@@ -4297,6 +4317,60 @@ def virustotal_scans(entries, now=None, cache_path=None, key=None):
     log(f"VirusTotal: {scanned}/{len(scannable)} non-store files scanned; "
         f"{calls} API calls this build, {budget.get('used', 0)} today")
     return blocked
+
+
+def virustotal_gate(results, previous, gate):
+    """Scan (entry, digest, size) results; hold back what may not publish yet.
+
+    Returns (kept results, rejection rows, previously published rows to carry).
+    A file VT_MALICIOUS_BLOCK engines flag is rejected. With ``gate`` (a key is
+    configured), a non-exempt file whose SHA-256 the last build did not publish
+    waits for a verdict, and the add-on's previously published row for the
+    same ID and channel is carried meanwhile.
+    """
+    for e, digest, _size in results:
+        e.setdefault("sha256", digest)
+    published_shas = {(o.get("sha256") or "").lower() for o in previous}
+    # No previous catalog (first build, wiped output) would hold back every
+    # non-store add-on at once; scan, but publish as before.
+    gate = gate and bool(published_shas)
+    previous_rows = {
+        ((o.get("addonId") or "").casefold(), o.get("channel") or "stable"): o
+        for o in previous if isinstance(o, dict)
+    }
+    waiting = {
+        e["sha256"].lower() for e, _d, _s in results
+        if gate and e.get("source") not in VT_EXEMPT_SOURCES
+        and not e.get("scan_results")
+        and e["sha256"].lower() not in published_shas
+    }
+    flagged = {id(e) for e in virustotal_scans(
+        [e for e, _d, _s in results], priority=waiting)}
+    kept, held, carried = [], [], []
+    for item in results:
+        e = item[0]
+        if id(e) in flagged:
+            stats = e["scan_results"]["virusTotal"][0]["last_analysis_stats"]
+            held.append({
+                "addonId": e.get("name"), "source": e.get("source"),
+                "reason": (f"VirusTotal: {stats.get('malicious')} engines "
+                           "flag it as malicious"),
+            })
+        elif e["sha256"].lower() in waiting and not e.get("scan_results"):
+            held.append({
+                "addonId": e.get("name"), "source": e.get("source"),
+                "reason": "waiting for its VirusTotal scan",
+            })
+            prior = previous_rows.get(
+                (e["name"].casefold(), e.get("channel") or "stable"))
+            if prior is not None:
+                carried.append(prior)
+        else:
+            kept.append(item)
+    if waiting:
+        log(f"VirusTotal: {len(waiting)} new files checked before publishing; "
+            f"{len(carried)} add-ons keep their previous release meanwhile")
+    return kept, held, carried
 
 
 def dedupe(entries):
@@ -5877,6 +5951,9 @@ def main():
                 capture_limit=MANIFEST_CAPTURE_LIMIT,
                 inspect=needs_version,
             )
+            claimed = e.get("catalog_size")
+            if claimed and claimed != cached.get("size"):
+                cached["size_claim_checked"] = claimed
             with cache_lock:
                 new_hashcache[url] = cached
             replacement = better_version(
@@ -5947,21 +6024,24 @@ def main():
             results = kept
         apply_manifest_claims(fresh, new_hashcache)
 
-    # 4c. VirusTotal for every file the official store did not scan.
+    # 4c. VirusTotal for every file the official store did not scan. With a
+    # key configured, a file this site has not published before goes out only
+    # once VirusTotal has a clean verdict on it; until then the add-on's last
+    # published row stays up. The owner's own Forgejo releases and pins (bytes
+    # this mirror repackaged) are exempt. Already-published files stay while
+    # the backfill reaches them.
+    carried = []
     if not args.skip_download:
-        for e, digest, _size in results:
-            e.setdefault("sha256", digest)
-        flagged = {id(e) for e in virustotal_scans([e for e, _d, _s in results])}
-        if flagged:
-            for e, _digest, _size in results:
-                if id(e) in flagged:
-                    stats = e["scan_results"]["virusTotal"][0]["last_analysis_stats"]
-                    rejected.append({
-                        "addonId": e.get("name"), "source": e.get("source"),
-                        "reason": (f"VirusTotal: {stats.get('malicious')} engines "
-                                   "flag it as malicious"),
-                    })
-            results = [item for item in results if id(item[0]) not in flagged]
+        try:
+            with open(os.path.join(args.out, "addons.json"), encoding="utf-8") as f:
+                previous = json.load(f)
+        except (OSError, ValueError):
+            previous = []
+        results, held, carried = virustotal_gate(
+            results, previous if isinstance(previous, list) else [],
+            gate=bool(os.environ.get("VT_API_KEY", "").strip()),
+        )
+        rejected.extend(held)
 
     # Rewrite pinned variants' download URL to the hosted copy (their original
     # release asset carries the colliding manifest name).
@@ -5974,6 +6054,7 @@ def main():
     output = []
     for e, digest, size in results:
         output.append(transform(e, digest))
+    output.extend(carried)
 
     rejected.extend(download_failed)
     rejected.sort(key=lambda r: (r.get("source") or "", r.get("addonId") or ""))

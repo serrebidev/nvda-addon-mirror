@@ -99,5 +99,65 @@ class VirusTotalTests(unittest.TestCase):
         self.assertEqual(1, len(self.calls))
 
 
+class ScanFirstGateTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        patch = mock.patch.object(mirror, "VT_CACHE_PATH",
+                                  os.path.join(directory.name, "vt.json"))
+        patch.start()
+        self.addCleanup(patch.stop)
+        for target in ("_vt_request",):
+            p = mock.patch.object(mirror, target, return_value=(404, None))
+            p.start()
+            self.addCleanup(p.stop)
+        p = mock.patch.object(mirror.time, "sleep")
+        p.start()
+        self.addCleanup(p.stop)
+        self.old = {"addonId": "demo", "channel": "stable", "sha256": "0" * 64,
+                    "addonVersionName": "1.0"}
+
+    def gate(self, entries, previous, gate=True):
+        with mock.patch.dict(os.environ, {"VT_API_KEY": "k"}):
+            return mirror.virustotal_gate(
+                [(e, e["sha256"], 1) for e in entries], previous, gate)
+
+    def test_an_unscanned_new_file_waits_and_the_old_release_stays(self):
+        kept, held, carried = self.gate([entry("bestmidi", "2.0")], [self.old])
+        self.assertEqual([], kept)
+        self.assertEqual("waiting for its VirusTotal scan", held[0]["reason"])
+        self.assertEqual([self.old], carried)
+
+    def test_published_files_exempt_sources_and_scanned_files_go_out(self):
+        published = entry("bestmidi", "1.0", sha="0" * 64)
+        forgejo = dict(entry("forgejo_owner", "1.0", sha="f" * 64), name="mine")
+        scanned = dict(entry("ru", "1.0", sha="c" * 64), name="other",
+                       scan_results={"virusTotal": [{"last_analysis_stats": {}}]})
+        kept, held, _carried = self.gate([published, forgejo, scanned], [self.old])
+        self.assertEqual(3, len(kept))
+        self.assertEqual([], held)
+
+    def test_no_previous_catalog_or_no_key_never_holds(self):
+        for previous, gate in (([], True), ([self.old], False)):
+            kept, held, _ = self.gate([entry("bestmidi", "2.0")], previous, gate)
+            self.assertEqual((1, []), (len(kept), held))
+
+
+class CatalogSizeTests(unittest.TestCase):
+    def test_a_new_size_claim_rechecks_once(self):
+        cached = {"sha256": "a" * 64, "size": 100, "etag": '"1"', "version": "1.0",
+                  "next_check": 10 ** 12}
+        e = dict(entry("bestmidi", "1.0"), catalog_size=200)
+        with mock.patch.object(mirror, "sha256_stream",
+                               return_value=("b" * 64, 200, '"2"', None, None)) as fetch:
+            record, error = mirror.cached_download(e, cached, now=1000)
+        self.assertEqual((1, "b" * 64, None), (fetch.call_count, record["sha256"], error))
+        # A catalog stuck on a size the file does not have asks only once.
+        stuck = dict(cached, size_claim_checked=200)
+        with mock.patch.object(mirror, "sha256_stream") as fetch:
+            mirror.cached_download(e, stuck, now=1000)
+        self.assertEqual(0, fetch.call_count)
+
+
 if __name__ == "__main__":
     unittest.main()
