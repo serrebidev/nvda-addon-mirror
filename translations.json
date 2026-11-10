@@ -1932,6 +1932,7 @@
       "description": "The TimeWithSeconds add-on simply reports the current time with seconds and the current date.\nAn example message looks like this:\n12:03:12\n10/15/2025\nKeyboard shortcut:\nNVDA+F12 - When pressed once, the current time with seconds is reported. When pressed twice, the current date is reported.\nThe keyboard shortcut can be changed in input gestures, under the System Status category."
     },
     "zRadio": {
+      "summary": "ZRadio (Internet-Z-Radio Player), AKA ZRadio (Интернет-Z-радиоплеер)",
       "description": "ZRadio add-on is an online radio player for NVDA.\nTo open the add-on, you need to follow the path: NVDA menu, Service submenu, and there will be a zRadio item.\nYou can also assign a key command in input gestures, which is not set by default, to open the zRadio main window.\nGo to NVDA menu/settings/input gestures and under zRadio: shortcut to show zRadio main window.\nIn addition, a general catalog of radio stations, a section for favorite stations and a search in the catalog are available, in addition, you can add your own stations.\nMore details about the functionality of the add-on are described in the help."
     },
     "speechHistoryExplorer": {
