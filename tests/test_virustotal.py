@@ -88,7 +88,8 @@ class VirusTotalTests(unittest.TestCase):
     def test_store_scanned_files_are_left_alone_and_budget_holds(self):
         store = dict(entry("official", "1.0"), scan_results={"virusTotal": []})
         many = [entry("bestmidi", "1.0", sha=f"{i:064x}") for i in range(30)]
-        self.scan([store] + many)
+        with mock.patch.object(mirror, "VT_CALLS_PER_BUILD", 10):
+            self.scan([store] + many)
         self.assertEqual(mirror.VT_CALLS_PER_BUILD, len(self.calls))
         with open(self.cache, encoding="utf-8") as f:
             self.assertEqual(mirror.VT_CALLS_PER_BUILD, json.load(f)["__budget__"]["used"])
