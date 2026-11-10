@@ -100,53 +100,45 @@ class VirusTotalTests(unittest.TestCase):
         self.assertEqual(1, len(self.calls))
 
 
-class ScanFirstGateTests(unittest.TestCase):
+class PublishThenRemoveTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
-        patch = mock.patch.object(mirror, "VT_CACHE_PATH",
-                                  os.path.join(directory.name, "vt.json"))
-        patch.start()
-        self.addCleanup(patch.stop)
-        for target in ("_vt_request",):
-            p = mock.patch.object(mirror, target, return_value=(404, None))
+        for target, value in (("VT_CACHE_PATH", os.path.join(directory.name, "vt.json")),):
+            p = mock.patch.object(mirror, target, value)
             p.start()
             self.addCleanup(p.stop)
         p = mock.patch.object(mirror.time, "sleep")
         p.start()
         self.addCleanup(p.stop)
-        self.old = {"addonId": "demo", "channel": "stable", "sha256": "0" * 64,
-                    "addonVersionName": "1.0"}
+        self.answer = (404, None)
 
-    def gate(self, entries, previous, gate=True):
-        with mock.patch.dict(os.environ, {"VT_API_KEY": "k"}):
+    def gate(self, entries, previous=()):
+        with mock.patch.dict(os.environ, {"VT_API_KEY": "k"}),                 mock.patch.object(mirror, "_vt_request",
+                                  side_effect=lambda *a, **k: self.answer):
             return mirror.virustotal_gate(
-                [(e, e["sha256"], 1) for e in entries], previous, gate)
+                [(e, e["sha256"], 1) for e in entries], list(previous))
 
-    def test_an_unscanned_new_file_waits_and_the_old_release_stays(self):
-        kept, held, carried = self.gate([entry("bestmidi", "2.0")], [self.old])
+    def test_an_unscanned_file_publishes_at_once_without_invented_scan_data(self):
+        e = entry("bestmidi", "2.0")
+        kept, held = self.gate([e])
+        self.assertEqual((1, []), (len(kept), held))
+        self.assertNotIn("scan_results", e)
+
+    def test_a_flagged_file_is_removed(self):
+        self.answer = (200, {"data": {"attributes": {"last_analysis_stats":
+                                                     dict(STATS, malicious=5)}}})
+        kept, held = self.gate([entry("bestmidi", "2.0")])
         self.assertEqual([], kept)
-        self.assertEqual("waiting for its VirusTotal scan", held[0]["reason"])
-        self.assertEqual([self.old], carried)
+        self.assertIn("5 engines", held[0]["reason"])
 
-    def test_a_file_replaced_under_its_url_never_carries_the_stale_row(self):
-        stale = dict(self.old, URL="https://host.invalid/x.nvda-addon")
-        kept, held, carried = self.gate([entry("bestmidi", "1.0")], [stale])
-        self.assertEqual(([], 1, []), (kept, len(held), carried))
-
-    def test_published_files_exempt_sources_and_scanned_files_go_out(self):
-        published = entry("bestmidi", "1.0", sha="0" * 64)
-        forgejo = dict(entry("forgejo_owner", "1.0", sha="f" * 64), name="mine")
-        scanned = dict(entry("ru", "1.0", sha="c" * 64), name="other",
-                       scan_results={"virusTotal": [{"last_analysis_stats": {}}]})
-        kept, held, _carried = self.gate([published, forgejo, scanned], [self.old])
-        self.assertEqual(3, len(kept))
-        self.assertEqual([], held)
-
-    def test_no_previous_catalog_or_no_key_never_holds(self):
-        for previous, gate in (([], True), ([self.old], False)):
-            kept, held, _ = self.gate([entry("bestmidi", "2.0")], previous, gate)
-            self.assertEqual((1, []), (len(kept), held))
+    def test_a_queued_all_zero_answer_is_not_a_scan(self):
+        zeros = {k: 0 for k in STATS}
+        self.answer = (200, {"data": {"attributes": {"last_analysis_stats": zeros}}})
+        e = entry("bestmidi", "2.0")
+        kept, _held = self.gate([e])
+        self.assertEqual(1, len(kept))
+        self.assertNotIn("scan_results", e)
 
 
 class CatalogSizeTests(unittest.TestCase):

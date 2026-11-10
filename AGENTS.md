@@ -113,10 +113,12 @@ seen is submitted by its download URL, so VirusTotal fetches it once itself
 re-download for a scan. Answers live in `.bundlecache/virusTotal.json`,
 refresh weekly, and stay inside the free key's limits (`VT_CALLS_PER_BUILD`,
 `VT_DAILY_BUDGET`). `VT_MALICIOUS_BLOCK` or more "malicious" verdicts reject
-the file. Scan first (owner, 2026-11-10): `virustotal_gate()` holds back a
-non-store file whose SHA-256 the last build did not publish until it has a
-clean verdict, and carries the add-on's previous row meanwhile. Pins and the
-owner's Forgejo releases are exempt; with no previous catalog it never holds.
+the file. Publish first, remove if flagged (owner, 2026-11-10): every file
+goes out at once and `virustotal_gate()` drops it in the first build with a
+flagging verdict; files new to the site are asked about first. Never invent
+scan data for an unscanned file, and never treat VirusTotal's all-zero
+"still queued" answer as a scan. A brief hold-until-scanned design was
+tried and reverted the same day.
 
 bestmidi's `download_size_bytes` (`catalog_size`) differing from the cached
 size means the author replaced the file under the same URL; the build then

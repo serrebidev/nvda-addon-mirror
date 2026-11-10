@@ -4187,7 +4187,7 @@ VT_PENDING_RECHECK_SECONDS = 30 * 60
 VT_RESUBMIT_SECONDS = 7 * 24 * 60 * 60
 #: One engine alone flags Python bundles often enough to be noise.
 VT_MALICIOUS_BLOCK = 3
-#: Never held back for a scan: the store scans its own, a pin is bytes this
+#: Scanned after the rest: the store scans its own, a pin is bytes this
 #: mirror repackaged, and Forgejo releases are the owner's own.
 VT_EXEMPT_SOURCES = ("official", "pinned", "forgejo_owner")
 
@@ -4207,9 +4207,18 @@ def _vt_request(path, key, data=None):
         return exc.code, None
 
 
+def _vt_engine_count(stats):
+    """How many engine answers a VirusTotal stats dict holds (0 = still queued)."""
+    if not isinstance(stats, dict):
+        return 0
+    return sum(v for v in stats.values() if isinstance(v, int))
+
+
 def _vt_scan_result(sha256, record):
     stats = record.get("stats") if isinstance(record, dict) else None
-    if not isinstance(stats, dict):
+    # A file VirusTotal has fetched but not yet scanned answers all zeros;
+    # publishing that would show a scan that never happened.
+    if not _vt_engine_count(stats):
         return None
     return {
         "virusTotal": [{"last_analysis_stats": stats}],
@@ -4277,8 +4286,13 @@ def virustotal_scans(entries, now=None, cache_path=None, key=None, priority=()):
                 break
             if status == 200:
                 attributes = (body or {}).get("data", {}).get("attributes", {})
-                record.update(stats=attributes.get("last_analysis_stats"),
-                              checked=now)
+                stats = attributes.get("last_analysis_stats")
+                record["checked"] = now
+                if _vt_engine_count(stats):
+                    record["stats"] = stats
+                else:
+                    # Known but still queued: ask again after the short wait.
+                    record.pop("stats", None)
             elif status == 404:
                 record["checked"] = now
                 url = e.get("download_url") or ""
@@ -4319,34 +4333,25 @@ def virustotal_scans(entries, now=None, cache_path=None, key=None, priority=()):
     return blocked
 
 
-def virustotal_gate(results, previous, gate):
-    """Scan (entry, digest, size) results; hold back what may not publish yet.
+def virustotal_gate(results, previous):
+    """Scan (entry, digest, size) results; drop what VirusTotal flags.
 
-    Returns (kept results, rejection rows, previously published rows to carry).
-    A file VT_MALICIOUS_BLOCK engines flag is rejected. With ``gate`` (a key is
-    configured), a non-exempt file whose SHA-256 the last build did not publish
-    waits for a verdict, and the add-on's previously published row for the
-    same ID and channel is carried meanwhile.
+    Returns (kept results, rejection rows). Every file publishes at once (the
+    owner's call, 2026-11-10); a file VT_MALICIOUS_BLOCK or more engines call
+    malicious is removed in the first build that has the verdict. Files the
+    last build did not publish are asked about before the backfill.
     """
     for e, digest, _size in results:
         e.setdefault("sha256", digest)
     published_shas = {(o.get("sha256") or "").lower() for o in previous}
-    # No previous catalog (first build, wiped output) would hold back every
-    # non-store add-on at once; scan, but publish as before.
-    gate = gate and bool(published_shas)
-    previous_rows = {
-        ((o.get("addonId") or "").casefold(), o.get("channel") or "stable"): o
-        for o in previous if isinstance(o, dict)
-    }
-    waiting = {
+    new_files = {
         e["sha256"].lower() for e, _d, _s in results
-        if gate and e.get("source") not in VT_EXEMPT_SOURCES
-        and not e.get("scan_results")
+        if e.get("source") not in VT_EXEMPT_SOURCES
         and e["sha256"].lower() not in published_shas
     }
     flagged = {id(e) for e in virustotal_scans(
-        [e for e, _d, _s in results], priority=waiting)}
-    kept, held, carried = [], [], []
+        [e for e, _d, _s in results], priority=new_files)}
+    kept, held = [], []
     for item in results:
         e = item[0]
         if id(e) in flagged:
@@ -4356,23 +4361,9 @@ def virustotal_gate(results, previous, gate):
                 "reason": (f"VirusTotal: {stats.get('malicious')} engines "
                            "flag it as malicious"),
             })
-        elif e["sha256"].lower() in waiting and not e.get("scan_results"):
-            held.append({
-                "addonId": e.get("name"), "source": e.get("source"),
-                "reason": "waiting for its VirusTotal scan",
-            })
-            prior = previous_rows.get(
-                (e["name"].casefold(), e.get("channel") or "stable"))
-            # Same URL, new hash: the author replaced that very file, so the
-            # old row would only fail NVDA's checksum.
-            if prior is not None and prior.get("URL") != e.get("download_url"):
-                carried.append(prior)
         else:
             kept.append(item)
-    if waiting:
-        log(f"VirusTotal: {len(waiting)} new files checked before publishing; "
-            f"{len(carried)} add-ons keep their previous release meanwhile")
-    return kept, held, carried
+    return kept, held
 
 
 def dedupe(entries):
@@ -6026,23 +6017,17 @@ def main():
             results = kept
         apply_manifest_claims(fresh, new_hashcache)
 
-    # 4c. VirusTotal for every file the official store did not scan. With a
-    # key configured, a file this site has not published before goes out only
-    # once VirusTotal has a clean verdict on it; until then the add-on's last
-    # published row stays up. The owner's own Forgejo releases and pins (bytes
-    # this mirror repackaged) are exempt. Already-published files stay while
-    # the backfill reaches them.
-    carried = []
+    # 4c. VirusTotal for every file the official store did not scan. Files
+    # publish at once and are removed when a verdict flags them; files the
+    # last build did not publish are asked about first.
     if not args.skip_download:
         try:
             with open(os.path.join(args.out, "addons.json"), encoding="utf-8") as f:
                 previous = json.load(f)
         except (OSError, ValueError):
             previous = []
-        results, held, carried = virustotal_gate(
-            results, previous if isinstance(previous, list) else [],
-            gate=bool(os.environ.get("VT_API_KEY", "").strip()),
-        )
+        results, held = virustotal_gate(
+            results, previous if isinstance(previous, list) else [])
         rejected.extend(held)
 
     # Rewrite pinned variants' download URL to the hosted copy (their original
@@ -6056,7 +6041,6 @@ def main():
     output = []
     for e, digest, size in results:
         output.append(transform(e, digest))
-    output.extend(carried)
 
     rejected.extend(download_failed)
     rejected.sort(key=lambda r: (r.get("source") or "", r.get("addonId") or ""))
