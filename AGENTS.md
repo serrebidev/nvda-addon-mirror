@@ -43,8 +43,12 @@ re-downloads look like abuse.
   first so a fresh quota verifies them). Pinned GitHub/Forgejo pins do the same through
   `_pinned_cached()` (`.bundlecache/pinnedState.json`): a 403/429/5xx or
   network fault reuses the last verified release list and fork verdict; a
-  404 still fails. Only a rate-limited repo with no verified state blocks
-  publication. Never trade catalog completeness for quiet logs.
+  404 still fails. GitHub quota never blocks publication (2026-11-10): a
+  rate-limited repo or pin with no verified state is skipped for one build
+  and retried, while bestmidi and the other catalogs keep listing its
+  add-ons. Blocking it used to fail the whole `github_owner` source, and the
+  reduced cron fallback then dropped every GitHub author. Never trade
+  catalog completeness for quiet logs.
 - A timeout, 408, 429 or 5xx on a file already verified for this version keeps
   it published for `DOWNLOAD_OUTAGE_GRACE_SECONDS`. nvda.ru times out from some
   runners while its files are fine. A 404 or a changed version is rejected at

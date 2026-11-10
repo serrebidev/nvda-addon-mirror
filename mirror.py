@@ -1582,7 +1582,10 @@ def _fetch_pinned_impl(config_path):
             log(message)
             # A fork pinned beside its original: losing it for one build hides
             # only that fork, and its catalog rows are no longer excluded.
-            if not spec.get("optional"):
+            # A pin never verified before, caught by a GitHub outage or spent
+            # quota, waits the same way: its catalog rows stand in until the
+            # next run verifies it.
+            if not spec.get("optional") and not _github_outage(exc):
                 failures.append(message)
     if failures:
         raise RuntimeError(
@@ -3045,6 +3048,7 @@ def fetch_github_owners(
         if isinstance(name, str) and name.strip()
     }
     failures = []
+    unverified = []
     vanished = set()
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         # Artifact repositories first: they cost two requests and, until one
@@ -3078,49 +3082,47 @@ def fetch_github_owners(
                     candidates.extend(result)
                     new_artifact_state[(source_name or "").casefold()] = result
             except Exception as exc:  # noqa: BLE001 - aggregate source failures
-                stale = artifact_state.get((source_name or "").casefold())
-                if (
-                    source_kind == "artifact"
-                    and _github_outage(exc)
-                    and isinstance(stale, list)
-                ):
-                    # Same rule as release states: an outage or spent quota
-                    # publishes the last verified file list, never nothing.
+                if _github_outage(exc):
                     if isinstance(exc, HTTPError):
                         exc.close()
-                    new_artifact_state[source_name.casefold()] = stale
-                    candidates.extend(stale)
-                    log(
-                        "GitHub rate limit hit; reusing last verified "
-                        f"artifact list for {source_name}"
-                    )
-                    continue
-                if (
-                    source_kind == "release"
-                    and isinstance(exc, HTTPError)
-                    and exc.code in (403, 429)
-                ):
-                    stale = release_state.get(source_name.casefold())
-                    if isinstance(stale, dict) and isinstance(
-                        stale.get("candidates"), list
-                    ):
-                        # Rate limited: publishing the last verified release
-                        # state keeps the catalog complete, and the next run
-                        # re-checks the repository's ETag without new quota.
-                        new_release_state[source_name.casefold()] = stale
-                        candidates.extend(stale["candidates"])
+                    folded = (source_name or "").casefold()
+                    if source_kind == "artifact":
+                        stale = artifact_state.get(folded)
+                        stale_candidates = stale if isinstance(stale, list) else None
+                    else:
+                        stale = release_state.get(folded)
+                        stale_candidates = (
+                            stale.get("candidates") if isinstance(stale, dict) else None
+                        )
+                        if not isinstance(stale_candidates, list):
+                            stale_candidates = None
+                    if stale_candidates is not None:
+                        # Outage or spent quota: publish the last verified
+                        # answer, and the next run re-checks it.
+                        if source_kind == "artifact":
+                            new_artifact_state[folded] = stale
+                        else:
+                            new_release_state[folded] = stale
+                        candidates.extend(stale_candidates)
                         log(
                             "GitHub rate limit hit; reusing last verified "
-                            f"release state for {source_name}"
+                            f"{source_kind} state for {source_name}"
                         )
                         continue
                     if (
-                        source_name.casefold() not in release_state
-                        and source_name.casefold() not in configured_repositories
+                        source_kind == "release"
+                        and folded not in release_state
+                        and folded not in configured_repositories
                     ):
                         # Never published, so nothing disappears by waiting.
                         pending_repositories.add(source_name)
                         continue
+                    # Nothing verified to stand in. GitHub quota must never
+                    # hold back the rest of the catalog: skip this repo for one
+                    # build (the other catalogs still list most of its
+                    # add-ons) and retry it next run.
+                    unverified.append(source_name)
+                    continue
                 if (
                     source_kind == "release"
                     and isinstance(exc, HTTPError)
@@ -3133,6 +3135,12 @@ def fetch_github_owners(
                     vanished.add(source_name)
                     continue
                 failures.append(f"{source_name}: {exc}")
+    if unverified:
+        log(
+            "GitHub unavailable and never verified; skipped for this build, "
+            "retried next run: "
+            + ", ".join(sorted(unverified, key=str.casefold))
+        )
     if vanished:
         log(
             "GitHub repositories no longer exist and were dropped: "

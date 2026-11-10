@@ -1091,7 +1091,7 @@ class GitHubOwnerTests(unittest.TestCase):
                         mirror.fetch_github_owners(config_path, cache_path)
                         self.assertEqual(["example/published"], checked)
 
-    def test_rate_limited_published_repository_still_stops_publication(self):
+    def test_rate_limited_unverified_repository_is_skipped_not_fatal(self):
         cache = {
             "__discovery__": {
                 "addon_repositories": ["example/published"],
@@ -1118,11 +1118,18 @@ class GitHubOwnerTests(unittest.TestCase):
                 ),                 mock.patch.object(
                     mirror, "_github_release_asset_state", side_effect=release_state
                 ):
-                with self.assertRaisesRegex(
-                    RuntimeError,
-                    "refusing to publish incomplete GitHub author discovery",
-                ):
-                    mirror.fetch_github_owners(config_path, cache_path)
+                # GitHub quota never holds back the rest of the catalog.
+                entries = mirror.fetch_github_owners(config_path, cache_path)
+
+            with open(cache_path, "r", encoding="utf-8") as cache_file:
+                written = json.load(cache_file)
+
+        self.assertEqual([], entries)
+        # The unverified state is kept for the next run's retry.
+        self.assertEqual(
+            {"etag": '"e"'},
+            written["__discovery__"]["release_state"]["example/published"],
+        )
 
     def test_failed_discovery_saves_verified_release_states(self):
         cache = {
@@ -1142,8 +1149,9 @@ class GitHubOwnerTests(unittest.TestCase):
                     "candidates": [],
                     "latest_version": "1.0",
                 }
+            # A real refusal, not an outage: only those still stop the source.
             raise httpError(
-                "https://api.github.invalid", 403, "rate limit"
+                "https://api.github.invalid", 401, "bad credentials"
             )
 
         with tempfile.TemporaryDirectory() as directory:
@@ -1323,9 +1331,12 @@ class GitHubOwnerTests(unittest.TestCase):
             written["__discovery__"]["artifact_state"]["example/artifacts"],
         )
 
-        # Never verified: nothing to stand in, so publication still stops.
-        with self.assertRaises(RuntimeError):
-            run({}, spent)
+        # Never verified: skipped for this build, never fatal.
+        entries, written = run({}, spent)
+        self.assertEqual([], entries)
+        self.assertNotIn(
+            "example/artifacts", written["__discovery__"]["artifact_state"]
+        )
 
     def test_telegram_configuration_selects_original_owner(self):
         owners = mirror._load_github_owners()
