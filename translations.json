@@ -2949,6 +2949,7 @@
       "summary": "NvdaHelper"
     },
     "Note diary for NVDA": {
+      "summary": "NoteDiaryForNVDA (Notes Diary), AKA NoteDiaryForNVDA (Дневник заметок)",
       "description": "The NoteDiaryForNVDA add-on allows you to quickly and efficiently save notes.\nRecord, open, save and delete notes with just a few keystrokes.\nInitially, there is no keyboard shortcut assigned to open the Notes Diary window, but you can assign one in Settings, Input Gestures in the Notes Diary category.\nYou can also access it through the NVDA menu, submenu Tools, Notes Diary."
     },
     "directLink": {
