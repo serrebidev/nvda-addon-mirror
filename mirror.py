@@ -259,6 +259,12 @@ GITHUB_NEW_REPOSITORY_BUDGET = 120
 # multi-thousand-repo backlog in hours instead of a day. A quota hit mid-batch
 # re-queues the rest, so overshooting costs nothing but a retry next run.
 GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED = 480
+# Owner rule (2026-11-12, after the suspension): stay comfortably under every
+# GitHub limit. First-time checks only spend hourly quota above this reserve
+# (half the 5000 an hour), and API calls are spaced so a 4-thread burst stays
+# far below the 900-a-minute secondary limit.
+GITHUB_QUOTA_RESERVE = 2500
+GITHUB_MIN_REQUEST_INTERVAL = 0.2
 #: Global search discovery (Brandon, 2026-10-16): once a day, search GitHub
 #: repositories for the query below, most recently updated first, and queue
 #: matches that are not already scanned, queued or catalogued. Queuing only
@@ -2130,7 +2136,39 @@ def _load_github_owners(path=GITHUB_OWNERS_PATH):
     return list(by_login.values())
 
 
+_github_pace_lock = threading.Lock()
+_github_last_request = 0.0
+
+
+def _github_pace():
+    global _github_last_request
+    with _github_pace_lock:
+        wait = _github_last_request + GITHUB_MIN_REQUEST_INTERVAL - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _github_last_request = time.monotonic()
+
+
+def _github_first_time_budget():
+    """How many first-time repo checks fit above the quota reserve."""
+    if not GITHUB_TOKEN:
+        return GITHUB_NEW_REPOSITORY_BUDGET
+    try:
+        # /rate_limit is free: it does not count against the quota.
+        remaining = http_get_json(
+            f"{GITHUB_API}/rate_limit", timeout=30, headers=_github_headers()
+        )["resources"]["core"]["remaining"]
+    except Exception:  # noqa: BLE001 - unknown quota: use the proven rate
+        return GITHUB_NEW_REPOSITORY_BUDGET
+    # A first-time check can take a second request (fork parent, next page).
+    return max(0, min(
+        GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED,
+        (remaining - GITHUB_QUOTA_RESERVE) // 2,
+    ))
+
+
 def _github_headers():
+    _github_pace()
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -3048,10 +3086,7 @@ def fetch_github_owners(
         candidates = []
     if pending_repositories:
         batch = sorted(pending_repositories, key=str.casefold)
-        batch = batch[:(
-            GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED
-            if GITHUB_TOKEN else GITHUB_NEW_REPOSITORY_BUDGET
-        )]
+        batch = batch[:_github_first_time_budget()]
         repositories.update(batch)
         pending_repositories.difference_update(batch)
         log(

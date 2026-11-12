@@ -844,14 +844,36 @@ class GitHubOwnerTests(unittest.TestCase):
                     mirror.fetch_github_owners(config_path, cache_path)
 
     def test_first_time_repository_checks_are_rationed_across_runs(self):
-        self._check_first_time_ration(token="", budget_name="GITHUB_NEW_REPOSITORY_BUDGET")
+        self._check_first_time_ration(
+            "", mock.patch.object(mirror, "GITHUB_NEW_REPOSITORY_BUDGET", 2)
+        )
 
     def test_token_uses_the_authenticated_first_time_budget(self):
         self._check_first_time_ration(
-            token="t", budget_name="GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED"
+            "t", mock.patch.object(mirror, "_github_first_time_budget", return_value=2)
         )
 
-    def _check_first_time_ration(self, token, budget_name):
+    def test_first_time_budget_keeps_the_quota_reserve(self):
+        def budget(remaining):
+            answer = {"resources": {"core": {"remaining": remaining}}}
+            with mock.patch.object(mirror, "GITHUB_TOKEN", "t"),                     mock.patch.object(mirror, "http_get_json", return_value=answer):
+                return mirror._github_first_time_budget()
+
+        cap = mirror.GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED
+        reserve = mirror.GITHUB_QUOTA_RESERVE
+        self.assertEqual(cap, budget(reserve + 2 * cap + 500))
+        self.assertEqual(50, budget(reserve + 100))
+        self.assertEqual(0, budget(reserve - 1))
+        with mock.patch.object(mirror, "GITHUB_TOKEN", "t"),                 mock.patch.object(mirror, "http_get_json", side_effect=OSError):
+            self.assertEqual(
+                mirror.GITHUB_NEW_REPOSITORY_BUDGET, mirror._github_first_time_budget()
+            )
+        with mock.patch.object(mirror, "GITHUB_TOKEN", ""):
+            self.assertEqual(
+                mirror.GITHUB_NEW_REPOSITORY_BUDGET, mirror._github_first_time_budget()
+            )
+
+    def _check_first_time_ration(self, token, budget_patch):
         cache = {
             "__discovery__": {
                 "addon_repositories": [],
@@ -873,7 +895,7 @@ class GitHubOwnerTests(unittest.TestCase):
             with open(cache_path, "w", encoding="utf-8") as cache_file:
                 json.dump(cache, cache_file)
 
-            with mock.patch.object(mirror, "GITHUB_TOKEN", token),                 mock.patch.object(mirror, budget_name, 2),                 mock.patch.object(
+            with mock.patch.object(mirror, "GITHUB_TOKEN", token),                 budget_patch,                 mock.patch.object(
                     mirror, "_github_owner_repositories", return_value=([], {})
                 ),                 mock.patch.object(
                     mirror, "_github_owner_repository_names",
