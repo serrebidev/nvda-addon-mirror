@@ -4705,7 +4705,8 @@
       "description": "An add-on for managing Pomodoro cycles.\nUseful for students or workers who need help getting distracted less often and paying more attention to their tasks."
     },
     "gestor de enlaces": {
-      "summary": "Link Manager"
+      "summary": "Link Manager",
+      "description": "The GestorDeEnlaces add-on for NVDA allows you to efficiently manage web links by saving, opening, editing and deleting them using a simple and accessible interface.\nIt is enabled using the keyboard shortcut “Alt + NVDA + K”. Command (changes in input gestures), in the \"Link Manager\" category.\nAdded links open in your default browser.\nMore detailed information about all functions is described in the help."
     },
     "NVDA Yourls": {
       "description": "This add-on shortens a link using the YOURLS API."
