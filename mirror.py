@@ -255,6 +255,10 @@ PINNED_BUNDLE_CACHE_PATH = ".bundlecache"
 # otherwise spend the whole hourly budget in a single run, so first-time checks
 # are rationed and the remainder is carried in the cache for the next run.
 GITHUB_NEW_REPOSITORY_BUDGET = 120
+# The owner's own gh token (5000 requests an hour, back 2026-11-12) drains a
+# multi-thousand-repo backlog in hours instead of a day. A quota hit mid-batch
+# re-queues the rest, so overshooting costs nothing but a retry next run.
+GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED = 480
 #: Global search discovery (Brandon, 2026-10-16): once a day, search GitHub
 #: repositories for the query below, most recently updated first, and queue
 #: matches that are not already scanned, queued or catalogued. Queuing only
@@ -3044,7 +3048,10 @@ def fetch_github_owners(
         candidates = []
     if pending_repositories:
         batch = sorted(pending_repositories, key=str.casefold)
-        batch = batch[:GITHUB_NEW_REPOSITORY_BUDGET]
+        batch = batch[:(
+            GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED
+            if GITHUB_TOKEN else GITHUB_NEW_REPOSITORY_BUDGET
+        )]
         repositories.update(batch)
         pending_repositories.difference_update(batch)
         log(

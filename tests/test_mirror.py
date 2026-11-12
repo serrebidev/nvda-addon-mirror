@@ -844,6 +844,14 @@ class GitHubOwnerTests(unittest.TestCase):
                     mirror.fetch_github_owners(config_path, cache_path)
 
     def test_first_time_repository_checks_are_rationed_across_runs(self):
+        self._check_first_time_ration(token="", budget_name="GITHUB_NEW_REPOSITORY_BUDGET")
+
+    def test_token_uses_the_authenticated_first_time_budget(self):
+        self._check_first_time_ration(
+            token="t", budget_name="GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED"
+        )
+
+    def _check_first_time_ration(self, token, budget_name):
         cache = {
             "__discovery__": {
                 "addon_repositories": [],
@@ -865,8 +873,13 @@ class GitHubOwnerTests(unittest.TestCase):
             with open(cache_path, "w", encoding="utf-8") as cache_file:
                 json.dump(cache, cache_file)
 
-            with mock.patch.object(mirror, "GITHUB_TOKEN", ""),                 mock.patch.object(mirror, "GITHUB_NEW_REPOSITORY_BUDGET", 2),                 mock.patch.object(
+            with mock.patch.object(mirror, "GITHUB_TOKEN", token),                 mock.patch.object(mirror, budget_name, 2),                 mock.patch.object(
                     mirror, "_github_owner_repositories", return_value=([], {})
+                ),                 mock.patch.object(
+                    mirror, "_github_owner_repository_names",
+                    return_value=({"example/a", "example/b", "example/c"}, {}),
+                ),                 mock.patch.object(
+                    mirror, "_github_search_repository_stamps", return_value={}
                 ),                 mock.patch.object(
                     mirror, "_github_release_asset_state", side_effect=release_state
                 ):

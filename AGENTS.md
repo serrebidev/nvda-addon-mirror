@@ -35,8 +35,8 @@ re-downloads look like abuse.
   `cached_download()` keeps keying on `catalog_version`. Comparing the corrected
   one would look like a new release and re-download the bundle.
 - The refresh runs every half hour from a systemd timer on the owner's
-  server (`scripts/mirror-cron.sh`). That cadence keeps the worst case inside
-  the GITHUB_TOKEN budget of 1000 requests an hour and polls authors less. Do
+  server (`scripts/mirror-cron.sh`), using the host's gh token (5000
+  requests an hour) and polling authors less. Do
   not promise a ten-minute refresh anywhere; half-hourly is the honest number.
 - A build that cannot verify a repo reuses that repo's last verified
   `release_state` (`artifact_state` for `artifact_repositories`, which run
