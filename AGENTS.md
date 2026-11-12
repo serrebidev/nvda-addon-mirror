@@ -38,6 +38,12 @@ re-downloads look like abuse.
   server (`scripts/mirror-cron.sh`), using the host's gh token (5000
   requests an hour) and polling authors less. Do
   not promise a ten-minute refresh anywhere; half-hourly is the honest number.
+- **Stay comfortably under every GitHub limit (owner, 2026-11-12).** The
+  owner's account was suspended 2026-11-09 for an unstated reason and the
+  token is shared with the forgejo-github-sync job. First-time checks spend
+  only quota above `GITHUB_QUOTA_RESERVE` (half the hourly 5000), and
+  `_github_pace()` spaces API calls `GITHUB_MIN_REQUEST_INTERVAL` apart. Do
+  not raise either to go faster; a slower backlog is the accepted cost.
 - A build that cannot verify a repo reuses that repo's last verified
   `release_state` (`artifact_state` for `artifact_repositories`, which run
   first so a fresh quota verifies them). Pinned GitHub/Forgejo pins do the same through
