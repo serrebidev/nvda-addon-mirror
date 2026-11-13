@@ -174,17 +174,28 @@ class _ListItem:
     def canUseRemoveAction(self):
         return bool(getattr(self.model, "removable", False))
 
+    def canUseDisableAction(self):
+        return getattr(self.model, "enabled", None) is True
+
+    def canUseEnableAction(self):
+        return getattr(self.model, "enabled", None) is False
+
+    def canUseEnableOverrideIncompatibilityAction(self):
+        return False
+
 
 class _Action:
     def __init__(self, displayName, actionHandler, validCheck, actionTarget):
         self.displayName = displayName
         self.actionHandler = actionHandler
         self.validCheck = validCheck
+        # NVDA wraps every check so None never reaches it; twins read this one.
+        self._validCheck = lambda target: target is not None and validCheck(target)
         self.actionTarget = actionTarget
 
     @property
     def isValid(self):
-        return self.validCheck(self.actionTarget)
+        return self._validCheck(self.actionTarget)
 
 
 class _ListVM:
@@ -218,6 +229,12 @@ class _ListVM:
     def resetListItems(self, rows):
         self.reset = rows
 
+    def getCount(self):
+        return getattr(self, "count", 0)
+
+    def _updateAddonListing(self):
+        self.listed = getattr(self, "listed", 0) + 1
+
 
 class _Store:
     def __init__(self, nativeRows=None, selected=None):
@@ -230,13 +247,18 @@ class _Store:
         self._serrebiFavourites = False
         self.helped = []
         self.removed = []
+        self.disabled = []
         self.actionVMList = []
+        self.nativeActions = []
 
     def _createListItemVMs(self):
         return self.nativeRows
 
     def _makeActionsList(self):
-        return []
+        return list(self.nativeActions)
+
+    def _getAvailableAddonsInBG(self):
+        self.listVM._isLoading = False
 
     def _filterByEnabledKey(self, model):
         return True
@@ -249,6 +271,15 @@ class _Store:
 
     def removeAddons(self, items):
         self.removed.extend(items)
+
+    def disableAddon(self, item):
+        self.disabled.append(item)
+
+    def disableAddons(self, items):
+        self.disabled.extend(items)
+
+    def enableAddon(self, item):
+        self.disabled.remove(item)
 
 
 class _Dialog:
@@ -286,6 +317,11 @@ class _Dialog:
         self.nativeSortSelections.append(event.GetSelection())
 
     def onFilterTextChange(self, event):
+        native = getattr(self, "nativeSearch", None)
+        if native is not None:
+            native(event)
+
+    def onChannelFilterChange(self, event):
         pass
 
     def _setListLabels(self):
@@ -307,9 +343,11 @@ class _MonoMenu:
 
 
 class _BatchMenu:
+    nativeActions = ()
+
     @property
     def _actions(self):
-        return []
+        return list(self.nativeActions)
 
 
 class _SettingsPanel:
@@ -347,6 +385,9 @@ class StoreCustomizationIntegrationTests(unittest.TestCase):
         self.wx.EVT_WINDOW_DESTROY = object()
         self.wx.WXK_RETURN = 13
         self.wx.WXK_NUMPAD_ENTER = 370
+        self.wx.wxEVT_TEXT = "text"
+        self.wx.LEFT = 16
+        self.wx.CallAfter = lambda callback, *args: callback(*args)
         self.wx.ID_OK = 1
         self.wx.ID_CANCEL = 0
         self.wx.CheckBox = lambda *args, **kwargs: _Control(label=kwargs.get("label", ""))
@@ -429,6 +470,7 @@ class StoreCustomizationIntegrationTests(unittest.TestCase):
         dialog.addonListTabs = _Notebook(object(), [key.displayString for key in _StatusKey], nativeSelection)
         dialog.channelFilterCtrl = _Control([channel.displayString for channel in _Channel])
         dialog.columnFilterCtrl = _Control()
+        dialog.searchFilterCtrl = _Control()
         dialog.addonListView = _Control()
         dialog.nativeSortSelections = []
         dialog.tabChanges = 0
@@ -494,27 +536,98 @@ class StoreCustomizationIntegrationTests(unittest.TestCase):
         self.assertIs(installedMissing, rows[1].model)
         self.assertEqual(("missing", "AVAILABLE"), rows[1].status)
 
-    def test_favourite_installed_actions_validate_and_delegate_the_installed_native_item(self):
-        self.config.conf["serrebiStore"]["favourites"] = ["alpha"]
+    def test_installed_actions_on_catalogue_rows_delegate_the_installed_native_item(self):
+        # Available, Updatable and Favourites rows alike: the twin acts on the installed copy.
         selected = _ListItem(_model("alpha", _Channel.STABLE))
         store = _Store(selected=selected)
-        store._serrebiFavourites = True
-        installed = _model("ALPHA", _Channel.EXTERNAL, removable=True, doc="help.html")
+        store._filteredStatusKey = _StatusKey.AVAILABLE
+        installed = _model("ALPHA", _Channel.EXTERNAL, removable=True, doc="help.html", enabled=True)
         store._installedAddons[_Channel.EXTERNAL]["alpha"] = installed
 
-        actions = store._makeActionsList()
-        helpAction = next(action for action in actions if action.displayName == "Help for installed &version")
-        removeAction = next(action for action in actions if action.displayName == "Remove &installed version")
-        self.assertTrue(helpAction.isValid)
-        self.assertTrue(removeAction.isValid)
-        helpAction.actionHandler(selected)
-        removeAction.actionHandler(selected)
+        actions = {action.displayName: action for action in store._makeActionsList()}
+        for label in ("Help for installed &version", "Remove &installed version", "&Disable installed version"):
+            self.assertTrue(actions[label].isValid, label)
+        self.assertFalse(actions["&Enable installed version"].isValid)
+        actions["Help for installed &version"].actionHandler(selected)
+        actions["Remove &installed version"].actionHandler(selected)
+        actions["&Disable installed version"].actionHandler(selected)
         self.assertIs(installed, store.helped[0].model)
         self.assertIs(installed, store.removed[0].model)
+        self.assertIs(installed, store.disabled[0].model)
         self.assertEqual(("ALPHA", "INSTALLED"), store.removed[0].status)
-        store._serrebiFavourites = False
-        self.assertFalse(helpAction.isValid)
-        self.assertFalse(removeAction.isValid)
+
+        store._installedAddons[_Channel.EXTERNAL].clear()
+        self.assertFalse(actions["Remove &installed version"].isValid)
+
+    def test_installed_twin_hides_where_nvda_offers_its_own_action(self):
+        selected = _ListItem(_model("alpha", _Channel.STABLE))
+        store = _Store(selected=selected)
+        store._installedAddons[_Channel.STABLE]["alpha"] = _model("alpha", _Channel.STABLE, removable=True)
+        native = _Action("&Remove", store.removeAddon, lambda item: True, selected)
+        store.nativeActions = [native]
+        twin = next(action for action in store._makeActionsList()
+            if action.displayName == "Remove &installed version")
+        self.assertFalse(twin.isValid)
+        native._validCheck = lambda item: False
+        self.assertTrue(twin.isValid)
+
+    def test_batch_installed_actions_need_every_row_installed(self):
+        first, second = _ListItem(_model("a", _Channel.STABLE)), _ListItem(_model("b", _Channel.STABLE))
+        store = _Store()
+        store._installedAddons[_Channel.STABLE]["a"] = _model("a", _Channel.STABLE, removable=True)
+        menu = _BatchMenu()
+        menu._storeVM = store
+        menu._selectedAddons = [first, second]
+        remove = next(action for action in menu._actions
+            if action.displayName == "Remove selected &installed versions")
+        self.assertFalse(remove.isValid)
+        store._installedAddons[_Channel.STABLE]["b"] = _model("b", _Channel.STABLE, removable=True)
+        self.assertTrue(remove.isValid)
+        remove.actionHandler(menu._selectedAddons)
+        self.assertEqual(["a", "b"], [row.model.addonId for row in store.removed])
+
+    def test_search_keeps_a_chosen_sort_but_not_nvda_default(self):
+        dialog = self._dialog()
+        vm = dialog._storeVM.listVM
+        vm.count = 3
+        vm.selection = None
+        vm.setSelection = lambda index: setattr(vm, "selection", index)
+        fields = {field.name: field for field in _ListVM.sortableFields}
+        dialog.nativeSearch = lambda event: vm.setSortField(fields["searchRank"], True)
+        typed = types.SimpleNamespace(GetEventType=lambda: "text")
+        vm.setSortField(fields["author"], True)
+        dialog.onFilterTextChange(typed)
+        self.assertEqual("author:desc", self.module.activeSort(vm))
+        self.assertEqual(0, vm.selection)
+        vm.setSortField(fields["displayName"], False)
+        dialog.onFilterTextChange(typed)
+        self.assertEqual("searchRank:desc", self.module.activeSort(vm))
+        self.assertEqual([], sys.modules["ui"].messages)
+
+    def test_enter_reports_the_count_and_waits_for_a_background_load(self):
+        dialog = self._dialog()
+        store = dialog._storeVM
+        store.listVM.count = 1
+        dialog.onFilterTextChange(types.SimpleNamespace(GetEventType=lambda: "key"))
+        self.assertEqual(["1 add-on"], sys.modules["ui"].messages)
+        store._filteredStatusKey = _StatusKey.AVAILABLE
+        store.listVM.count = 12
+        dialog.onChannelFilterChange(None)
+        self.assertEqual(["1 add-on"], sys.modules["ui"].messages)
+        store._getAvailableAddonsInBG()
+        self.assertEqual(["1 add-on", "12 add-ons"], sys.modules["ui"].messages)
+
+    def test_store_gets_a_settings_button_beside_external_install(self):
+        added = []
+        sizer = types.SimpleNamespace(Add=lambda item, **kwargs: added.append(item))
+        dialog = self._dialog()
+        dialog.externalInstallButton = types.SimpleNamespace(GetContainingSizer=lambda: sizer)
+        dialog.Layout = lambda: None
+        self.wx.Button = lambda *args, **kwargs: types.SimpleNamespace(
+            label=kwargs["label"], MoveAfterInTabOrder=lambda other: None,
+            Bind=lambda event, handler: None)
+        self.feature.addSettingsButton(dialog, _SettingsPanel)
+        self.assertEqual(["Store settin&gs..."], [button.label for button in added])
 
     def test_settings_edits_remain_a_draft_until_panel_save(self):
         self.config.conf["serrebiStore"].update({
@@ -634,13 +747,14 @@ class _SizerHelper:
         return item
 
 
-def _model(addonId, channel, removable=False, doc=None):
+def _model(addonId, channel, removable=False, doc=None, enabled=None):
     handler = None if doc is None else types.SimpleNamespace(getDocFilePath=lambda: doc)
     return types.SimpleNamespace(
         addonId=addonId,
         channel=channel,
         legacy=False,
         removable=removable,
+        enabled=enabled,
         _addonHandlerModel=handler,
     )
 

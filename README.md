@@ -138,7 +138,7 @@ https://nvda.serrebiradio.com
 Three ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [Download addonStoreMirror 1.6.1](https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases/download/v1.6.1/addonStoreMirror-1.6.1.nvda-addon).
+   [Download addonStoreMirror 1.7.0](https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases/download/v1.7.0/addonStoreMirror-1.7.0.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
@@ -153,6 +153,10 @@ Three ways to do this:
    update checks, and sharing of add-on details.
    Version 1.5.0 adds Store navigation customization and on-demand changelog
    history from a GitHub changelog source you choose.
+   Version 1.7.0 lets Available, Updatable and Favourites remove, disable,
+   enable or open help for the installed copy, keeps your chosen sort while
+   searching, says how many add-ons a search, sort or channel shows, and adds
+   a Store settings button (see "Finding your way around the Store" below).
    Version 1.3.7 fixed the store failing to open on recent NVDA alphas.
    Version 1.3.6 adds an optional filter-on-Enter search mode and a
    duplicate-selection warning. Version 1.3.2 retains the NVDA 2027.1 compatibility floor. Version 1.2.1
@@ -186,6 +190,35 @@ URLs (or, with files included, the add-ons themselves), and the import
 dialog shows exactly where each add-on comes from.
 Pinned and included entries also carry a SHA-256 checksum that is verified
 before installing.
+
+### Finding your way around the Store
+
+- **Keys.** Alt+S moves to the search field, Alt+F to the "Search field"
+  choice, Alt+M to "Sort by column", Alt+N to "Channel" and Alt+U to "Filter
+  sources...". Ctrl+1 to Ctrl+5 pick a tab, in your tab order. Alt+G is
+  "Store settings...", next to "Install from external source"; it opens this
+  add-on's settings without leaving the Store.
+- **Result counts.** After Enter in the search field, a sort choice, or a
+  channel change, NVDA says how many add-ons the list shows, such as "12
+  add-ons". Available and Updatable say it once their list has loaded.
+- **Sorting while searching.** NVDA sorts search results by Relevance. If you
+  chose another sort, or set one as the tab's default, the Store keeps it
+  while you search and after you clear the search. With NVDA's own Name
+  ascending, searching still switches to Relevance.
+- **Remembered searches.** NVDA menu > Preferences > Settings > SerrebiRadio
+  add-on store > "Browsing memory" decides what the Store remembers: "Always
+  use defaults" forgets the search, sort and channel on every tab change;
+  "Shared across tabs" keeps one search, sort and channel for every tab;
+  "Separate for each tab" keeps them per tab. "Remember browsing across
+  restarts" keeps them after NVDA restarts. A default sort or channel set
+  under "Store tabs and defaults..." always wins over a remembered one.
+- **Acting on the installed copy from any tab.** When the selected add-on is
+  installed, the actions menu on Available, Updatable and Favourites offers
+  what Installed would: "Remove installed version", "Disable installed
+  version", "Enable installed version" and "Help for installed version".
+  Selecting several add-ons offers the same for all of them. Each appears
+  only where NVDA does not already offer its own Remove, Disable, Enable or
+  Help for that row.
 
 2. **Edit `nvda.ini`** manually:
    ```ini

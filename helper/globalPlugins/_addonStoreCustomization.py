@@ -20,6 +20,68 @@ _SPEC = {
 }
 
 
+# NVDA offers these on the installed copy only, and hides them on catalogue rows
+# (Available, Updatable, Favourites). Each gets an "installed version" twin that
+# acts on the installed copy and shows only where NVDA's own is not offered:
+# (NVDA's label, twin label, store handler, validity check on the installed row).
+INSTALLED_ACTIONS = (
+	("&Remove", "Remove &installed version", "removeAddon", "canUseRemoveAction"),
+	("&Disable", "&Disable installed version", "disableAddon", "canUseDisableAction"),
+	("&Enable", "&Enable installed version", "enableAddon", "canUseEnableAction"),
+	("&Enable (override incompatibility)", "Enable installed version (&override incompatibility)",
+		"enableOverrideIncompatibilityForAddon", "canUseEnableOverrideIncompatibilityAction"),
+	("&Help", "Help for installed &version", "helpAddon", "help"),
+)
+INSTALLED_BATCH_ACTIONS = (
+	("&Remove selected add-ons", "Remove selected &installed versions", "removeAddons", "canUseRemoveAction"),
+	("&Disable selected add-ons", "&Disable selected installed versions", "disableAddons", "canUseDisableAction"),
+	("&Enable selected add-ons", "&Enable selected installed versions", "enableAddons", "enable"),
+)
+
+
+def _nativeText(text):
+	"""NVDA's own label for a store action, as its menus show it."""
+	translate = getattr(builtins, "pgettext", None)
+	return translate("addonStore", text) if callable(translate) else text
+
+
+def _canUse(installed, check):
+	if check == "help":
+		model = installed.model._addonHandlerModel
+		return model is not None and model.getDocFilePath() is not None
+	if check == "enable":
+		return installed.canUseEnableAction() or installed.canUseEnableOverrideIncompatibilityAction()
+	return bool(getattr(installed, check)())
+
+
+def _setSort(vm, key, update=False):
+	"""Apply a semantic sort key such as "lastUpdated:desc"; False if this tab lacks it."""
+	if key not in [entry[0] for entry in sortEntries(vm)]:
+		return False
+	fieldName, direction = key.split(":")
+	if fieldName == "lastUpdated":
+		vm._serrebiDateSort = direction == "desc"
+		if update:
+			vm._updateAddonListing()
+			import core
+			core.callLater(delay=0, callable=vm.updated.notify)
+	else:
+		fields = list(getattr(vm, "sortableFields", vm.presentedFields))
+		vm.setSortField(next(field for field in fields if field.name == fieldName), direction == "desc")
+	return True
+
+
+def _speakCount(vm):
+	count = vm.getCount()
+	import ui
+	ui.message(_("No add-ons") if not count else _("1 add-on") if count == 1
+		else _("{count} add-ons").format(count=count))
+
+
+# NVDA's own default and the sort it picks itself while searching.
+_NATIVE_SEARCH_SORTS = ("displayName:asc", "searchRank:asc", "searchRank:desc")
+
+
 def _secure():
 	try:
 		import globalVars
@@ -315,18 +377,36 @@ class CustomizationFeature:
 			if channel.name == channelName and index < dialog.channelFilterCtrl.GetCount():
 				store._filterChannelKey = channel
 				dialog.channelFilterCtrl.SetSelection(index)
-		key = defaults.get("sort", "native")
-		entries = sortEntries(vm)
-		if key in [entry[0] for entry in entries]:
-			fieldName, direction = key.split(":")
-			if fieldName == "lastUpdated":
-				vm._serrebiDateSort = direction == "desc"
-			else:
-				fields = list(getattr(vm, "sortableFields", vm.presentedFields))
-				field = next(field for field in fields if field.name == fieldName)
-				vm.setSortField(field, direction == "desc")
+		_setSort(vm, defaults.get("sort", "native"))
 		self.syncSort(dialog)
 		dialog._setListLabels()
+
+
+	def configuredDefaults(self, dialog):
+		return tabDefaults().get(self.logicalTab(dialog), {})
+
+
+	def keepSort(self, dialog, key):
+		"""NVDA switches to Relevance on every search and back on clearing it.
+		Put back a sort the user chose (anything but NVDA's Name ascending)."""
+		vm = dialog._storeVM.listVM
+		if not _setSort(vm, key, update=True):
+			return
+		if vm.getCount():
+			vm.setSelection(0)
+
+
+	def announceCount(self, dialog, reloads=False):
+		"""Say how many add-ons the list shows once a search, sort or channel lands.
+		Available and Updatable reload in a background thread; their count is
+		spoken when that load finishes (see loaded in enable)."""
+		store = dialog._storeVM
+		if getattr(store.listVM, "_isLoading", False) or (
+				reloads and store._filteredStatusKey.name in ("AVAILABLE", "UPDATE")):
+			store._serrebiAnnounceCount = True
+		else:
+			# After the native list and combo box updates already queued.
+			wx.CallAfter(_speakCount, store.listVM)
 
 
 	def refreshColumns(self, dialog):
@@ -342,6 +422,7 @@ class CustomizationFeature:
 		self.originalColumnChange(dialog, _SelectionEvent(entry[2], event))
 		self.syncSort(dialog)
 		self.refreshColumns(dialog)
+		self.announceCount(dialog)
 
 
 	def stageSort(self, dialog, key, event=None):
@@ -410,6 +491,11 @@ class CustomizationFeature:
 					dialog.onListTabPageChange(None)
 				dialog.addonListView.SetFocus()
 				return
+		if (key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and wx.Window.FindFocus() is dialog.searchFilterCtrl
+				and getattr(self.plugin, "_searchAsYouType", True)):
+			# Typing already filtered; Enter only reports the result. (Deferred
+			# search applies on Enter and reports through onFilterTextChange.)
+			self.announceCount(dialog)
 		if key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and wx.Window.FindFocus() is dialog.columnFilterCtrl:
 			pending = getattr(dialog, "_serrebiPendingSort", None)
 			if pending:
@@ -427,6 +513,32 @@ class CustomizationFeature:
 					return self.lists.AddonListItemVM(model=model,
 						status=self.status.getStatus(model, self.status._StatusFilterKey.INSTALLED))
 		return None
+
+
+	def addSettingsButton(self, dialog, settingsPanel):
+		"""Open this add-on's settings panel from the Store, beside Install from external source."""
+		anchor = getattr(dialog, "externalInstallButton", None)
+		sizer = anchor.GetContainingSizer() if anchor is not None else None
+		if _secure() or sizer is None:
+			return
+		button = wx.Button(dialog, label=_("Store settin&gs..."))
+		sizer.Add(button, flag=wx.LEFT, border=10)
+		button.MoveAfterInTabOrder(anchor)
+		def openSettings(event):
+			import gui
+			from gui import settingsDialogs
+			popup = getattr(gui.mainFrame, "popupSettingsDialog", None) or gui.mainFrame._popupSettingsDialog
+			popup(settingsDialogs.NVDASettingsDialog, settingsPanel)
+		button.Bind(wx.EVT_BUTTON, openSettings)
+		dialog.Layout()
+
+
+	def installedTwinValid(self, store, item, nativeAction, check):
+		"""Offer the installed copy's action only where NVDA hides its own for this row."""
+		if _secure() or (nativeAction is not None and nativeAction._validCheck(item)):
+			return False
+		installed = self.installedItem(store, item)
+		return installed is not None and _canUse(installed, check)
 
 
 	def toggleFavourite(self, store, item, add):
@@ -505,6 +617,8 @@ class CustomizationFeature:
 		originalColumnClick = controls.AddonVirtualList.OnColClick
 		originalRows = stores.AddonStoreVM._createListItemVMs
 		originalActions = stores.AddonStoreVM._makeActionsList
+		originalChannel = dialogClass.onChannelFilterChange
+		originalLoad = stores.AddonStoreVM._getAvailableAddonsInBG
 
 		def init(dialog, *args, **kwargs):
 			dialogRef = weakref.ref(dialog)
@@ -523,6 +637,7 @@ class CustomizationFeature:
 			dialog._serrebiLogicalTab = lambda: callback(feature.logicalTab)
 			dialog._serrebiApplyTabDefaults = lambda: callback(feature.applyDefaults)
 			dialog._serrebiSyncSortChoice = lambda: callback(feature.syncSort)
+			dialog._serrebiConfiguredDefaults = lambda: callback(feature.configuredDefaults)
 			def layout(columns):
 				dialog = dialogRef()
 				return contextualLayout(columns, dialog._storeVM.listVM) if feature.active and dialog else columns
@@ -537,6 +652,7 @@ class CustomizationFeature:
 					event.Skip()
 			originalInit(dialog, *args, **kwargs)
 			feature.dialogs.add(dialog)
+			feature.addSettingsButton(dialog, settingsPanel)
 			dialog.Bind(wx.EVT_WINDOW_DESTROY, cleanup)
 			def key(event):
 				if feature.active and dialogRef() is not None:
@@ -608,25 +724,36 @@ class CustomizationFeature:
 			feature.stageSort(dialog, _sortKey(name, reverse), event)
 
 		def search(dialog, event):
-			before = activeSort(dialog._storeVM.listVM)
+			vm = dialog._storeVM.listVM
+			before = activeSort(vm)
 			result = originalSearch(dialog, event)
-			if before != activeSort(dialog._storeVM.listVM):
+			restoring = getattr(dialog, "_serrebiRestoring", False)
+			if before != activeSort(vm):
+				if not restoring and before not in _NATIVE_SEARCH_SORTS:
+					feature.keepSort(dialog, before)
 				feature.syncSort(dialog)
 				feature.refreshColumns(dialog)
+			# Typing applies a search per keystroke; Enter is the user asking for the result.
+			if not restoring and event is not None and event.GetEventType() != wx.wxEVT_TEXT:
+				feature.announceCount(dialog)
 			return result
+
+		def channelChange(dialog, event):
+			result = originalChannel(dialog, event)
+			feature.announceCount(dialog, reloads=True)
+			return result
+
+		def loaded(store, *args, **kwargs):
+			try:
+				return originalLoad(store, *args, **kwargs)
+			finally:
+				if getattr(store, "_serrebiAnnounceCount", False):
+					store._serrebiAnnounceCount = False
+					wx.CallAfter(_speakCount, store.listVM)
 
 		def rows(store):
 			result = originalRows(store)
 			return feature.favouriteRows(store, result) if getattr(store, "_serrebiFavourites", False) else result
-
-		def canHelp(store, item):
-			installed = feature.installedItem(store, item)
-			return bool(installed and installed.model._addonHandlerModel is not None
-				and installed.model._addonHandlerModel.getDocFilePath() is not None)
-
-		def canRemove(store, item):
-			installed = feature.installedItem(store, item)
-			return bool(installed and installed.canUseRemoveAction())
 
 		def makeActions(store):
 			result = originalActions(store)
@@ -637,14 +764,16 @@ class CustomizationFeature:
 					validCheck=lambda item, add=add: not _secure() and bool(_addonId(item))
 						and ((_addonId(item) not in favouriteIds()) if add else (_addonId(item) in favouriteIds())),
 					actionTarget=selected))
-			for text, handler, valid in (
-				(_("Help for installed &version"), store.helpAddon, canHelp),
-				(_("Remove &installed version"), store.removeAddon, canRemove),
-			):
-				result.append(actions.AddonActionVM(displayName=text,
+			native = {action.displayName: action for action in result}
+			for nativeLabel, text, handlerName, check in INSTALLED_ACTIONS:
+				handler = getattr(store, handlerName, None)
+				if handler is None:
+					continue
+				result.append(actions.AddonActionVM(displayName=_(text),
 					actionHandler=lambda item, handler=handler: handler(feature.installedItem(store, item)),
-					validCheck=lambda item, valid=valid: not _secure()
-						and getattr(store, "_serrebiFavourites", False) and valid(store, item), actionTarget=selected))
+					validCheck=lambda item, nativeAction=native.get(_nativeText(nativeLabel)), check=check:
+						feature.installedTwinValid(store, item, nativeAction, check),
+					actionTarget=selected))
 			return result
 
 		for owner, name, replacement in (
@@ -653,6 +782,8 @@ class CustomizationFeature:
 			(dialogClass, "_titleText", property(title)), (dialogClass, "_listLabelText", property(label)),
 			(dialogClass, "onListTabPageChange", tabChange), (dialogClass, "_toggleFilterControls", toggle),
 			(dialogClass, "onColumnFilterChange", columnChange), (dialogClass, "onFilterTextChange", search),
+			(dialogClass, "onChannelFilterChange", channelChange),
+			(stores.AddonStoreVM, "_getAvailableAddonsInBG", loaded),
 			(controls.AddonVirtualList, "OnColClick", columnClick),
 			(stores.AddonStoreVM, "_createListItemVMs", rows), (stores.AddonStoreVM, "_makeActionsList", makeActions),
 		):
@@ -677,17 +808,25 @@ class CustomizationFeature:
 		def batch(menu):
 			result = originalBatch.__get__(menu, type(menu))
 			store = menu._storeVM
+			native = {action.displayName: action for action in result}
 			def installed(items):
 				return [feature.installedItem(store, item) for item in items]
-			def valid(items):
+			def valid(items, nativeAction, check):
+				if _secure() or (nativeAction is not None and nativeAction._validCheck(items)):
+					return False
 				rows = installed(items)
-				return not _secure() and getattr(store, "_serrebiFavourites", False) \
-					and bool(rows) and all(row is not None and row.canUseRemoveAction() for row in rows)
-			result.append(actions.BatchAddonActionVM(
-				displayName=_("Remove selected &installed versions"),
-				actionHandler=lambda items: store.removeAddons(installed(items)),
-				validCheck=valid, actionTarget=menu._selectedAddons,
-			))
+				return bool(rows) and all(row is not None and _canUse(row, check) for row in rows)
+			for nativeLabel, text, handlerName, check in INSTALLED_BATCH_ACTIONS:
+				handler = getattr(store, handlerName, None)
+				if handler is None:
+					continue
+				result.append(actions.BatchAddonActionVM(
+					displayName=_(text),
+					actionHandler=lambda items, handler=handler: handler(installed(items)),
+					validCheck=lambda items, nativeAction=native.get(_nativeText(nativeLabel)), check=check:
+						valid(items, nativeAction, check),
+					actionTarget=menu._selectedAddons,
+				))
 			return result
 
 		self.plugin._rememberPatch(menus._MonoActionsContextMenu, "_appendUpdateChannelSubMenu", channel)

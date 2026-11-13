@@ -314,7 +314,7 @@ FORGEJO_API = FORGEJO_WEB + "/api/v1"
 DEFAULT_SITE_BASE_URL = "https://nvda.serrebiradio.com"
 #: Helper add-on release the site's home page offers for download. Bump with
 #: helper/manifest.ini; the tagged Forgejo release carries the asset.
-HELPER_VERSION = "1.6.1"
+HELPER_VERSION = "1.7.0"
 HELPER_RELEASES_URL = (
     "https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases"
 )

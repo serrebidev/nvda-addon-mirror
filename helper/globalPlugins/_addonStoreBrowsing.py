@@ -231,8 +231,13 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 			applyDefaults = getattr(dialog, "_serrebiApplyTabDefaults", None)
 			if callable(applyDefaults):
 				applyDefaults()
+			# A sort or channel the user configured for this tab wins over memory;
+			# memory fills in only what is left at NVDA's default.
+			configured = getattr(dialog, "_serrebiConfiguredDefaults", None)
+			configured = (configured() if callable(configured) else None) or {}
 			if mode != "default":
-				channels = list(channelModule._channelFilters)
+				channels = list(channelModule._channelFilters) \
+					if configured.get("channel", "native") == "native" else []
 				for index, channel in enumerate(channels):
 					if channel.name == state.get("channel") and index < dialog.channelFilterCtrl.GetCount():
 						store._filterChannelKey = channel
@@ -254,12 +259,13 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 				if hasattr(dialog, "_serrebiSearchScopeCtrl"):
 					dialog._serrebiSearchScopeCtrl.SetSelection(scopes.index(vm._serrebiSearchScope))
 				vm.applyFilter(text)
-				sortFields = _sortFields(vm)
+				sortFields = _sortFields(vm) if configured.get("sort", "native") == "native" else []
 				for index, field in enumerate(sortFields):
-					if field.name == state.get("sort"):
+					# Relevance without search text is no order at all.
+					if field.name == state.get("sort") and (text or field.name != "searchRank"):
 						vm.setSortField(field, bool(state.get("reverse")))
 						dialog.columnFilterCtrl.SetSelection(index * 2 + bool(state.get("reverse")))
-				if "dateSort" in state:
+				if "dateSort" in state and sortFields:
 					dateSort = state["dateSort"]
 					dateSort = dateSort if type(dateSort) is bool else None
 					if dialog.columnFilterCtrl.GetCount() >= len(sortFields) * 2 + 2:

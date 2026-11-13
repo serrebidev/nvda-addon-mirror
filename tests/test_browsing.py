@@ -428,7 +428,7 @@ class BrowsingTests(unittest.TestCase):
             def SetValue(self, value):
                 self.value = value
 
-        def run(state):
+        def run(state, configured=None):
             self.config.conf["serrebiStore"].update({
                 "browseMemory": "perTab", "browseAcrossRestarts": bool(state),
                 "browseState": json.dumps({"stores": {"mirror": {"tabs": {"AVAILABLE": state}}}}),
@@ -454,6 +454,7 @@ class BrowsingTests(unittest.TestCase):
                 dialog = object.__new__(Dialog)
                 dialog._storeVM = store
                 dialog._serrebiApplyTabDefaults = lambda: setattr(vm, "_serrebiDateSort", True)
+                dialog._serrebiConfiguredDefaults = lambda: configured
                 dialog.channelFilterCtrl = Choice(len(modules["addonStore.models.channel"]._channelFilters))
                 dialog.enabledFilterCtrl = Choice(len(Enabled))
                 dialog.includeIncompatibleCtrl = Check()
@@ -465,6 +466,8 @@ class BrowsingTests(unittest.TestCase):
 
         self.assertTrue(run({}))
         self.assertIsNone(run({"dateSort": None}))
+        # A sort configured for the tab wins over a remembered one.
+        self.assertTrue(run({"dateSort": None, "sort": "status"}, {"sort": "lastUpdated:desc"}))
 
     def test_adapter_source_filter_composes_with_native_order(self):
         modules, plugin, _, ListVM, Settings, _, _, _, _ = self._makeAdapter()
