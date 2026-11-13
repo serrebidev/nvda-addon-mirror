@@ -716,6 +716,7 @@
       "description": "Clipboard Announcer is an add-on for NVDA that announces standard editing and clipboard actions.\nIt is designed for users who want quick voice feedback for copying, cutting, pasting, highlighting all, undoing and redoing.\nThe addition does not change the normal behavior of these keyboard shortcuts.\nYou can optionally enable smart feedback for Copy, Cut, and Paste.\nIt recognizes the contents of the clipboard, announces the number of files, and warns when the clipboard is empty.\nThere are useful additional commands.\nFor example, adding new text to an existing one on the clipboard or copying the full path to a selected file or folder.\nYou can temporarily turn off voice acting with a special combination if feedback is not needed.\nA quick command to clear the clipboard with confirmation is also available.\nA separate panel appears in NVDA settings where you can choose which actions to declare.\n• Announcement mode: always or smart (no repetitions).\n• You can enable or disable the ad for each action individually.\n• There are settings for clearing the clipboard with a confirmation request and a voice report.\n• The add-on will report an error if it cannot access the clipboard."
     },
     "consoleLog": {
+      "summary": "Windows Console Viewer, AKA Visor para las consolas de Windows",
       "description": "The ConsoleLog add-on for NVDA displays the contents of Windows consoles in a convenient dialog box.\n• It supports CMD, PowerShell, Windows Terminal, Git Bash, WSL and Visual Studio developer.\n• You can assign gestures to quickly open the console viewer and launcher.\n• The viewer allows you to copy text, search by content and jump to the desired line.\n• Auto-Tail mode is available with a customizable update interval.\n• The built-in launcher opens any console directly in the current Explorer folder.\n• The plugin system includes tools for developers: JSON and SQL formatting, Base64 and JWT decoding, data extraction, log filtering and resource monitoring.\n• Google AI (Gemini) helps analyze errors, generate reports, and answer questions about console content.\n• You can customize the font, alert sounds, tracking keywords and manage plugins.\nAll features of the add-on are described in detail in the reference manual."
     },
     "CaptchaSolver": {
@@ -5323,6 +5324,10 @@
     "wmietek8-TranslateAdvanced": {
       "summary": "Advanced Translator",
       "description": "Advanced Translator for NVDA is an add-on that makes it easy to translate text into various languages using services such as Google Translate, DeepL, LibreTranslate and Microsoft Translator. It offers simultaneous translation, a translation history and API key management. It is easy to configure and use, with hotkeys and customizable options in the NVDA menu."
+    },
+    "dosya_arsivim": {
+      "summary": "My File Archive - Internet Archive Integration, AKA Dosya Arşivim - Internet Archive Entegrasyonu",
+      "description": "Unlimited space, unlimited files...\nThis add-on, which works integrated with the Internet Archive system, an online digital file storage archive, lets NVDA users store all of their files in an organized way, download them whenever they wish, or create a sharing link. It makes archive management easier by making all frequently used operations accessible through keyboard shortcuts.\n(NVDA+Alt+A)"
     }
   }
 }
