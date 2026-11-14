@@ -5328,6 +5328,13 @@
     "dosya_arsivim": {
       "summary": "My File Archive - Internet Archive Integration, AKA Dosya Arşivim - Internet Archive Entegrasyonu",
       "description": "Unlimited space, unlimited files...\nThis add-on, which works integrated with the Internet Archive system, an online digital file storage archive, lets NVDA users store all of their files in an organized way, download them whenever they wish, or create a sharing link. It makes archive management easier by making all frequently used operations accessible through keyboard shortcuts.\n(NVDA+Alt+A)"
+    },
+    "accessTV": {
+      "summary": "Access TV: Accessible TV Streaming, AKA Access TV: Siaran TV Streaming Aksesibel",
+      "description": "Listen to TV through mpv, BASS and Kodi with NVDA control. Supports HLS and DASH broadcasts, and popular national TV broadcasts."
+    },
+    "mediaConverter": {
+      "description": "Converts audio and video files to common formats from an accessible NVDA window, using the FFmpeg bundled with the add-on."
     }
   }
 }
