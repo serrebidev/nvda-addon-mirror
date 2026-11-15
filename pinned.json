@@ -82,6 +82,24 @@
       "source_url": "https://onjlouis.github.io/"
     },
     {
+      "url": "https://nvda.ru/uploads/addons/UnigramAccess-V.0.1.nvda-addon",
+      "addon_id": "unigramAccess",
+      "publisher": "Beqa Gozalishvili",
+      "license": "Unknown",
+      "channel": "dev",
+      "homepage": "https://gozaltech.org/unigram-access",
+      "source_url": "https://gozaltech.org/unigram-access"
+    },
+    {
+      "url": "https://nvda.ru/uploads/addons/TeamViewer-V.3.0-dev.nvda-addon",
+      "addon_id": "teamViewer",
+      "publisher": "Noelia Ruiz Martínez, Mesar Hameed",
+      "license": "Unknown",
+      "channel": "dev",
+      "homepage": "http://addons.nvda-project.org",
+      "source_url": "http://addons.nvda-project.org"
+    },
+    {
       "repo": "dave090679/banking4w",
       "asset_glob": "*.nvda-addon",
       "addon_id": "dave090679-banking4w",
