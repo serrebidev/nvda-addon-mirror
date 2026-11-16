@@ -11,3 +11,12 @@ Sources:
 Forgejo Actions publish it; the add-ons stay with their original authors and licenses.
 
 Questions and bug reports are welcome in the [SerrebiProjects Telegram group](https://t.me/SerrebiProjects). More serrebi projects: [projects.serrebiradio.com](https://projects.serrebiradio.com).
+
+
+## About this project
+
+- GitHub profile: [serrebidev](https://github.com/serrebidev)
+- Repository (GitHub): [https://github.com/serrebidev/nvda-addon-mirror](https://github.com/serrebidev/nvda-addon-mirror)
+- Repository (Forgejo): [https://git.serrebiradio.com/serrebi/nvda-addon-mirror](https://git.serrebiradio.com/serrebi/nvda-addon-mirror)
+- Projects site: [projects.serrebiradio.com](https://projects.serrebiradio.com)
+- Questions and bug reports: [SerrebiProjects Telegram group](https://t.me/SerrebiProjects)
