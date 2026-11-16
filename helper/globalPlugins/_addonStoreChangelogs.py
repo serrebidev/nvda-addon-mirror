@@ -1374,6 +1374,13 @@ class ChangelogFeature:
 		feature.plugin._rememberPatch(cls, "__init__", init)
 
 	def _patchAction(self, storeModule):
+		import importlib
+		import wx
+		try:
+			from logHandler import log
+			_logDebug = log.debug
+		except ImportError:
+			_logDebug = lambda *args, **kwargs: None
 		vmClass = storeModule.AddonStoreVM
 		original = vmClass._makeActionsList
 		feature = self
@@ -1383,15 +1390,61 @@ class ChangelogFeature:
 				from gui.addonStoreGui.viewModels.action import AddonActionVM
 			except ImportError:
 				return result
+			item = vm.listVM.getSelection()
 			# Translators: Add-on Store action that opens the selected add-on's release notes.
-			result.append(AddonActionVM(
+			changelog = AddonActionVM(
 				displayName=_("&Changelog"),
 				actionHandler=lambda item: feature.show(item, vm),
 				validCheck=lambda item: item is not None and not isSecureDesktop(),
-				actionTarget=vm.listVM.getSelection(),
-			))
+				actionTarget=item,
+			)
+			if _sourcePreference() == "all":
+				# When the preference is every source, the context menu turns
+				# this entry into a submenu with one item per source.
+				changelog._serrebiChangelogAll = True
+				changelog._serrebiChangelogDialogRef = feature._dialogs.get(vm)
+			result.append(changelog)
 			return result
 		self.plugin._rememberPatch(vmClass, "_makeActionsList", actions)
+		try:
+			controls = importlib.import_module("gui.addonStoreGui.controls.actions")
+			contextMenuClass = controls._MonoActionsContextMenu
+			originalPopulate = contextMenuClass._populateContextMenu
+
+			def populateContextMenu(menu):
+				originalPopulate(menu)
+				for action, menuItem in menu._actionMenuItemMap.items():
+					if not getattr(action, "_serrebiChangelogAll", False):
+						continue
+					item = getattr(action, "actionTarget", None)
+					model = getattr(item, "model", None)
+					dialogRef = getattr(action, "_serrebiChangelogDialogRef", None)
+					if model is None or dialogRef is None:
+						continue
+					sources = feature._changelogSources(model)
+					if not sources:
+						# No sources: leave the single entry; its handler
+						# explains that nothing is available.
+						continue
+					submenu = wx.Menu()
+					for source, count, documents, partial in sources:
+						label = feature._sourceOptionLabel(
+							source, count, documents, partial,
+						)
+						subItem = submenu.Append(wx.ID_ANY, label)
+						def pickSource(evt, _source=source):
+							feature._requestHistory(
+								model, item.model.displayName, dialogRef, _source,
+							)
+						submenu.Bind(wx.EVT_MENU, pickSource, subItem)
+					menuItem.SetSubMenu(submenu)
+
+			self.plugin._rememberPatch(
+				contextMenuClass, "_populateContextMenu", populateContextMenu,
+			)
+		except (AttributeError, ImportError):
+			# The single Changelog entry falls back to asking on each opening.
+			_logDebug("Could not turn the Changelog context entry into a source submenu")
 
 	def show(self, item, storeVM):
 		if item is None or isSecureDesktop():
@@ -1405,6 +1458,17 @@ class ChangelogFeature:
 			return
 		self._requestHistory(item.model, item.model.displayName, dialogRef, source)
 
+	def _changelogSources(self, model):
+		"""Sources the directory says are available, without probing the network."""
+		repository = githubRepository(getattr(model, "sourceURL", None))
+		sources = []
+		if _catalogNote(model):
+			sources.append(("catalog", None, 0, False))
+		if repository:
+			sources.extend((source, None, 0, False)
+				for source in ("github", "repository", "commits"))
+		return tuple(sources)
+
 	def _discoverSources(self, model, name, dialogRef):
 		"""Offer local notes and safe GitHub capabilities without probing the network."""
 		generation = self._generation
@@ -1413,13 +1477,7 @@ class ChangelogFeature:
 		parent = dialogRef()
 		if parent is None or not getattr(parent, "_serrebiChangelogAlive", False) or isSecureDesktop():
 			return
-		repository = githubRepository(getattr(model, "sourceURL", None))
-		sources = []
-		if _catalogNote(model):
-			sources.append(("catalog", None, 0, False))
-		if repository:
-			sources.extend((source, None, 0, False)
-				for source in ("github", "repository", "commits"))
+		sources = self._changelogSources(model)
 		if not sources:
 			import ui
 			ui.message(_("No changelog sources are available for this add-on."))
@@ -1434,34 +1492,39 @@ class ChangelogFeature:
 				discovered=([], None) if source == "catalog" else None,
 			)
 
+	def _sourceOptionLabel(self, source, count, documents, partial):
+		"""Label for one changelog source in the dialog or the context submenu."""
+		prefix = (_("at least {count}").format(count=count) if partial else str(count)) \
+			if count is not None else None
+		if count is None and source == "catalog":
+			label = _("Catalog or installed manifest notes")
+		elif count is None and source == "github":
+			label = _("GitHub published releases")
+		elif count is None and source == "repository":
+			label = _("Repository changelog files")
+		elif count is None:
+			label = _("GitHub commits (development history, not releases)")
+		elif source == "catalog":
+			label = _("Catalog or installed manifest notes ({count} versions)").format(count=prefix)
+		elif source == "github":
+			label = _("GitHub published releases ({count} releases)").format(count=prefix)
+		elif source == "repository":
+			label = _("Repository changelog files ({count} files)").format(count=prefix)
+		else:
+			label = _("GitHub commits ({count} commits; development history, not releases)").format(
+				count=prefix,
+			)
+		if partial:
+			label += " " + _("Partial retrieval.")
+		return label
+
 	def _chooseSource(self, parent, sources, failures=()):
 		"""Ask on each opening only when the saved preference is all sources."""
 		import wx
-		labels = []
-		for source, count, documents, partial in sources:
-			prefix = (_("at least {count}").format(count=count) if partial else str(count)) \
-				if count is not None else None
-			if count is None and source == "catalog":
-				label = _("Catalog or installed manifest notes")
-			elif count is None and source == "github":
-				label = _("GitHub published releases")
-			elif count is None and source == "repository":
-				label = _("Repository changelog files")
-			elif count is None:
-				label = _("GitHub commits (development history, not releases)")
-			elif source == "catalog":
-				label = _("Catalog or installed manifest notes ({count} versions)").format(count=prefix)
-			elif source == "github":
-				label = _("GitHub published releases ({count} releases)").format(count=prefix)
-			elif source == "repository":
-				label = _("Repository changelog files ({count} files)").format(count=prefix)
-			else:
-				label = _("GitHub commits ({count} commits; development history, not releases)").format(
-					count=prefix,
-				)
-			if partial:
-				label += " " + _("Partial retrieval.")
-			labels.append(label)
+		labels = [
+			self._sourceOptionLabel(source, count, documents, partial)
+			for source, count, documents, partial in sources
+		]
 		# Translators: Prompt shown when the saved changelog source is All available sources.
 		prompt = _("Choose which source to load for this changelog. GitHub content loads only after selection.")
 		if failures:

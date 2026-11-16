@@ -361,6 +361,30 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		dialog._serrebiCurrentTab = _tabName(dialog)
 		restore(dialog, refresh)
 
+	def announceCount(dialog):
+		def announce():
+			if _isSecure() or getattr(dialog, "_serrebiRestoring", False):
+				return
+			isBeingDeleted = getattr(dialog, "IsBeingDeleted", None)
+			if callable(isBeingDeleted) and isBeingDeleted():
+				return
+			try:
+				# Same count speech as the settings customization feature; the
+				# wording stays identical so every path announces alike.
+				from ._addonStoreCustomization import _speakCount
+				_speakCount(dialog._storeVM.listVM)
+			except Exception:
+				# Announcement must never block filtering.
+				pass
+		wx.CallAfter(announce)
+
+	def announceAfter(original):
+		def wrapper(dialog, evt):
+			result = original(dialog, evt)
+			announceCount(dialog)
+			return result
+		return wrapper
+
 	def saveAfter(original):
 		def wrapper(dialog, evt):
 			result = original(dialog, evt)
@@ -618,12 +642,15 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 			plugin._rememberPatch(controlClass, "_refreshSelection", refreshSelection)
 		for owner, name, replacement in (
 			(dialogClass, "__init__", initDialog), (dialogClass, "onClose", saveBeforeClose),
-			(dialogClass, "onListTabPageChange", tabChange),
+			(dialogClass, "onListTabPageChange", announceAfter(tabChange)),
 			(dialogClass, "_createFilterControls", createControls),
-			(dialogClass, "onColumnFilterChange", saveAfter(originalColumnChange)),
-			(dialogClass, "onChannelFilterChange", saveAfter(originalChannelChange)),
-			(dialogClass, "onEnabledFilterChange", saveAfter(originalEnabledChange)),
-			(dialogClass, "onIncompatibleFilterChange", saveAfter(originalIncompatibleChange)),
+			(dialogClass, "onColumnFilterChange", announceAfter(saveAfter(originalColumnChange))),
+			(dialogClass, "onChannelFilterChange", announceAfter(saveAfter(originalChannelChange))),
+			(dialogClass, "onEnabledFilterChange", announceAfter(saveAfter(originalEnabledChange))),
+			(dialogClass, "onIncompatibleFilterChange", announceAfter(saveAfter(originalIncompatibleChange))),
+			# No announcement per keystroke here: search text changes dozens of
+			# times while typing, and a count after every character would drown
+			# the user. The discrete filter changes above announce once each.
 			(dialogClass, "onFilterTextChange", searchChange),
 			(listClass, "resetListItems", reset), (listClass, "setSelection", setSelection),
 			(listClass, "_getFilteredSortedIds", filtered),

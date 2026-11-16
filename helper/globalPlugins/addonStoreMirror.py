@@ -1298,6 +1298,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			wx.ID_ANY, _("&Official NVDA store..."),
 		)
 		sysTrayIcon.Bind(wx.EVT_MENU, self._onBrowseOfficialStore, officialItem)
+		# Translators: Tools menu item re-fetching the store catalog on demand.
+		# The catalog otherwise refreshes only when NVDA starts; opening the
+		# store reuses what is already loaded.
+		refreshItem = storeMenu.Append(
+			wx.ID_ANY, _("&Refresh add-on catalog"),
+		)
+		sysTrayIcon.Bind(wx.EVT_MENU, self._onRefreshStore, refreshItem)
 		# Translators: Tools submenu containing the mirror and official stores.
 		self._toolsMenuItems = [toolsMenu.AppendSubMenu(storeMenu, _("&Add-on Store"))]
 		self._addBundleMenuItems(toolsMenu, sysTrayIcon)
@@ -1425,6 +1432,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		except (ImportError, ValueError):
 			pass
 		self._settingsPanelRegistered = False
+
+	def _onRefreshStore(self, evt):
+		import ui
+		# Translators: Spoken once when a manual catalog refresh starts.
+		ui.message(_("Refreshing add-on catalog..."))
+		self._refreshStore()
 
 	def _onBrowseOfficialStore(self, evt):
 		# An empty baseServerURL is NVDA's official store. Restore the selected

@@ -75,6 +75,35 @@ class AvailabilityTests(unittest.TestCase):
             ("repository", None, 0, False), ("commits", None, 0, False),
         ), choose.call_args.args[1])
 
+    def test_shared_source_list_matches_picker_gating(self):
+        feature = changelogs.ChangelogFeature(None)
+        self.model.sourceURL = "https://example.com/unrelated"
+        self.assertEqual((), feature._changelogSources(self.model))
+        setattr(self.model, changelogs.MODEL_CHANGELOG_ATTRIBUTE, "Catalog notes")
+        self.assertEqual(
+            (("catalog", None, 0, False),), feature._changelogSources(self.model),
+        )
+        self.model.sourceURL = "https://github.com/owner/project"
+        self.assertEqual(
+            (
+                ("catalog", None, 0, False), ("github", None, 0, False),
+                ("repository", None, 0, False), ("commits", None, 0, False),
+            ),
+            feature._changelogSources(self.model),
+        )
+
+    def test_source_labels_are_stable_for_dialog_and_submenu(self):
+        feature = changelogs.ChangelogFeature(None)
+        labels = [
+            feature._sourceOptionLabel(source, None, 0, False)
+            for source in ("catalog", "github", "repository", "commits")
+        ]
+        self.assertEqual(4, len(set(labels)))
+        self.assertIn("Catalog", labels[0])
+        self.assertIn("releases", labels[1])
+        self.assertIn("Repository", labels[2])
+        self.assertIn("commits", labels[3])
+
     def test_all_selected_github_capability_starts_only_that_source(self):
         for selected in ("github", "repository", "commits"):
             feature = changelogs.ChangelogFeature(None)

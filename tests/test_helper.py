@@ -649,8 +649,9 @@ class HelperToolsMenuTests(unittest.TestCase):
         self.assertEqual("&Add-on Store", label)
         self.assertEqual(("item", "&Add-on store..."), submenu.items[0])
         self.assertIn("official", submenu.items[1][1].lower())
+        self.assertIn("refresh", submenu.items[2][1].lower())
         binds = gui.mainFrame.sysTrayIcon.binds
-        self.assertEqual(3, len(binds))
+        self.assertEqual(4, len(binds))
         event, _handler, _source = binds[0]
         self.assertIs(self.wx.EVT_MENU, event)
 
@@ -674,6 +675,20 @@ class HelperToolsMenuTests(unittest.TestCase):
         self.assertEqual(
             [(helper.OFFICIAL_STORE_URL, helper.MIRROR_STORE_URL)], opened,
         )
+
+    def test_refresh_menu_handler_refreshes_catalog(self):
+        _helper, plugin, gui, _modules = self._makeMenuPlugin()
+        ui = types.ModuleType("ui")
+        spoken = []
+        ui.message = spoken.append
+        plugin._refreshStore = lambda: spoken.append("refreshed")
+        with mock.patch.dict(sys.modules, {"ui": ui}), mock.patch.object(
+            builtins, "_", lambda text: text, create=True,
+        ):
+            gui.mainFrame.sysTrayIcon.binds[1][1](None)
+        self.assertEqual(2, len(spoken))
+        self.assertIn("refresh", spoken[0].lower())
+        self.assertEqual("refreshed", spoken[1])
 
     def test_remove_menu_items(self):
         _helper, plugin, gui, modules = self._makeMenuPlugin()
