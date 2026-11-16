@@ -1740,7 +1740,7 @@ class GitHubOwnerTests(unittest.TestCase):
         }
         state = {
             "etag": '"release-etag"',
-            "candidates": [candidate],
+            "candidates": [],
             "latest_version": [0, 0, 0],
             "committed_candidates": [candidate],
             "tree_etag": '"tree-etag"',
@@ -1749,7 +1749,7 @@ class GitHubOwnerTests(unittest.TestCase):
 
         def conditional(url, etag=None, timeout=120):
             if url.endswith("/releases?per_page=20"):
-                return [], '"release-etag"', False
+                return None, '"release-etag"', True
             return None, '"tree-etag"', True
 
         with mock.patch.object(
@@ -1766,6 +1766,41 @@ class GitHubOwnerTests(unittest.TestCase):
         self.assertEqual([candidate], candidates)
         self.assertEqual('"tree-etag"', updated_state["tree_etag"])
         self.assertEqual("main", updated_state["default_branch"])
+
+    def test_unchanged_releases_still_scan_legacy_states(self):
+        def conditional(url, etag=None, timeout=120):
+            if url.endswith("/releases?per_page=20"):
+                return None, '"release-etag"', True
+            return {
+                "tree": [
+                    {"type": "blob", "path": "dist/demo-1.0.nvda-addon",
+                     "sha": "blob-10"},
+                    {"type": "blob", "path": "dist/demo-2.0.nvda-addon",
+                     "sha": "blob-20"},
+                ],
+            }, '"tree-etag"', False
+
+        legacy = {
+            "etag": '"release-etag"',
+            "candidates": [],
+            "latest_version": [0, 0, 0],
+        }
+        with mock.patch.object(
+            mirror, "_github_json_conditional", side_effect=conditional
+        ), mock.patch.object(
+            mirror, "_github_json", return_value={"default_branch": "main"}
+        ):
+            candidates, state = mirror._github_release_asset_state(
+                "example/addon",
+                legacy,
+            )
+
+        self.assertEqual(
+            ["demo-2.0.nvda-addon"],
+            [c["asset_name"] for c in candidates],
+        )
+        self.assertEqual('"tree-etag"', state["tree_etag"])
+        self.assertEqual("main", state["default_branch"])
 
     def test_empty_repository_reports_no_committed_builds(self):
         def conditional(url, etag=None, timeout=120):

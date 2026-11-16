@@ -2388,7 +2388,20 @@ def _github_release_asset_state(repo, previous_state=None):
         cached_candidates = previous_state.get("candidates")
         if not isinstance(cached_candidates, list):
             raise RuntimeError(f"GitHub returned 304 without cached candidates: {repo}")
-        return cached_candidates, previous_state
+        if cached_candidates:
+            # Release assets are authoritative and unchanged: nothing to do.
+            return cached_candidates, previous_state
+        # No released add-on: the tree is the source of truth, so it is
+        # rechecked (free on 304) even when the release list is unchanged.
+        # Legacy states have no tree answer yet; this checks their tree once
+        # instead of waiting for a release change that may never come.
+        committed, tree_state = _github_committed_candidates(repo, previous_state)
+        updated = dict(previous_state)
+        updated["candidates"] = committed
+        updated["committed_candidates"] = committed
+        updated["tree_etag"] = tree_state["etag"]
+        updated["default_branch"] = tree_state["branch"]
+        return committed, updated
     candidates = _release_asset_candidates_from_records(repo, releases or [])
     release_versions = [
         _release_tag_version(release.get("tag_name") or release.get("tagName") or "")
