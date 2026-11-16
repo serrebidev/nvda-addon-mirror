@@ -192,6 +192,88 @@ class PinnedConfigurationTests(unittest.TestCase):
         )
         self.assertEqual("kaveinthran-klatter", installed["name"])
 
+    def test_klattara_community_variant_is_a_unique_optional_fork_pin(self):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "pinned.json",
+        )
+        with open(path, "r", encoding="utf-8") as config_file:
+            pinned = json.load(config_file)["pinned"]
+
+        [entry] = [entry for entry in pinned
+                   if entry.get("repo") == "kaveinthran/Klattara"]
+        self.assertEqual("klattara-*.nvda-addon", entry["asset_glob"])
+        self.assertEqual("kaveinthran-klattara", entry["addon_id"])
+        self.assertEqual("include", entry["fork_policy"])
+        self.assertTrue(entry["optional"])
+        self.assertEqual("MIT", entry["license"])
+        self.assertNotIn("min_nvda_version", entry)
+        self.assertNotIn("last_tested_nvda_version", entry)
+
+    def test_klattara_pin_selects_versioned_asset_repacks_id_and_installs(self):
+        original = io.BytesIO()
+        with zipfile.ZipFile(original, "w") as archive:
+            archive.writestr(
+                "manifest.ini",
+                "name = klattara\nsummary = Klattara\nauthor = RetroBunn\n"
+                "version = 2026.1116.1\nminimumNVDAVersion = 2025.1\n"
+                "lastTestedNVDAVersion = 2026.2\n",
+            )
+            archive.writestr("synthDrivers/klattara/__init__.py", b"# driver\n")
+            archive.writestr("synthDrivers/klattara/x64/klattara.dll", b"x64 DLL")
+            archive.writestr("synthDrivers/klattara/x86/klattara.dll", b"x86 DLL")
+            archive.writestr("LICENSE", b"MIT licence\n")
+            archive.writestr("THIRD-PARTY-NOTICES.txt", b"third-party notices\n")
+        releases = [{
+            "prerelease": False,
+            "tag_name": "upstream-0123456789abcdef0123456789abcdef01234567",
+            "name": "Klattara community build",
+            "assets": [
+                {"name": "klattara.nvda-addon", "browser_download_url": "https://example.invalid/alias"},
+                {"name": "klattara-2026.1116.1.nvda-addon", "browser_download_url": "https://example.invalid/versioned"},
+            ],
+        }]
+        spec = {
+            "asset_glob": "klattara-*.nvda-addon",
+            "fork_policy": "include",
+            "channel": "stable",
+        }
+        with mock.patch.object(mirror, "http_get", return_value=json.dumps(releases).encode("utf-8")), \
+                mock.patch.object(mirror, "cached_pinned_bundle", return_value=original.getvalue()) as cached:
+            [entry] = mirror._fetch_one_pinned(spec, "kaveinthran/Klattara", "kaveinthran-klattara")
+
+        self.assertEqual("https://example.invalid/versioned", cached.call_args.args[0]["browser_download_url"])
+        self.assertEqual("2026.1116.1", entry["version"])
+        self.assertEqual("kaveinthran-klattara", entry["name"])
+        with zipfile.ZipFile(io.BytesIO(entry["_patched_bytes"])) as archive:
+            self.assertEqual(set(archive.namelist()), {
+                "manifest.ini", "synthDrivers/klattara/__init__.py",
+                "synthDrivers/klattara/x64/klattara.dll", "synthDrivers/klattara/x86/klattara.dll",
+                "LICENSE", "THIRD-PARTY-NOTICES.txt",
+            })
+            manifest = archive.read("manifest.ini").decode("utf-8")
+            self.assertEqual(b"x64 DLL", archive.read("synthDrivers/klattara/x64/klattara.dll"))
+            self.assertEqual(b"x86 DLL", archive.read("synthDrivers/klattara/x86/klattara.dll"))
+            self.assertEqual(b"MIT licence\n", archive.read("LICENSE"))
+            self.assertEqual(b"third-party notices\n", archive.read("THIRD-PARTY-NOTICES.txt"))
+        self.assertEqual("kaveinthran-klattara", mirror._manifest_name(manifest))
+        self.assertEqual("2026.1116.1", mirror._manifest_value(manifest, "version"))
+
+        row = mirror.transform(entry, entry["sha256"])
+        self.assertEqual("kaveinthran-klattara", row["addonId"])
+        self.assertEqual("2026.1116.1", row["addonVersionName"])
+        self.assertEqual({"major": 2026, "minor": 1116, "patch": 1}, row["addonVersionNumber"])
+        self.assertEqual({"major": 2025, "minor": 1, "patch": 0}, row["minNVDAVersion"])
+        self.assertEqual({"major": 2026, "minor": 2, "patch": 0}, row["lastTestedVersion"])
+        installed = nvda_contract.install_from_store(
+            row, entry["_patched_bytes"], (2026, 2, 0), (2025, 1, 0),
+        )
+        self.assertEqual("kaveinthran-klattara", installed["name"])
+        installed_at_floor = nvda_contract.install_from_store(
+            row, entry["_patched_bytes"], (2025, 1, 0), (2025, 1, 0),
+        )
+        self.assertEqual("kaveinthran-klattara", installed_at_floor["name"])
+
     def test_serrebi_helper_and_log_collector_are_pinned(self):
         path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
