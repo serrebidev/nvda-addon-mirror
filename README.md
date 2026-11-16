@@ -5,6 +5,8 @@ explicitly pinned releases, published in the exact wire format NVDA's built-in A
 consumes. A scheduled run on the owner's server refreshes it every half
 hour and publishes it at https://nvda.serrebiradio.com.
 
+[![Join SerrebiProjects on Telegram](https://img.shields.io/badge/Telegram-SerrebiProjects-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/SerrebiProjects)
+
 Sources:
 
 - **[NV Access Add-on Store](https://github.com/nvaccess/addon-datastore)** —
@@ -73,6 +75,8 @@ Sources:
   are optional and override what the bundle states.
 
 **Questions, bugs, or release news?** Join the [SerrebiProjects Telegram group](https://t.me/SerrebiProjects), the fastest place to get help.
+
+More serrebi projects: [projects.serrebiradio.com](https://projects.serrebiradio.com)
 
 ## What it does
 
@@ -512,3 +516,7 @@ any static host unchanged.
   ("not tested, not an official repository"); nvda-addons.ru carries the same
   caveat. The SHA-256 hash guarantees immutability of what is downloaded, not
   safety.
+
+## Credits
+
+See [CREDITS.md](CREDITS.md) for where the ideas behind this project came from, and the third-party projects it builds on.
