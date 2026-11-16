@@ -10,6 +10,7 @@ from unittest import mock
 from urllib.error import HTTPError
 
 import mirror
+from tests import nvda_contract
 
 
 _state_dir = tempfile.TemporaryDirectory()
@@ -128,6 +129,69 @@ class PinnedCompletenessTests(unittest.TestCase):
 
 
 class PinnedConfigurationTests(unittest.TestCase):
+    def test_klatter_community_variant_is_a_unique_optional_fork_pin(self):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "pinned.json",
+        )
+        with open(path, "r", encoding="utf-8") as config_file:
+            pinned = json.load(config_file)["pinned"]
+
+        [entry] = [entry for entry in pinned
+                   if entry.get("repo") == "kaveinthran/klatter"]
+        self.assertEqual("klatter-*.nvda-addon", entry["asset_glob"])
+        self.assertEqual("kaveinthran-klatter", entry["addon_id"])
+        self.assertEqual("include", entry["fork_policy"])
+        self.assertTrue(entry["optional"])
+        self.assertEqual("MIT", entry["license"])
+        self.assertNotIn("min_nvda_version", entry)
+        self.assertNotIn("last_tested_nvda_version", entry)
+
+    def test_klatter_pin_selects_versioned_asset_repacks_id_and_installs(self):
+        original = io.BytesIO()
+        with zipfile.ZipFile(original, "w") as archive:
+            archive.writestr(
+                "manifest.ini",
+                "name = klatter\nsummary = Klatter\nauthor = Saqib Shaikh\n"
+                "version = 2026.1116.2\nminimumNVDAVersion = 2026.1\n"
+                "lastTestedNVDAVersion = 2026.2\n",
+            )
+            archive.writestr("synthDrivers/klatter/klatter.dll", b"test DLL")
+        releases = [{
+            "prerelease": False,
+            "tag_name": "upstream-0123456789abcdef0123456789abcdef01234567",
+            "name": "Klatter community build",
+            "assets": [
+                {"name": "klatter.nvda-addon", "browser_download_url": "https://example.invalid/alias"},
+                {"name": "klatter-2026.1116.2.nvda-addon", "browser_download_url": "https://example.invalid/versioned"},
+            ],
+        }]
+        spec = {
+            "asset_glob": "klatter-*.nvda-addon",
+            "fork_policy": "include",
+            "channel": "stable",
+        }
+        with mock.patch.object(mirror, "http_get", return_value=json.dumps(releases).encode("utf-8")), \
+                mock.patch.object(mirror, "cached_pinned_bundle", return_value=original.getvalue()) as cached:
+            [entry] = mirror._fetch_one_pinned(spec, "kaveinthran/klatter", "kaveinthran-klatter")
+
+        self.assertEqual("https://example.invalid/versioned", cached.call_args.args[0]["browser_download_url"])
+        self.assertEqual("2026.1116.2", entry["version"])
+        self.assertEqual("kaveinthran-klatter", entry["name"])
+        with zipfile.ZipFile(io.BytesIO(entry["_patched_bytes"])) as archive:
+            manifest = archive.read("manifest.ini").decode("utf-8")
+        self.assertEqual("kaveinthran-klatter", mirror._manifest_name(manifest))
+        self.assertEqual("2026.1116.2", mirror._manifest_value(manifest, "version"))
+
+        row = mirror.transform(entry, entry["sha256"])
+        self.assertEqual("kaveinthran-klatter", row["addonId"])
+        self.assertEqual("2026.1116.2", row["addonVersionName"])
+        self.assertEqual({"major": 2026, "minor": 1116, "patch": 2}, row["addonVersionNumber"])
+        installed = nvda_contract.install_from_store(
+            row, entry["_patched_bytes"], (2026, 2, 0), (2026, 1, 0),
+        )
+        self.assertEqual("kaveinthran-klatter", installed["name"])
+
     def test_serrebi_helper_and_log_collector_are_pinned(self):
         path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
