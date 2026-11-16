@@ -415,7 +415,6 @@
     "kate-blip728",
     "djgraco",
     "dectalk",
-    "adamsamec",
     "Malfehaida738",
     "Eyalson",
     "thundergod60",
@@ -493,6 +492,20 @@
       "login": "abdel792",
       "repositories": [
         "sayCurrentKeyboardLanguage"
+      ]
+    },
+    {
+      "login": "adamsamec",
+      "repositories": [
+        "BrailleTeacher",
+        "VoiceProfiles",
+        "VoiceToggle"
+      ],
+      "artifact_repositories": [
+        {
+          "repo": "adamsamec/VoiceToggle",
+          "ref": "main"
+        }
       ]
     }
   ]
