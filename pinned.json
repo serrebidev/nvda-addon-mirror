@@ -100,6 +100,17 @@
       "source_url": "http://addons.nvda-project.org"
     },
     {
+      "repo": "kaveinthran/klatter",
+      "asset_glob": "klatter-*.nvda-addon",
+      "addon_id": "kaveinthran-klatter",
+      "summary": "Klatter speech synthesizer (community build)",
+      "publisher": "Saqib Shaikh; community build by Kaveinthran",
+      "license": "MIT",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
       "repo": "dave090679/banking4w",
       "asset_glob": "*.nvda-addon",
       "addon_id": "dave090679-banking4w",
