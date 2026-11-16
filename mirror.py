@@ -269,10 +269,11 @@ GITHUB_MIN_REQUEST_INTERVAL = 0.2
 #: repositories for the query below, most recently updated first, and queue
 #: matches that are not already scanned, queued or catalogued. Queuing only
 #: earns a repository the ordinary first-time check -- it is catalogued
-#: solely when a release actually ships a `.nvda-addon` asset. A checked
-#: repository is remembered by its `updated_at` stamp and is not queued
-#: again until the stamp advances, so the search costs a few requests a
-#: day and never re-checks the same noise every build.
+#: solely when a release ships a `.nvda-addon` asset, or when its tree carries
+#: committed builds and its releases carry none. A checked repository is
+#: remembered by its `updated_at` stamp and is not queued again until the
+#: stamp advances, so the search costs a few requests a day and never
+#: re-checks the same noise every build.
 GITHUB_SEARCH_DISCOVERY_QUERY = "nvda"
 GITHUB_SEARCH_DISCOVERY_TTL_SECONDS = 24 * 60 * 60
 GITHUB_SEARCH_DISCOVERY_PAGES = 2
@@ -2160,7 +2161,9 @@ def _github_first_time_budget():
         )["resources"]["core"]["remaining"]
     except Exception:  # noqa: BLE001 - unknown quota: use the proven rate
         return GITHUB_NEW_REPOSITORY_BUDGET
-    # A first-time check can take a second request (fork parent, next page).
+    # A first-time check can take a second request (fork parent, next page);
+    # a release-less repository adds two more (branch, tree). The capped
+    # budget times even four requests still fits above the reserve.
     return max(0, min(
         GITHUB_NEW_REPOSITORY_BUDGET_AUTHENTICATED,
         (remaining - GITHUB_QUOTA_RESERVE) // 2,
@@ -2394,11 +2397,27 @@ def _github_release_asset_state(repo, previous_state=None):
     ]
     release_versions = [version for version in release_versions if version is not None]
     latest_version = max(release_versions) if release_versions else None
-    return candidates, {
+    state = {
         "etag": etag,
         "candidates": candidates,
         "latest_version": list(latest_version) if latest_version else None,
     }
+    if candidates:
+        # Releases win: a repository carrying release assets never pays for a
+        # tree walk, and its committed files are ignored so one add-on cannot
+        # publish twice.
+        return candidates, state
+    # No released .nvda-addon anywhere: the author may be committing built
+    # bundles to the tree instead (dist/, an AllMyNVDAAddons archive). Their
+    # newest files stand in as candidates, with their own conditional state
+    # so later runs recheck the tree for free.
+    committed, tree_state = _github_committed_candidates(repo, previous_state)
+    state["candidates"] = committed
+    state["committed_candidates"] = committed
+    state["tree_etag"] = tree_state["etag"]
+    if tree_state["branch"]:
+        state["default_branch"] = tree_state["branch"]
+    return committed, state
 
 
 def _github_candidate_version(candidate):
@@ -2603,22 +2622,18 @@ def _cached_github_repositories(cache):
     return repositories
 
 
-def _github_artifact_candidates(spec):
-    """Select newest committed .nvda-addon files from configured artifact repos."""
-    repo = (spec.get("repo") or "").strip()
-    ref = (spec.get("ref") or "main").strip()
-    if not repo or "/" not in repo:
-        raise ValueError(f"invalid GitHub artifact repository: {spec!r}")
-    if not _github_fork_release_qualifies(repo):
-        return []
+def _select_committed_addon_candidates(repo, ref, tree_items):
+    """Newest committed .nvda-addon per (directory, family) from a git tree.
+
+    Every version committed to one directory counts as the same add-on, so
+    the newest version wins; different directories (release/, dev/) are
+    distinct, which lets the normal channel rules apply to them downstream.
+    Shared by explicit artifact repositories and the automatic scan of
+    release-less repositories.
+    """
     owner, name = repo.split("/", 1)
-    tree_url = (
-        f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
-        f"/git/trees/{quote(ref, safe='')}?recursive=1"
-    )
-    tree = _github_json(tree_url)
     selected = {}
-    for item in tree.get("tree", []):
+    for item in tree_items:
         path = item.get("path") or ""
         if item.get("type") != "blob" or not path.casefold().endswith(".nvda-addon"):
             continue
@@ -2639,11 +2654,11 @@ def _github_artifact_candidates(spec):
                 "asset_name": filename,
                 "download_url": (
                     f"https://raw.githubusercontent.com/{quote(owner, safe='')}/"
-                    f"{quote(name, safe='')}/{quote(ref, safe='')}/{raw_path}"
+                    f"{quote(name, safe='')}/{quote(ref, safe='/')}/{raw_path}"
                 ),
                 "cache_key": (
                     f"https://raw.githubusercontent.com/{quote(owner, safe='')}/"
-                    f"{quote(name, safe='')}/{quote(ref, safe='')}/{raw_path}"
+                    f"{quote(name, safe='')}/{quote(ref, safe='/')}/{raw_path}"
                     f"#{item.get('sha') or ''}"
                 ),
                 "release_tag": "",
@@ -2652,6 +2667,71 @@ def _github_artifact_candidates(spec):
             },
         )
     return [candidate for _version, candidate in selected.values()]
+
+
+def _github_committed_candidates(repo, previous_state=None):
+    """Latest committed .nvda-addon files for a repository without releases.
+
+    Some authors commit built bundles (a dist/ folder, an AllMyNVDAAddons
+    archive) and never cut a release. Walk the default branch tree, keep the
+    newest file per family, and serve it from raw.githubusercontent by branch,
+    reusing the last verified list (conditonal GET, free on 304) while GitHub
+    is unreachable. Costs one tree request per run on top of the release
+    check; the bundles themselves stay gated on their blob sha, so nothing is
+    re-downloaded.
+    """
+    owner, name = repo.split("/", 1)
+    if not isinstance(previous_state, dict):
+        previous_state = {}
+    branch = previous_state.get("default_branch")
+    if not isinstance(branch, str) or not branch:
+        metadata = _github_json(
+            f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+        )
+        branch = metadata.get("default_branch") or "main"
+    tree_url = (
+        f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+        f"/git/trees/{quote(branch, safe='')}?recursive=1"
+    )
+    try:
+        tree, etag, not_modified = _github_json_conditional(
+            tree_url, etag=previous_state.get("tree_etag")
+        )
+    except HTTPError as exc:
+        if exc.code != 404:
+            raise
+        # An empty repository has no branch to read; forget the branch so a
+        # later first commit is found, and report no files.
+        exc.close()
+        return [], {"etag": None, "branch": None}
+    if not_modified:
+        cached = previous_state.get("committed_candidates")
+        if not isinstance(cached, list):
+            raise RuntimeError(
+                f"GitHub returned 304 without cached committed candidates: {repo}"
+            )
+        return cached, {"etag": previous_state.get("tree_etag"), "branch": branch}
+    candidates = _select_committed_addon_candidates(
+        repo, branch, (tree or {}).get("tree", [])
+    )
+    return candidates, {"etag": etag, "branch": branch}
+
+
+def _github_artifact_candidates(spec):
+    """Select newest committed .nvda-addon files from configured artifact repos."""
+    repo = (spec.get("repo") or "").strip()
+    ref = (spec.get("ref") or "main").strip()
+    if not repo or "/" not in repo:
+        raise ValueError(f"invalid GitHub artifact repository: {spec!r}")
+    if not _github_fork_release_qualifies(repo):
+        return []
+    owner, name = repo.split("/", 1)
+    tree_url = (
+        f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
+        f"/git/trees/{quote(ref, safe='')}?recursive=1"
+    )
+    tree = _github_json(tree_url)
+    return _select_committed_addon_candidates(repo, ref, tree.get("tree", []))
 
 
 def _owner_cache_key(item):

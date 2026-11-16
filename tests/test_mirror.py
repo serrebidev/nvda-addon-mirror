@@ -1659,6 +1659,132 @@ class GitHubOwnerTests(unittest.TestCase):
         self.assertEqual([candidate], candidates)
         self.assertIs(state, updated_state)
 
+    def test_releaseless_repo_picks_newest_committed_build(self):
+        def conditional(url, etag=None, timeout=120):
+            if url.endswith("/releases?per_page=20"):
+                return [], '"release-etag"', False
+            if "/git/trees/" in url and url.endswith("?recursive=1"):
+                return {
+                    "tree": [
+                        {"type": "blob", "path": "dist/demo-1.0.nvda-addon",
+                         "sha": "blob-10"},
+                        {"type": "blob", "path": "dist/demo-2.0.nvda-addon",
+                         "sha": "blob-20"},
+                        {"type": "blob", "path": "dist/dev/demo-2.1-dev1.nvda-addon",
+                         "sha": "blob-21"},
+                        {"type": "blob", "path": "addon/globalPlugins/demo.py",
+                         "sha": "blob-py"},
+                    ],
+                }, '"tree-etag"', False
+            raise AssertionError(f"unexpected conditional URL: {url}")
+
+        calls = []
+
+        def repos_meta(url, timeout=120):
+            calls.append(url)
+            if url.endswith("/releases?per_page=20"):
+                raise AssertionError("releases are read conditionally")
+            if url.endswith("/git/trees/main?recursive=1"):
+                raise AssertionError("trees are read conditionally")
+            return {"default_branch": "main"}
+
+        with mock.patch.object(
+            mirror, "_github_json_conditional", side_effect=conditional
+        ), mock.patch.object(mirror, "_github_json", side_effect=repos_meta):
+            candidates, state = mirror._github_release_asset_state("example/addon")
+
+        self.assertEqual(
+            [
+                ("demo-2.0.nvda-addon",
+                 "https://raw.githubusercontent.com/example/addon/main/dist/demo-2.0.nvda-addon"),
+                ("demo-2.1-dev1.nvda-addon",
+                 "https://raw.githubusercontent.com/example/addon/main/dist/dev/demo-2.1-dev1.nvda-addon"),
+            ],
+            [(c["asset_name"], c["download_url"]) for c in candidates],
+        )
+        self.assertEqual('"tree-etag"', state["tree_etag"])
+        self.assertEqual("main", state["default_branch"])
+        self.assertEqual(candidates, state["committed_candidates"])
+        self.assertIn("demo-2.0.nvda-addon#blob-20", candidates[0]["cache_key"])
+
+    def test_releases_with_assets_never_walk_the_tree(self):
+        releases = [{
+            "tag_name": "v1.0",
+            "prerelease": False,
+            "draft": False,
+            "published_at": "2026-01-01T00:00:00Z",
+            "assets": [{
+                "name": "demo-1.0.nvda-addon",
+                "browser_download_url": "https://example.invalid/demo-1.0.nvda-addon",
+            }],
+        }]
+        with mock.patch.object(
+            mirror, "_github_json_conditional",
+            return_value=(releases, '"release-etag"', False),
+        ), mock.patch.object(
+            mirror, "_github_json",
+            side_effect=AssertionError("metadata must not be read"),
+        ) as repos_meta:
+            candidates, state = mirror._github_release_asset_state("example/addon")
+
+        self.assertEqual(1, len(candidates))
+        self.assertEqual("demo-1.0.nvda-addon", candidates[0]["asset_name"])
+        repos_meta.assert_not_called()
+        self.assertNotIn("tree_etag", state)
+
+    def test_committed_builds_reused_on_tree_not_modified(self):
+        candidate = {
+            "repo": "example/addon",
+            "asset_name": "demo-2.0.nvda-addon",
+            "download_url": "https://raw.githubusercontent.com/example/addon/main/dist/demo-2.0.nvda-addon",
+        }
+        state = {
+            "etag": '"release-etag"',
+            "candidates": [candidate],
+            "latest_version": [0, 0, 0],
+            "committed_candidates": [candidate],
+            "tree_etag": '"tree-etag"',
+            "default_branch": "main",
+        }
+
+        def conditional(url, etag=None, timeout=120):
+            if url.endswith("/releases?per_page=20"):
+                return [], '"release-etag"', False
+            return None, '"tree-etag"', True
+
+        with mock.patch.object(
+            mirror, "_github_json_conditional", side_effect=conditional
+        ), mock.patch.object(
+            mirror, "_github_json",
+            side_effect=AssertionError("cached branch must not be re-read"),
+        ):
+            candidates, updated_state = mirror._github_release_asset_state(
+                "example/addon",
+                state,
+            )
+
+        self.assertEqual([candidate], candidates)
+        self.assertEqual('"tree-etag"', updated_state["tree_etag"])
+        self.assertEqual("main", updated_state["default_branch"])
+
+    def test_empty_repository_reports_no_committed_builds(self):
+        def conditional(url, etag=None, timeout=120):
+            if url.endswith("/releases?per_page=20"):
+                return [], '"release-etag"', False
+            raise httpError(url, 404, "no branch")
+
+        with mock.patch.object(
+            mirror, "_github_json_conditional", side_effect=conditional
+        ), mock.patch.object(
+            mirror, "_github_json", return_value={"default_branch": "main"}
+        ):
+            candidates, state = mirror._github_release_asset_state("example/empty")
+
+        self.assertEqual([], candidates)
+        self.assertEqual([], state["committed_candidates"])
+        self.assertIsNone(state["tree_etag"])
+        self.assertNotIn("default_branch", state)
+
     def test_dropped_github_connection_is_retried(self):
         attempts = []
 
