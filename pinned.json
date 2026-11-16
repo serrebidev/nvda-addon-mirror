@@ -138,6 +138,17 @@
       "channel": "stable"
     },
     {
+      "repo": "dectalk/SharpVoxTTS",
+      "asset_glob": "*64bit*.nvda-addon",
+      "addon_id": "SharpVox TTS",
+      "summary": "SharpVox TTS synthesizer (dectalk)",
+      "publisher": "SharpVox contributors",
+      "license": "Unknown",
+      "channel": "stable",
+      "min_nvda_version": "2023.1",
+      "last_tested_nvda_version": "2026.1"
+    },
+    {
       "repo": "zseli22/diphoneforge",
       "asset_glob": "*.nvda-addon",
       "addon_id": "zseli22-espeakWitMbrola",
