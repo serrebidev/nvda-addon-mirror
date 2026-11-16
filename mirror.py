@@ -5426,6 +5426,27 @@ def _build_store_html(stats):
 <input type="search" id="search" autocomplete="off">
 <span id="count" role="status" aria-live="polite"></span>
 </p>
+<p>
+<label for="sort">Sort by:</label>
+<select id="sort">
+<option value="name-asc" selected>Name, A to Z</option>
+<option value="name-desc">Name, Z to A</option>
+<option value="publisher">Publisher, A to Z</option>
+<option value="newest">Newest first</option>
+<option value="oldest">Oldest first</option>
+</select>
+<label for="channel">Channel:</label>
+<select id="channel">
+<option value="all" selected>All channels</option>
+<option value="stable">Stable</option>
+<option value="beta">Beta</option>
+<option value="dev">Dev</option>
+</select>
+<label for="source">Source:</label>
+<select id="source">
+<option value="all" selected>All sources</option>
+</select>
+</p>
 <noscript><p>Searching needs JavaScript. The raw catalog is
 <a href="addons.json">addons.json</a>.</p></noscript>
 <table>
@@ -5437,11 +5458,19 @@ def _build_store_html(stats):
 </tr></thead>
 <tbody id="rows"></tbody>
 </table>
+<nav id="pager" aria-label="Catalog pages"></nav>
 <script>
 (function () {
   var input = document.getElementById("search");
+  var sortSel = document.getElementById("sort");
+  var channelSel = document.getElementById("channel");
+  var sourceSel = document.getElementById("source");
   var count = document.getElementById("count");
   var body = document.getElementById("rows");
+  var pager = document.getElementById("pager");
+  var PAGE_SIZE = 100;
+  var all = [];
+  var page = 1;
   function versionText(value) {
     if (!value) return "";
     return value.major + "." + value.minor + "." + value.patch;
@@ -5482,24 +5511,109 @@ def _build_store_html(stats):
       row.description, row.storeSource].join(" ").toLowerCase();
     return tr;
   }
-  function update() {
-    var q = input.value.trim().toLowerCase();
-    var rows = body.children;
-    var shown = 0;
-    for (var i = 0; i < rows.length; i++) {
-      var match = !q || rows[i]._haystack.indexOf(q) !== -1;
-      rows[i].style.display = match ? "" : "none";
-      if (match) shown++;
-    }
-    count.textContent = q ? shown + " matching of " + rows.length : rows.length + " add-ons";
+  function nameOf(row) {
+    return (row.displayName || row.addonId || "").toLowerCase();
   }
-  input.addEventListener("input", update);
+  function haystack(row) {
+    return [row.displayName, row.addonId, row.publisher,
+      row.description, row.storeSource].join(" ").toLowerCase();
+  }
+  function visibleRows() {
+    var q = input.value.trim().toLowerCase();
+    var channel = channelSel.value;
+    var source = sourceSel.value;
+    var out = all.filter(function (row) {
+      if (channel !== "all" && row.channel !== channel) return false;
+      if (source !== "all" && (row.storeSource || "") !== source) return false;
+      if (q && haystack(row).indexOf(q) === -1) return false;
+      return true;
+    });
+    var mode = sortSel.value;
+    out.sort(function (a, b) {
+      var byName = nameOf(a).localeCompare(nameOf(b)) ||
+        (a.addonId || "").localeCompare(b.addonId || "");
+      if (mode === "name-desc") return -byName;
+      if (mode === "publisher") {
+        return (a.publisher || "").toLowerCase().localeCompare(
+          (b.publisher || "").toLowerCase()) || byName;
+      }
+      if (mode === "newest") return (b.submissionTime || 0) - (a.submissionTime || 0) || byName;
+      if (mode === "oldest") return (a.submissionTime || 0) - (b.submissionTime || 0) || byName;
+      return byName;
+    });
+    return out;
+  }
+  function pagerButton(text, target, role, disabled, current) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.textContent = text;
+    button.setAttribute("data-role", role);
+    if (current) {
+      button.setAttribute("aria-current", "page");
+      button.disabled = true;
+    } else if (disabled) {
+      button.disabled = true;
+    } else {
+      button.addEventListener("click", function () {
+        page = target;
+        render(role);
+      });
+    }
+    return button;
+  }
+  function render(refocus) {
+    var rows = visibleRows();
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    if (page > pages) page = pages;
+    var start = (page - 1) * PAGE_SIZE;
+    var slice = rows.slice(start, start + PAGE_SIZE);
+    body.textContent = "";
+    slice.forEach(function (row) { body.appendChild(makeRow(row)); });
+    pager.textContent = "";
+    if (pages > 1) {
+      pager.appendChild(pagerButton("Previous page", page - 1, "prev", page === 1, false));
+      for (var n = 1; n <= pages; n++) {
+        pager.appendChild(pagerButton(
+          n === page ? "Page " + n + " (current page)" : "Page " + n,
+          n, "page-" + n, false, n === page));
+      }
+      pager.appendChild(pagerButton("Next page", page + 1, "next", page === pages, false));
+    }
+    if (!rows.length) {
+      count.textContent = "No add-ons match.";
+    } else {
+      count.textContent = rows.length + " add-ons. Page " + page + " of " +
+        pages + ", showing " + (start + 1) + " to " + (start + slice.length) + ".";
+    }
+    if (refocus) {
+      var target = pager.querySelector("[data-role='" + refocus + "']");
+      if (target) target.focus();
+    }
+  }
+  function restart() {
+    page = 1;
+    render(null);
+  }
+  input.addEventListener("input", restart);
+  sortSel.addEventListener("change", restart);
+  channelSel.addEventListener("change", restart);
+  sourceSel.addEventListener("change", restart);
   fetch("addons.json").then(function (response) {
     if (!response.ok) throw new Error(response.status);
     return response.json();
   }).then(function (rows) {
-    rows.forEach(function (row) { body.appendChild(makeRow(row)); });
-    update();
+    all = rows;
+    var seen = {};
+    rows.forEach(function (row) {
+      if (row.storeSource) seen[row.storeSource] = true;
+    });
+    Object.keys(seen).sort().forEach(function (name) {
+      var option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      sourceSel.appendChild(option);
+    });
+    render(null);
   }).catch(function () {
     count.textContent = "Could not load addons.json.";
   });
