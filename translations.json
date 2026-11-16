@@ -5335,6 +5335,18 @@
     },
     "mediaConverter": {
       "description": "Converts audio and video files to common formats from an accessible NVDA window, using the FFmpeg bundled with the add-on."
+    },
+    "CSRClipboard": {
+      "summary": "CSRClipboard (CSR Clipboard), AKA CSRClipboard (Буфер обмена CSR)",
+      "description": "CSR Clipboard is an add-on for the NVDA screen reader that stores the most recently copied items so you can find them, paste them again, and combine them.\n• By default the last 100 entries are saved; the limit can be changed from 10 to 500.\n• The add-on announces “Copied”, “Cut”, “Pasted”, or “Added”.\n• NVDA + Shift + H opens the clipboard history with search, full text, and action buttons.\n• NVDA + A appends the selected text on a new line to the last entry, and NVDA + Shift + A appends it with a space.\n• NVDA + Control + Shift + A enables append mode, and NVDA + Shift + P pauses saving copies.\n• Favourites are never deleted because of the 100-entry limit.\n• Copies from password managers and password fields are not saved, and the history is stored in a protected file.\n• For files only the path is saved; images are not saved in this version."
+    },
+    "FonTTS": {
+      "summary": "FonTTS (FonTTS Speech Synthesizer for NVDA), AKA FonTTS (Синтезатор речи FonTTS для NVDA)",
+      "description": "FonTTS is a speech synthesizer for NVDA based on ru_tts and rulex.\nA lightweight speech synthesizer based on the Phonemaphone synthesizer. A continuation of the nefonit TTS project, in memory of Sergey Shishmintsev.\nThe synthesizer uses ru_tts by Igor Poretsky as its core, a reverse engineering of the Phonemaphone speech synthesizer."
+    },
+    "freeTTS": {
+      "summary": "FreeTTS (FreeTTS Speech Synthesizer), AKA FreeTTS (Синтезатор речи FreeTTS)",
+      "description": "FreeTTS is a speech synthesizer for the NVDA screen reader, created based on FreeTTS, a Java program based on CMU Flite, and rewritten in Python.\n• The Kevin voice uses English diphone synthesis.\n• The synthesizer works completely offline; nothing extra needs to be installed.\n• To enable it, select “FreeTTS (Kevin)” in the NVDA menu under Settings → Speech → Synthesizer.\n• Settings for rate, pitch, inflection, volume, and breathiness are available.\n• The default volume is 50, and it can be raised to 100 with a soft limiter to prevent distortion.\n• Text in other scripts, such as Malayalam, is not spoken, and Latin letters with diacritics are read as plain letters."
     }
   }
 }
