@@ -111,6 +111,17 @@
       "channel": "stable"
     },
     {
+      "repo": "kaveinthran/Klattara",
+      "asset_glob": "klattara-*.nvda-addon",
+      "addon_id": "kaveinthran-klattara",
+      "summary": "Klattara speech synthesizer (community build)",
+      "publisher": "RetroBunn; community build by Kaveinthran",
+      "license": "MIT",
+      "fork_policy": "include",
+      "optional": true,
+      "channel": "stable"
+    },
+    {
       "repo": "dave090679/banking4w",
       "asset_glob": "*.nvda-addon",
       "addon_id": "dave090679-banking4w",
