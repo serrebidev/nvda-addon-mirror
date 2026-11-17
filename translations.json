@@ -2776,6 +2776,7 @@
       "description": "Reference Styler is an add-on for NVDA that allows users to manage and insert references in a variety of citation styles.\nIt supports APA, MLA, Chicago, Vancouver, Harvard, IEEE, AMA and ACS styles.\nFeatures:\nLink list management.\nInserting references in different citation styles.\nSupports multiple citation styles: APA, MLA, Chicago, Vancouver, Harvard, IEEE, AMA and ACS.\nEasy to use interface to add, edit and delete links.\nKeyboard shortcut for quickly inserting links.\nYou can find out how to use the add-on, as well as find out all the keyboard shortcuts, in the help."
     },
     "aidaMenu": {
+      "summary": "AidaMenu (Open Menu in AIDA64), AKA AidaMenu (Открыть меню в Aida64)",
       "description": "The AidaMenu add-on allows you to open menus in the seventh version of Aida64.\nNot everyone needs this, but if, for example, you want to run tests or configure something, this add-on can help you.\nTo open the menu, the default keyboard shortcut is NVDA+O.\nYou can change the combination in input gestures, in the Aida Menu subsection, for the Open menu shortcut."
     },
     "Sight-Free-Talon": {
@@ -3229,6 +3230,7 @@
       "summary": "CloseAll"
     },
     "Becky": {
+      "summary": "Becky (Accessibility Enhancements for the Becky Email Client), AKA Becky (Улучшения доступности почтового клиента Becky)",
       "description": "Becky add-on to improve the accessibility of the Becky email client of the same name! Internet mail.\nNVDA+Shift+U - reports the number of all and unread messages in the current folder.\nNVDA+Shift+a - In the message composer, moves focus to the list of attachments, if visible.\nThese keyboard shortcuts can be reassigned in the Becky category from the Input Gestures dialog."
     },
     "Add-on Packager by Technology and News": {
@@ -3451,6 +3453,7 @@
       "description": "The MaxReaderSleep add-on is very simple, it performs the following function.\nAs soon as NVDA's focus falls into the MaxReader program window and its Biblioman subroutine, the synthesizer automatically goes to sleep.\nThus, when listening to books, NVDA speech does not interfere.\nThe addition will be useful for book lovers who regularly read books using the MaxReader program and when the reading program is almost always running.\nIf you need to enable sleep mode temporarily in the MAxreder program, do not install this add-on, but use the NVDA function and the NVDA+Shift+S key combination to enable and disable sleep mode.\nThe add-on has no settings; it starts working immediately after installation or activation."
     },
     "luna": {
+      "summary": "Luna, AKA Luna (Луна)",
       "description": "The Luna add-on provides information about the moon phase, moon position, and visibility.\nYou must assign a shortcut in the Input Gestures section before you can use the add-on.\nreads a short message informing about the phase of the Moon and its visibility.\nreads additional information about the Moon, such as distance and age.\nReads the latest information about the Moon.\nA navigation message is displayed with the sunrise and sunset information received for your city.\nA message box displays the latest information received.\nPlease note that the information will be received from an Italian server."
     },
     "islamicRadio": {
@@ -4538,7 +4541,8 @@
       "summary": "Talk Back by Technology and News"
     },
     "techiaith_tts": {
-      "summary": "Techiaith TTS"
+      "summary": "Techiaith TTS",
+      "description": "The techiaith_tts add-on provides neural Welsh voices for speech synthesis in NVDA.\nIt uses Piper TTS technology for high-quality text-to-speech in Welsh.\nIt includes a multi-speaker neural voice with three medium-quality speaking styles.\nOnly Welsh is supported.\nAfter installation, voices are managed through NVDA's standard synthesizer settings, where you can choose between the available speakers and adjust speech parameters.\nIt requires an initial download of about 77 MB of voice data, which happens automatically on first use.\nThe add-on works only on Windows x86/x64 and requires NVDA 2025.1 or newer.\nThe add-on is based on the SonataNeuralVoices add-on.\nThis is a beta version, so some limitations and errors are possible."
     },
     "terminalCopy": {
       "summary": "Terminal Copy"
@@ -5351,6 +5355,34 @@
     "thaqqaf_nafsak": {
       "summary": "Educate Yourself, AKA ثقف نفسك",
       "description": "Add-on for general knowledge competitions, match coordination and refereeing for the blind. A fully standalone NVDA add-on for managing and refereeing general knowledge competitions, with a screen-reader-first web control interface, a smart question bank with strict duplicate prevention, pre-match validation, and tournament and match record management."
+    },
+    "czytelnia": {
+      "summary": "Audiobook Library, AKA Czytelnia",
+      "description": "Audiobook library with import of ZIP, RAR and 7z archives and folders, remembering your place, and playback control. Shortcut NVDA+Shift+C."
+    },
+    "audioTimer": {
+      "summary": "AudioTimer (Audio Timer), AKA AudioTimer (Звуковой таймер)",
+      "description": "The AudioTimer add-on plays a sound at regular intervals.\nPress NVDA+Alt+T, enter the values you need in the Hours, Minutes and Seconds fields, and press OK.\nPress this combination again to turn the timer off.\nPress NVDA+Alt+R to hear the time remaining until the next playback.\nPress NVDA+Control+F12 to hear the current second within the minute."
+    },
+    "clashControl": {
+      "summary": "ClashControl (Clash Control), AKA ClashControl (Управление Clash)",
+      "description": "The Clash Control add-on lets you manage Clash proxy groups and modes directly from NVDA.\nProxy modes can be switched cyclically.\nProxy servers inside proxy groups can be switched with separate gestures.\nUp to 10 reassignable hotkeys can be used to pick a mode quickly.\nAll control gestures are unassigned by default and are set by the user in NVDA's Input Gestures.\nThe add-on's settings hold the Clash server's base URL and secret key.\nFor sing-box based controllers the list of modes is determined automatically.\nWith other Clash controllers the list of modes can be entered manually, separated by commas.\nCyclic switching can be done several times in a row without applying the changes immediately.\nChanges take effect after switching stops for more than one second.\nThe add-on suits users who work with Clash in command-line mode.\nProxy control becomes more convenient and accessible for blind users."
+    },
+    "devBox": {
+      "summary": "DevBox (Developer Box), AKA DevBox (Коробка разработчика)",
+      "description": "The DevBox add-on contains some features that are primarily useful for software developers, but may also help other users who work with text.\nFeatures:\nFolding spaces.\nThe add-on detects 2 or more consecutive spaces and folds them into a short sequence.\nFor example, “space space space space space” becomes “5 spaces”.\nWhen navigating by object with numpad7 or numpad9, the add-on checks for a diff character at the start of the line.\nA space is ignored; for a plus or minus a sound is played, so additions and removals are easier to tell apart.\nThe add-on has no settings or shortcuts and starts working as soon as it is enabled or installed."
+    },
+    "onlineOCR": {
+      "summary": "OnlineOCR (Online Image Describer), AKA OnlineOCR (Онлайн-описатель изображений)",
+      "description": "The OnlineOCR add-on aims to add online image recognition engines to NVDA.\nThere are two types of engines: text recognition and an image describer.\nText recognition extracts text from an image.\nThe image describer describes the visual features of an image in text form, such as a general description, colour type, landmarks and so on.\nUsing this add-on requires an Internet connection, because the image description services are provided by API endpoints on the Internet; in this add-on they are called engines.\nThere are three types of engines for this add-on."
+    },
+    "soundBeforeCapital": {
+      "summary": "SoundBeforeCapital (Sound Before a Capital Letter), AKA SoundBeforeCapital (Звук перед заглавной)",
+      "description": "The SoundBeforeCapital add-on replaces the beep that sounds when capital letters are read with a much more pleasant sound.\nThe add-on has no settings and starts working as soon as it is installed or enabled.\nYou can replace the sound file with your own in the add-on's folder, which is located in your NVDA user folder."
+    },
+    "speechFilter": {
+      "summary": "SpeechFilter (Speech Filter), AKA SpeechFilter (Фильтр речи)",
+      "description": "The SpeechFilter add-on filters out long sequences of text, preventing the synthesizer from freezing.\nIn NVDA settings, in the Speech Filter add-on settings, you can choose the threshold value that triggers it.\nAlso, in Input Gestures, in the Speech Filter section, there is a gesture for copying the last filtered text to the clipboard, with no shortcut assigned."
     }
   }
 }
