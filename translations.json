@@ -5347,6 +5347,10 @@
     "freeTTS": {
       "summary": "FreeTTS (FreeTTS Speech Synthesizer), AKA FreeTTS (Синтезатор речи FreeTTS)",
       "description": "FreeTTS is a speech synthesizer for the NVDA screen reader, created based on FreeTTS, a Java program based on CMU Flite, and rewritten in Python.\n• The Kevin voice uses English diphone synthesis.\n• The synthesizer works completely offline; nothing extra needs to be installed.\n• To enable it, select “FreeTTS (Kevin)” in the NVDA menu under Settings → Speech → Synthesizer.\n• Settings for rate, pitch, inflection, volume, and breathiness are available.\n• The default volume is 50, and it can be raised to 100 with a soft limiter to prevent distortion.\n• Text in other scripts, such as Malayalam, is not spoken, and Latin letters with diacritics are read as plain letters."
+    },
+    "thaqqaf_nafsak": {
+      "summary": "Educate Yourself, AKA ثقف نفسك",
+      "description": "Add-on for general knowledge competitions, match coordination and refereeing for the blind. A fully standalone NVDA add-on for managing and refereeing general knowledge competitions, with a screen-reader-first web control interface, a smart question bank with strict duplicate prevention, pre-match validation, and tournament and match record management."
     }
   }
 }
