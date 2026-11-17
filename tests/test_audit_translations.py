@@ -162,6 +162,13 @@ class AuditTests(unittest.TestCase):
         findings = audit_translations.audit([stable, beta])
         self.assertEqual(len(findings), 1)
 
+    def test_non_english_row_flagged_beside_an_english_row(self):
+        english = _entry("dualRow", "Dual Row", "An English description.")
+        russian = _entry("dualRow", "DualRow (Русское имя)", "Дополнение для NVDA.")
+        findings = audit_translations.audit([english, russian])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(set(findings[0]["fields"]), {"displayName", "description"})
+
     def test_entries_without_an_addon_id_are_skipped(self):
         self.assertEqual(audit_translations.audit([{"displayName": "Sin id"}]), [])
 

@@ -179,34 +179,42 @@ def classify(text, short_name=False):
 
 
 def audit(addons):
-    """Return one record per add-on id that still publishes non-English text."""
-    findings = []
-    seen = set()
+    """Return one record per add-on id that still publishes non-English text.
+
+    Every row is judged, not just the first per id: an add-on can publish an
+    English row on one channel and a non-English row on another (the Russian
+    stable rows beside English dev rows were missed for months that way).
+    Fields merge across rows, so each id is still reported once.
+    """
+    by_id = {}
     for entry in addons:
         addon_id = entry.get("addonId")
-        if not addon_id or addon_id in seen:
+        if not addon_id:
             continue
-        seen.add(addon_id)
-
-        fields = {}
+        record = by_id.get(addon_id)
+        if record is None:
+            record = by_id[addon_id] = {
+                "addonId": addon_id,
+                "sourceURL": entry.get("sourceURL") or entry.get("homepage") or "",
+                "fields": {},
+            }
+        fields = record["fields"]
         for field in CHECKED_FIELDS:
+            if field in fields:
+                continue
             text = entry.get(field)
-            if field == "displayName" and text:
+            judged = text
+            if field == "displayName" and judged:
                 # "English, AKA Original" is the pipeline's settled form (see
                 # auto_translate.py): the English name is the translation, and
                 # the original stays only so the add-on is recognisable from
                 # its own documentation. Judge the English half; the AKA
                 # suffix is deliberate, not a translation gap.
-                text = text.split(mirror.AKA_SEPARATOR, 1)[0].strip() or text
-            reason = classify(text, short_name=field == "displayName")
+                judged = judged.split(mirror.AKA_SEPARATOR, 1)[0].strip() or judged
+            reason = classify(judged, short_name=field == "displayName")
             if reason:
-                fields[field] = {"reason": reason, "text": entry.get(field)}
-        if fields:
-            findings.append({
-                "addonId": addon_id,
-                "sourceURL": entry.get("sourceURL") or entry.get("homepage") or "",
-                "fields": fields,
-            })
+                fields[field] = {"reason": reason, "text": text}
+    findings = [record for record in by_id.values() if record["fields"]]
     findings.sort(key=lambda finding: finding["addonId"].casefold())
     return findings
 
