@@ -5383,6 +5383,10 @@
     "speechFilter": {
       "summary": "SpeechFilter (Speech Filter), AKA SpeechFilter (Фильтр речи)",
       "description": "The SpeechFilter add-on filters out long sequences of text, preventing the synthesizer from freezing.\nIn NVDA settings, in the Speech Filter add-on settings, you can choose the threshold value that triggers it.\nAlso, in Input Gestures, in the Speech Filter section, there is a gesture for copying the last filtered text to the clipboard, with no shortcut assigned."
+    },
+    "hexapunto": {
+      "summary": "Hexapunto: Perkins Braille Keyboard, AKA Hexapunto: teclado braille Perkins",
+      "description": "Turns the computer keyboard into a Perkins-style braille typewriter. You type by pressing the dot keys together (F D S and J K L in the classic layout), with the space bar as the spacer, line feed and backspace keys, 6- or 8-dot braille, any NVDA braille table (uncontracted or stenographic), sounds of a real machine with the end-of-line bell, one-hand mode, a practice mode for learning braille, space-with-dots commands for moving and editing, and a very comprehensive settings panel."
     }
   }
 }
