@@ -5387,6 +5387,22 @@
     "hexapunto": {
       "summary": "Hexapunto: Perkins Braille Keyboard, AKA Hexapunto: teclado braille Perkins",
       "description": "Turns the computer keyboard into a Perkins-style braille typewriter. You type by pressing the dot keys together (F D S and J K L in the classic layout), with the space bar as the spacer, line feed and backspace keys, 6- or 8-dot braille, any NVDA braille table (uncontracted or stenographic), sounds of a real machine with the end-of-line bell, one-hand mode, a practice mode for learning braille, space-with-dots commands for moving and editing, and a very comprehensive settings panel."
+    },
+    "happAccessibility": {
+      "summary": "Experimental NVDA Add-on for Happ Accessibility in Windows"
+    },
+    "hijri_dar_alifta_eg": {
+      "summary": "Hijri Date from the Egyptian Dar al-Ifta, AKA التاريخ الهجري لدار الإفتاء المصرية"
+    },
+    "keepAwake": {
+      "summary": "Keep awake"
+    },
+    "potplayer": {
+      "summary": "Daum's potplayer NVDA Addon (automatic subtitle reading)"
+    },
+    "tableReader": {
+      "summary": "Universal Table Reader, AKA 通用表格閱讀器",
+      "description": "Recognizes web page tables and provides cell-by-cell navigation on the original page, braille synchronization, and a separate reading window. Requires NVDA 2026.3; inferred results should be verified."
     }
   }
 }
