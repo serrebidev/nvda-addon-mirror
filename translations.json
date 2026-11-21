@@ -1273,6 +1273,7 @@
       "description": "The LaconicExplorer add-on disables phrases (View items in a list) in Explorer.\nBy default, NVDA always reports this phrase when opening a folder, whenever you enter or exit a folder to a previous level. Only after this phrase does NVDA report the name of the first object in the folder.\nIf you work a lot with folders, many times go from other windows to the Explorer window with an open folder, then without the phrase “View items in a list” this will be much more pleasant.\nNVDA will immediately report the name of the file or folder that receives focus.\nInitially, NVDA does not have an option to disable this phrase.\nThe following verbosity is disabled.\nPhrase: (View list items).\nMessage of the path from the address bar to the destination folder, if this feature is enabled in Windows settings, in the folder properties. \nSome hints for the buttons on the taskbar.\nThe add-on does not have settings or input gestures."
     },
     "potplayer": {
+      "summary": "Daum's potplayer NVDA Addon (automatic subtitle reading)",
       "description": "The PotPlayer add-on adds keyboard shortcuts with which you can find out the elapsed and total time of the track being played.\nKeyboard shortcut:\nNVDA+Control+E - Reports the elapsed time.\nNVDA+Control+T - Reports the total time.\nThe keyboard shortcut can be changed in input gestures, in the PotPlayer subsection.\nMessages, including subtitles, should be read automatically, unless, of course, they are checked in the Narrator section of the player settings dialog.\nTo disable/enable automatic reading, use the NVDA command to switch reading dynamic changes (default NVDA+5)."
     },
     "HelperScripts": {
@@ -2201,6 +2202,7 @@
       "description": "This add-on allows you to listen to many global Muslim online radio stations and channels.\nList of Islamic TV and radio stations:\nRadio of the Holy Quran.\nRadio for readers.\nVariety radio.\nTafsir and the science of the Koran.\nRadio readings.\nRemembrance and prayers.\nRadio Morocco.\nRadio Algeria.\nNews channels.\nMaghreb channels.,\nSports channels spor.\nIslamic channels.\nArabic channels.\nTunisian radio.\nKeyboard shortcut:\nNVDA+Z: To turn TVRadio virtual mode on and off. This mode creates a non-existent virtual window that allows us to use the following keyboard shortcuts while it is activated, and then ends when we exit it by pressing the same keyboard shortcut.\nEscape key: To permanently end the currently playing radio or channel when exiting TVRadio mode.\nF1: open the help file, also available by default from the add-on management dialog.\nSpacebar: To turn playback on and off.\nUp and Down Arrows: To adjust the volume.\nLeft and Right Arrows: To move between radio stations and channels.\nEnter key to read the name of the current radio station or channel.\nHome key to go to the first radio station or channel in a section.\nEnd key to go to the last radio station or channel in a section.\nControl left or right arrow key: To move between sections of radio stations or channels.\nControl key with any number from 1 to 0: allows you to add the radio station or channel that we are currently listening to as a favorite and then play it by pressing at any time on the number to which it is set."
     },
     "keepAwake": {
+      "summary": "Keep awake",
       "description": "The KeepAwake add-on provides a tool to enable or disable power saving and keep your computer awake.\nThere are two options in the Power Options submenu:\nKeep computer awake: Temporarily disables power saving mode and keeps the computer awake while the current instance of NVDA remains active. If NVDA is closed or restarted, the power saving settings will be restored.\nAllow the computer to sleep: Restores system settings, allowing the computer to go into power-saving mode."
     },
     "AccessVPad": {
@@ -5393,12 +5395,6 @@
     },
     "hijri_dar_alifta_eg": {
       "summary": "Hijri Date from the Egyptian Dar al-Ifta, AKA التاريخ الهجري لدار الإفتاء المصرية"
-    },
-    "keepAwake": {
-      "summary": "Keep awake"
-    },
-    "potplayer": {
-      "summary": "Daum's potplayer NVDA Addon (automatic subtitle reading)"
     },
     "tableReader": {
       "summary": "Universal Table Reader, AKA 通用表格閱讀器",
