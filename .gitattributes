@@ -1,4 +1,6 @@
 # Shell and systemd files must keep LF endings on every checkout:
 # a CRLF cron script breaks (#!/bin/bash\r), and the units deploy as-is.
 scripts/mirror-cron.sh text eol=lf
+scripts/mirror-cron-mac.sh text eol=lf
 scripts/systemd/* text eol=lf
+scripts/launchd/* text eol=lf
