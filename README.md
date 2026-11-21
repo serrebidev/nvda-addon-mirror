@@ -142,10 +142,14 @@ https://nvda.serrebiradio.com
 Three ways to do this:
 
 1. **Install the helper add-on** — latest build:
-   [Download addonStoreMirror 1.7.0](https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases/download/v1.7.0/addonStoreMirror-1.7.0.nvda-addon).
+   [Download addonStoreMirror 1.8.1](https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases/download/v1.8.1/addonStoreMirror-1.8.1.nvda-addon).
    It sets `[addonStore] baseServerURL` to the mirror on startup and restores it
    when disabled — the same mechanism
    [nvdacn/NVDAUpdateMirror](https://github.com/nvdacn/NVDAUpdateMirror) uses.
+   On Linda, version 1.8.1 also enables the optional Add-on Store on first
+   startup, so the mirror has a catalog by default. Turning the store off
+   deliberately afterward remains respected. Catalog listings do not imply
+   that a Windows add-on supports Linux.
    Version 1.4.0 adds add-on bundles (see below): export your installed
    add-ons as a single shareable file and install a whole bundle at once.
    Version 1.4.4 groups the regular Add-on Store (the mirror) and the official

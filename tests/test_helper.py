@@ -902,6 +902,53 @@ class HelperOpenStoreTests(unittest.TestCase):
         self.assertEqual(1, len(FakeDialog.instances))
 
 
+class HelperDefaultStoreTests(unittest.TestCase):
+    _loadHelper = HelperSourceSupportTests._loadHelper
+
+    def _start(self, helper, *, secure=False, policy=True):
+        globalVars = types.SimpleNamespace(appArgs=types.SimpleNamespace(secure=secure))
+        refreshed = []
+        methods = (
+            "_removeStaleBundleModule", "_enableSourceSupport", "_enableStoreEnhancements",
+            "_enableChangelogs", "_enableCustomization", "_addToolsMenuItems",
+            "_registerSettingsPanel", "_refreshStore",
+        )
+        with mock.patch.dict(sys.modules, {"globalVars": globalVars}), mock.patch.multiple(
+            helper.GlobalPlugin, **dict.fromkeys(methods, mock.DEFAULT),
+        ) as patched, mock.patch.object(helper.GlobalPlugin, "_enableStorePolicy", return_value=policy):
+            patched["_refreshStore"].side_effect = lambda: refreshed.append(
+                self.config.conf["addonStore"].get("enabled"),
+            )
+            helper.GlobalPlugin()
+        return refreshed
+
+    def _helper(self, store):
+        helper = self._loadHelper({}, addonStoreConf=store)
+        self.config.conf["serrebiStore"] = {"originalStoreURL": ""}
+        return helper
+
+    def test_install_enables_optional_store_before_refresh(self):
+        helper = self._helper({"baseServerURL": "", "enabled": False})
+        self.assertEqual([True], self._start(helper))
+        self.assertTrue(self.config.conf["addonStore"]["enabled"])
+        # A later explicit off choice survives another helper startup.
+        self.config.conf["addonStore"]["enabled"] = False
+        self._start(helper)
+        self.assertFalse(self.config.conf["addonStore"]["enabled"])
+
+    def test_windows_store_without_switch_is_not_changed(self):
+        helper = self._helper({"baseServerURL": ""})
+        self._start(helper)
+        self.assertNotIn("enabled", self.config.conf["addonStore"])
+
+    def test_secure_start_and_failed_routing_do_not_enable_store(self):
+        for options in ({"secure": True}, {"policy": False}):
+            with self.subTest(options=options):
+                helper = self._helper({"baseServerURL": "", "enabled": False})
+                self._start(helper, **options)
+                self.assertFalse(self.config.conf["addonStore"]["enabled"])
+
+
 class HelperSettingsPanelTests(unittest.TestCase):
     _loadHelper = HelperSourceSupportTests._loadHelper
 

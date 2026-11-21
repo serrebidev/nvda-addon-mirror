@@ -38,6 +38,7 @@ _activePolicyRouter = None
 confspec = {
 	"originalStoreURL": "string(default='')",
 	"originalStoreCaptured": "boolean(default=False)",
+	"storeEnablementInitialized": "boolean(default=False)",
 	"storePolicy": "string(default='mirror')",
 	"customStoreURL": "string(default='')",
 	"searchAsYouType": "boolean(default=True)",
@@ -221,6 +222,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return
 		config.conf["addonStore"]["baseServerURL"] = configuredURL
 		self._urlApplied = True
+		# Linda's optional store otherwise returns an empty catalog despite our URL.
+		if (
+			"enabled" in config.conf["addonStore"]
+			and not config.conf["serrebiStore"].get("storeEnablementInitialized", False)
+		):
+			config.conf["addonStore"]["enabled"] = True
+			config.conf["serrebiStore"]["storeEnablementInitialized"] = True
 		log.info(f"Set the Add-on store mirror to: {MIRROR_STORE_URL}")
 		self._enableSourceSupport()
 		self._enableStoreEnhancements()
