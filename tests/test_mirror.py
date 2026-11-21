@@ -650,6 +650,40 @@ class DedupeTests(unittest.TestCase):
         self.assertEqual(1, len(result))
         self.assertEqual("ExampleAddon", result[0]["name"])
 
+    def test_dedupe_losers_are_recorded_not_silently_dropped(self):
+        shared = {
+            "name": "exampleAddon",
+            "channel": "stable",
+            "download_url": "https://example.invalid/example.nvda-addon",
+            "summary": "Example",
+            "description": "",
+        }
+        bestmidi = dict(shared, source="bestmidi", version="1.0")
+        author = dict(shared, source="github_owner", version="1.1")
+        dev = dict(shared, channel="dev", source="bestmidi", version="1.0")
+
+        kept = mirror.dedupe([bestmidi, author, dev])
+        rejected = mirror.dedupe_rejections([bestmidi, author, dev], kept)
+
+        self.assertEqual(2, len(kept))
+        self.assertEqual(1, len(rejected))
+        self.assertEqual("exampleAddon", rejected[0]["addonId"])
+        self.assertEqual("bestmidi", rejected[0]["source"])
+        self.assertIn("github_owner", rejected[0]["reason"])
+        self.assertIn("1.1", rejected[0]["reason"])
+
+    def test_dedupe_rejections_empty_when_nothing_lost(self):
+        entry = {
+            "name": "exampleAddon",
+            "channel": "stable",
+            "download_url": "https://example.invalid/example.nvda-addon",
+            "summary": "Example",
+            "description": "",
+            "source": "bestmidi",
+            "version": "1.0",
+        }
+        self.assertEqual([], mirror.dedupe_rejections([entry], [entry]))
+
     def test_direct_author_release_wins_over_store_copy(self):
         shared = {
             "name": "exampleAddon",
