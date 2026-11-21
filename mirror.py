@@ -4621,6 +4621,30 @@ def dedupe_rejections(before, after):
     return rejected
 
 
+def es_alias_rejections(before, after):
+    """Record Spanish-catalog rows keep_original_es_entries() dropped.
+
+    That pass keeps only Spanish originals: a row already covered by a
+    stronger source in the same channel is an alias of it, and used to
+    vanish with only a count in the build log (484 rows in a typical
+    build). Each drop now gets the same rejected.json record every other
+    drop pass produces.
+    """
+    kept_ids = {id(e) for e in after}
+    return [
+        {
+            "addonId": e.get("name"),
+            "source": e.get("source"),
+            "reason": (
+                "Spanish catalog alias: already covered by a stronger "
+                "source in the same channel"
+            ),
+        }
+        for e in before
+        if e.get("source") == "es" and id(e) not in kept_ids
+    ]
+
+
 def drop_redundant_channel_duplicates(entries):
     """Collapse a pre-release row that carries the same release as stable.
 
@@ -6094,7 +6118,9 @@ def main():
     # release of the same add-on.
     if "es" in sources:
         before_es = sum(1 for entry in todo if entry.get("source") == "es")
+        before_es_entries = list(todo)
         todo = keep_original_es_entries(todo)
+        rejected.extend(es_alias_rejections(before_es_entries, todo))
         original_es = sum(1 for entry in todo if entry.get("source") == "es")
         log(
             f"Spanish catalog originals: {original_es}; "

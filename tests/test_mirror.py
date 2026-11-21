@@ -672,6 +672,25 @@ class DedupeTests(unittest.TestCase):
         self.assertIn("github_owner", rejected[0]["reason"])
         self.assertIn("1.1", rejected[0]["reason"])
 
+    def test_es_alias_drops_are_recorded_not_silently_dropped(self):
+        official = {
+            "name": "exampleAddon", "channel": "stable", "source": "official",
+            "download_url": "https://example.invalid/a.nvda-addon",
+            "summary": "Example", "description": "", "version": "1.0",
+        }
+        alias = dict(official, source="es", name="Example Addon")
+        original = dict(official, source="es", name="spanishOnlyAddon")
+
+        kept = mirror.keep_original_es_entries([official, alias, original])
+        rejected = mirror.es_alias_rejections(
+            [official, alias, original], kept)
+
+        self.assertEqual(2, len(kept))
+        self.assertEqual(1, len(rejected))
+        self.assertEqual("Example Addon", rejected[0]["addonId"])
+        self.assertEqual("es", rejected[0]["source"])
+        self.assertIn("stronger source", rejected[0]["reason"])
+
     def test_dedupe_rejections_empty_when_nothing_lost(self):
         entry = {
             "name": "exampleAddon",
