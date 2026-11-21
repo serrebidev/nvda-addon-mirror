@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.serrebi.nvda-mirror-refresh</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/serrebi/nvda-addon-mirror/scripts/mirror-cron-mac.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/serrebi/nvda-addon-mirror</string>
+  <key>StartInterval</key>
+  <integer>1800</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/serrebi/Library/Logs/nvda-addon-mirror-launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/serrebi/Library/Logs/nvda-addon-mirror-launchd.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/opt/homebrew/opt/util-linux/bin:/usr/local/bin:/Users/serrebi/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>/Users/serrebi</string>
+  </dict>
+</dict>
+</plist>
