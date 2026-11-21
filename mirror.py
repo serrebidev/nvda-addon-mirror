@@ -4585,6 +4585,66 @@ def dedupe(entries):
     return result
 
 
+def dedupe_rejections(before, after):
+    """Record what dedupe() dropped, so no catalog row vanishes silently.
+
+    dedupe() keeps one winner per (addonId, channel); every other row used
+    to disappear with no trace in rejected.json, which made a bestmidi row
+    that lost to a newer author release indistinguishable from one the
+    mirror never saw. The winner may itself be rejected later (a 404, a
+    VirusTotal flag); this record plus the winner's own rejection then
+    explain the whole chain.
+    """
+    winners = {
+        (e["name"].casefold(), e.get("channel") or "stable"): e for e in after
+    }
+    kept_ids = {id(e) for e in after}
+    rejected = []
+    for e in before:
+        if id(e) in kept_ids:
+            continue
+        winner = winners.get(
+            (e["name"].casefold(), e.get("channel") or "stable"))
+        if winner is None:
+            reason = "duplicate dropped by dedupe"
+        else:
+            reason = (
+                f"duplicate: {winner.get('source')} entry "
+                f"({winner.get('version') or 'unknown version'}) "
+                "won for the same add-on and channel"
+            )
+        rejected.append({
+            "addonId": e.get("name"),
+            "source": e.get("source"),
+            "reason": reason,
+        })
+    return rejected
+
+
+def es_alias_rejections(before, after):
+    """Record Spanish-catalog rows keep_original_es_entries() dropped.
+
+    That pass keeps only Spanish originals: a row already covered by a
+    stronger source in the same channel is an alias of it, and used to
+    vanish with only a count in the build log (484 rows in a typical
+    build). Each drop now gets the same rejected.json record every other
+    drop pass produces.
+    """
+    kept_ids = {id(e) for e in after}
+    return [
+        {
+            "addonId": e.get("name"),
+            "source": e.get("source"),
+            "reason": (
+                "Spanish catalog alias: already covered by a stronger "
+                "source in the same channel"
+            ),
+        }
+        for e in before
+        if e.get("source") == "es" and id(e) not in kept_ids
+    ]
+
+
 def drop_redundant_channel_duplicates(entries):
     """Collapse a pre-release row that carries the same release as stable.
 
@@ -6058,7 +6118,9 @@ def main():
     # release of the same add-on.
     if "es" in sources:
         before_es = sum(1 for entry in todo if entry.get("source") == "es")
+        before_es_entries = list(todo)
         todo = keep_original_es_entries(todo)
+        rejected.extend(es_alias_rejections(before_es_entries, todo))
         original_es = sum(1 for entry in todo if entry.get("source") == "es")
         log(
             f"Spanish catalog originals: {original_es}; "
@@ -6114,7 +6176,13 @@ def main():
     rejected.extend(dead_rejected)
 
     # 3. Dedupe across sources.
+    before_dedupe = list(todo)
     todo = dedupe(todo)
+    duplicate_rejections = dedupe_rejections(before_dedupe, todo)
+    if duplicate_rejections:
+        rejected.extend(duplicate_rejections)
+        log(f"Recorded {len(duplicate_rejections)} duplicate rows dropped "
+            "by dedupe in rejected.json")
     log(f"After dedupe: {len(todo)} unique add-ons")
 
     # 3b. One add-on, one row: drop a dev or beta entry whose version is the
