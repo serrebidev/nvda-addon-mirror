@@ -437,8 +437,10 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 	def filtered(vm):
 		ordered = originalFilter(vm)
 		sources = getattr(vm, "_serrebiSources", None)
-		return ordered if sources is None else [
-			addonId for addonId in ordered if _sourceKey(vm._addons[addonId].model) in sources
+		addons = vm._addons
+		return [
+			addonId for addonId in ordered
+			if addonId in addons and (sources is None or _sourceKey(addons[addonId].model) in sources)
 		]
 
 	def columns(control):

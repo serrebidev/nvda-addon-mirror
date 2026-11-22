@@ -1231,11 +1231,13 @@ class ChangelogFeature:
 			# relevance and every known value.  Stable partitioning only moves
 			# absent values after known values, even for descending sorts.
 			nativeOrder = original(vm)
-			items = [vm._addons[addonId] for addonId in nativeOrder]
+			# A native background refresh can replace the map during sorting.
+			addons = vm._addons
+			items = [addons[addonId] for addonId in nativeOrder if addonId in addons]
 			if dateSort is None and not publication:
 				field = vm._sortByModelField
 				if getattr(field, "name", None) == "searchRank":
-					return nativeOrder
+					return [item.Id for item in items]
 				known = []
 				unknown = []
 				for item in items:

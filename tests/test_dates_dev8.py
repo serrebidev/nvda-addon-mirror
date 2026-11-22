@@ -132,6 +132,8 @@ class DateSemanticsTests(unittest.TestCase):
 
             def _getFilteredSortedIds(self):
                 allowed = list(self.allowed)
+                if hasattr(self, 'replacement'):
+                    self._addons = self.replacement
                 if self._reverseSort:
                     return list(reversed(allowed))
                 return allowed
@@ -157,6 +159,16 @@ class DateSemanticsTests(unittest.TestCase):
         feature = dates.ChangelogFeature(Plugin())
         feature._patchSort(Loader,)
         return fields, List, Item, StoreModel
+
+    def test_sort_ignores_ids_removed_during_catalog_refresh(self):
+        fields, List, Item, _storeModel = self._patchedListTypes()
+        vm = List()
+        kept = Item("kept", Model(displayName="Kept"))
+        vm._addons = {"removed": Item("removed", Model(displayName="Removed")), "kept": kept}
+        vm.replacement = {"kept": kept}
+        vm.allowed = ["removed", "kept"]
+        vm.setSortField(fields["displayName"])
+        self.assertEqual(["kept"], vm._getFilteredSortedIds())
 
     def test_every_native_text_field_keeps_unknown_last_in_both_directions(self):
         fields, List, Item, _storeModel = self._patchedListTypes()

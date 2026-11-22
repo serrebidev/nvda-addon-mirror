@@ -503,9 +503,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 					return ordered
 				# Narrow core's result using its real query and ordering. This retains
 				# modern relevance ranking and the helper's source-search adapter.
+				addons = viewModel._addons
 				return [
 					addonId for addonId in ordered
-					if _matchesSearchScope(viewModel._addons[addonId].model, term, scope)
+					if addonId in addons and _matchesSearchScope(addons[addonId].model, term, scope)
 				]
 
 			def createFilterControls(dialog, *args, **kwargs):
