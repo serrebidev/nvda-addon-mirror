@@ -5437,6 +5437,12 @@
     },
     "wordHeadingsList": {
       "description": "Shows the headings of the open Word document with NVDA+F6. Supports search, level filtering, sorting, direct navigation, copying of text sections, and moving headings with text blocks."
+    },
+    "activeApplicationsList": {
+      "description": "Shows a list of active applications with NVDA+Strg+F10. Allows switching to a window and closing a window normally."
+    },
+    "notizverwaltung": {
+      "description": "Note management for NVDA with a comprehensively redesigned user interface, modern dialogs, Markdown editor, import, export, backup, synchronization, help and keyboard shortcuts."
     }
   }
 }
