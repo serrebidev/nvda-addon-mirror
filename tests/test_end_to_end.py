@@ -133,6 +133,16 @@ class Scenario:
         self.owners, self.pinned, self.forgejo = [], [], []
         serve = self.internet.serve
 
+        # The home page offers the newest helper release, looked up live.
+        serve(
+            "https://git.serrebiradio.com/api/v1/repos/serrebi/"
+            "nvda-addon-mirror/releases/latest",
+            json.dumps({
+                "tag_name": "v9.9.9",
+                "assets": [{"name": "addonStoreMirror-9.9.9.nvda-addon"}],
+            }).encode(),
+        )
+
         # Every source must reach the far end, not only the catalogs above.
         self.es_url = BASE + "esAddon.nvda-addon"
         serve(self.es_url, bundle(manifest_text("esAddon")))
@@ -424,6 +434,12 @@ class EndToEndTests(unittest.TestCase):
 
     def test_no_build_touched_an_unknown_url(self):
         self.assertEqual([], self.s.internet.unexpected)
+
+    def test_home_page_offers_the_latest_helper_release(self):
+        self.assertIn(
+            "releases/download/v9.9.9/addonStoreMirror-9.9.9.nvda-addon",
+            self.third.text("index.html"),
+        )
 
     # ---- every offered install works ----------------------------------
 

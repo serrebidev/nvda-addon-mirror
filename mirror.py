@@ -313,9 +313,10 @@ FORGEJO_API = FORGEJO_WEB + "/api/v1"
 #: {base}/{lang}/{channel}/{apiVersion}.json from here, and hosted pinned
 #: bundles are rewritten under {base}/downloads/.
 DEFAULT_SITE_BASE_URL = "https://nvda.serrebiradio.com"
-#: Helper add-on release the site's home page offers for download. Bump with
-#: helper/manifest.ini; the tagged Forgejo release carries the asset.
-HELPER_VERSION = "1.7.0"
+#: Fallback helper add-on version for the site's home page, used only when
+#: the latest Forgejo release cannot be looked up at build time (see
+#: latest_helper_version). The tagged Forgejo release carries the asset.
+HELPER_VERSION = "1.8.2"
 HELPER_RELEASES_URL = (
     "https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases"
 )
@@ -378,6 +379,74 @@ def http_get(url, timeout=120, headers=None):
 
 def http_get_json(url, timeout=120, headers=None):
     return json.loads(http_get(url, timeout=timeout, headers=headers).decode("utf-8-sig"))
+
+
+HELPER_RELEASE_CACHE_PATH = "helperReleaseCache.json"
+HELPER_RELEASE_URL = (
+    FORGEJO_API + "/repos/serrebi/nvda-addon-mirror/releases/latest"
+)
+
+
+def latest_helper_version():
+    """Newest published addonStoreMirror version, from the Forgejo API.
+
+    The home page must always offer the latest helper release; resolving it
+    at build time keeps the link current with no manual bump. The lookup is
+    cached like every other recheck in this build: at most one conditional
+    request per DOWNLOAD_RECHECK_SECONDS, and none inside that window.
+    Falls back to the cached version, then HELPER_VERSION, when the lookup
+    fails or the release lacks the asset.
+    """
+    cache = {}
+    try:
+        with open(HELPER_RELEASE_CACHE_PATH, encoding="utf-8") as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        pass
+    now = time.time()
+    if cache.get("version") and cache.get("next_check", 0) > now:
+        return cache["version"]
+    version = cache.get("version")
+    etag = cache.get("etag")
+    try:
+        body, etag, _ = http_get_conditional(
+            HELPER_RELEASE_URL,
+            {"etag": etag} if etag else None,
+            timeout=30,
+        )
+        release = json.loads(body.decode("utf-8-sig"))
+        candidate = str(release.get("tag_name", "")).lstrip("v")
+        asset = f"addonStoreMirror-{candidate}.nvda-addon"
+        if candidate and any(
+            a.get("name") == asset for a in release.get("assets", [])
+        ):
+            version = candidate
+    except HTTPError as exc:
+        if exc.code != 304:
+            return version or HELPER_VERSION
+    except Exception:
+        return version or HELPER_VERSION
+    if version:
+        try:
+            with open(HELPER_RELEASE_CACHE_PATH, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "version": version,
+                        "etag": etag,
+                        "next_check": now + DOWNLOAD_RECHECK_SECONDS,
+                    },
+                    f,
+                )
+        except OSError:
+            pass
+    return version or HELPER_VERSION
+
+
+def helper_download_url(version):
+    return (
+        "https://git.serrebiradio.com/serrebi/nvda-addon-mirror"
+        f"/releases/download/v{version}/addonStoreMirror-{version}.nvda-addon"
+    )
 
 
 def http_get_conditional(url, validators=None, timeout=120):
@@ -5421,6 +5490,7 @@ def _build_index_html(stats, rejected, site_base_url):
     """Home page: helper download, mirror setup steps, catalog links."""
     accepted = stats.get("accepted", 0)
     generated = stats.get("generated_at", "")
+    helper_version = latest_helper_version()
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
@@ -5436,8 +5506,9 @@ def _build_index_html(stats, rejected, site_base_url):
         "<a href='https://nvda.es/'>nvda.es</a>.</p>"
         f"<p>Built {generated}. Refreshes every 30 minutes.</p>"
         "<h2>Get the helper add-on</h2>"
-        f"<p><a href='{HELPER_DOWNLOAD_URL}'>Download addonStoreMirror "
-        f"{HELPER_VERSION}</a>. Install it and NVDA uses this mirror. "
+        f"<p><a href='{helper_download_url(helper_version)}'>Download "
+        f"addonStoreMirror {helper_version}</a>. Install it and NVDA uses "
+        "this mirror. "
         "Disable it and NVDA goes back to the official store. Needs NVDA "
         f"2025.1 or newer. Other versions are on the "
         f"<a href='{HELPER_RELEASES_URL}'>releases page</a>.</p>"
