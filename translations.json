@@ -867,6 +867,7 @@
       "description": "NvdaSpeechLoggerEnhancements is an add-on for NVDA that logs all text spoken by the speech synthesizer to a file.\n• Record all NVDA voice messages to a text file.\n• Select the timestamp format (date, time, or both).\n• Control via the Tools menu without the need to assign hot keys.\n• View entries in a separate log manager window.\n• Save a log file to your desktop for debugging or analysis.\n• Log clearing via GUI.\nATTENTION: the add-on saves ALL spoken texts, including passwords and personal data.\nBe careful when sharing the log file with third parties."
     },
     "reportPasswords": {
+      "summary": "Report Passwords, AKA Произносить пароли",
       "description": "The ReportPasswords add-on adds the option to speak text that is entered on secure controls, for example, passwords on websites, when characters are pronounced as asterisks as you type.\nThe add-on has its own category of settings in the NVDA settings, which are located in the Options submenu of the NVDA main menu. The command to open the add-on settings from anywhere can be assigned in the Input Gestures item, in the Configuration category."
     },
     "climaspeak": {
