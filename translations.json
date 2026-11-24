@@ -5459,6 +5459,9 @@
     },
     "sunetLaDistanta": {
       "description": "Brings the sound of the computer controlled through the Remote included in NVDA: music, videos, Windows and program sounds, not just the NVDA voice. It is installed on both computers. NVDA+Control+Shift+S starts or stops the sound, NVDA+Control+Shift+plus or minus changes the volume. From NVDA Settings, the Remote Sound category, you choose whether the sound starts automatically together with Remote (yes by default)."
+    },
+    "timpReaper": {
+      "description": "In REAPER, it tells you the time of the piece when you seek (Control Shift Alt T stops or starts it), for example \"3 minutes and 30 seconds\". Control Shift Alt I says where you are and how long the piece lasts. The add-on puts the script in REAPER by itself and updates itself."
     }
   }
 }
