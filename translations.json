@@ -5475,6 +5475,10 @@
     "telegraphEditor": {
       "summary": "TelegraphEditor, AKA Редактор Telegraph для NVDA",
       "description": "The TelegraphEditor add-on allows you to create, publish and edit articles on telegra.ph using NVDA.\nThe interface is designed for keyboard control, actions are placed in collapsible sections.\nFeatures:\nMultiple author profiles.\nHeadings, links, lists and basic formatting.\nImages by URL.\nPreview in the browser.\nPublishing, opening and editing articles.\nList of your own articles and view statistics.\nPermission checking.\nLocal drafts, autosave and version history.\nImport and export of TXT, Markdown and HTML.\nCopying the link.\nLaunch: NVDA menu → Tools → Telegraph Editor.\nA hotkey can be assigned in NVDA → Preferences → Input Gestures.\nInternet is required for publishing. Deleting an article from the site via the Telegraph API is not supported.\nExcluding it from the catalog hides it only in the local list. Profile tokens are stored locally without encryption."
+    },
+    "previousLetterNav": {
+      "summary": "Navigate Back by Letter in File Lists, AKA Navigare înapoi după literă în liste de fișiere",
+      "description": "In Explorer, on the desktop and in open/save dialogs, Shift+letter moves focus to the previous item that starts with that letter (the opposite of typing a plain letter). Letters pressed quickly one after another search by prefix, as in Explorer."
     }
   }
 }
