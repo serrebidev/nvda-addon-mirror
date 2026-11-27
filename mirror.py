@@ -2433,6 +2433,19 @@ def _asset_family(filename):
     return (family or stem).casefold()
 
 
+#: Platform tag in a release file built for a non-Windows NVDA port, such as
+#: ``reloq-c-synth-linux-x64-2.1.3.nvda-addon``. Store clients run on Windows.
+_NON_WINDOWS_ASSET = re.compile(r"(?i)[-_.](?:linux|macos|darwin|android)(?=[-_.])")
+
+
+def _windows_asset_name(filename):
+    """Name of the Windows build beside a non-Windows release file.
+
+    Returns ``filename`` unchanged when it carries no other-platform tag.
+    """
+    return _NON_WINDOWS_ASSET.sub("", filename or "")
+
+
 def _github_release_asset_state(repo, previous_state=None):
     """Return current candidates and conditional-request state for one repo."""
     owner, name = repo.split("/", 1)
@@ -2539,6 +2552,8 @@ def _release_asset_candidates_from_records(repo, releases):
         for asset in raw_assets:
             asset_name = asset.get("name") or ""
             if not asset_name.casefold().endswith(".nvda-addon"):
+                continue
+            if _windows_asset_name(asset_name) != asset_name:
                 continue
             key = (channel, _asset_family(asset_name))
             if key in selected:
@@ -3884,6 +3899,14 @@ def fetch_bestmidi():
     for a in data.get("addons", []):
         name = (a.get("name") or "").strip()
         download_url = (a.get("download_url") or "").strip()
+        download_name = (a.get("download_name") or "").strip()
+        # bestmidi can pick a release's Linux build when it also ships a
+        # Windows one (hozosch/Reloq-C). Point at the Windows sibling; a
+        # release without one then fails its download and is not published.
+        windows_name = _windows_asset_name(download_name)
+        if windows_name != download_name and download_url.endswith("/" + download_name):
+            download_url = download_url[: -len(download_name)] + windows_name
+            a = {**a, "download_name": windows_name}
         version = (a.get("version") or "").strip()
         # bestmidi's version field can be missing OR stale even though the
         # release asset filename carries the current version. Compare both so

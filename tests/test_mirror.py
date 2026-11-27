@@ -1992,6 +1992,34 @@ class BestMidiTests(unittest.TestCase):
         with mock.patch.object(mirror, "http_get_json", return_value=source):
             self.assertEqual("1.2.6", mirror.fetch_bestmidi()[0]["version"])
 
+    def test_linux_build_is_swapped_for_windows_sibling(self):
+        base = "https://github.com/hozosch/Reloq-C/releases/download/v2.1.3/"
+        source = {
+            "addons": [
+                {
+                    "name": "Eloquence C",
+                    "version": "0.1.5",
+                    "download_name": "reloq-c-synth-linux-x64-2.1.3.nvda-addon",
+                    "download_url": base + "reloq-c-synth-linux-x64-2.1.3.nvda-addon",
+                }
+            ]
+        }
+        with mock.patch.object(mirror, "http_get_json", return_value=source):
+            entry = mirror.fetch_bestmidi()[0]
+        self.assertEqual(base + "reloq-c-synth-x64-2.1.3.nvda-addon", entry["download_url"])
+        self.assertEqual("2.1.3", entry["version"])
+
+    def test_release_records_skip_linux_build(self):
+        assets = [
+            {"name": n, "browser_download_url": "https://example.invalid/" + n}
+            for n in ("reloq-c-synth-linux-x64-2.1.3.nvda-addon",
+                      "reloq-c-synth-x64-2.1.3.nvda-addon")
+        ]
+        selected = mirror._release_asset_candidates_from_records(
+            "hozosch/Reloq-C", [{"tag_name": "v2.1.3", "assets": assets}])
+        names = [c["asset_name"] for c in selected]
+        self.assertEqual(["reloq-c-synth-x64-2.1.3.nvda-addon"], names)
+
 
 class TranslationTests(unittest.TestCase):
     def test_edge_reader_description_is_english(self):
