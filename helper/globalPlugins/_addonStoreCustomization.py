@@ -78,6 +78,19 @@ def _speakCount(vm):
 		else _("{count} add-ons").format(count=count))
 
 
+def announceCount(store, reloads=False):
+	"""Say how many add-ons the list shows once a search, sort, tab or filter lands.
+	reloads: the change called store.refresh(). Available and Updatable then load
+	in a background thread that sets _isLoading only once it runs, so the list is
+	still empty here; the count is spoken when that load finishes (see loaded)."""
+	if getattr(store.listVM, "_isLoading", False) or (
+			reloads and store._filteredStatusKey.name in ("AVAILABLE", "UPDATE")):
+		store._serrebiAnnounceCount = True
+	else:
+		# After the native list and combo box updates already queued.
+		wx.CallAfter(_speakCount, store.listVM)
+
+
 # NVDA's own default and the sort it picks itself while searching.
 _NATIVE_SEARCH_SORTS = ("displayName:asc", "searchRank:asc", "searchRank:desc")
 
@@ -397,16 +410,7 @@ class CustomizationFeature:
 
 
 	def announceCount(self, dialog, reloads=False):
-		"""Say how many add-ons the list shows once a search, sort or channel lands.
-		Available and Updatable reload in a background thread; their count is
-		spoken when that load finishes (see loaded in enable)."""
-		store = dialog._storeVM
-		if getattr(store.listVM, "_isLoading", False) or (
-				reloads and store._filteredStatusKey.name in ("AVAILABLE", "UPDATE")):
-			store._serrebiAnnounceCount = True
-		else:
-			# After the native list and combo box updates already queued.
-			wx.CallAfter(_speakCount, store.listVM)
+		announceCount(dialog._storeVM, reloads)
 
 
 	def refreshColumns(self, dialog):
@@ -422,7 +426,8 @@ class CustomizationFeature:
 		self.originalColumnChange(dialog, _SelectionEvent(entry[2], event))
 		self.syncSort(dialog)
 		self.refreshColumns(dialog)
-		self.announceCount(dialog)
+		# NVDA's sort change calls refresh(), reloading Available and Updatable.
+		self.announceCount(dialog, reloads=True)
 
 
 	def stageSort(self, dialog, key, event=None):
@@ -715,7 +720,7 @@ class CustomizationFeature:
 				return originalColumnClick(control, event)
 			index = event.GetColumn()
 			fields = getattr(control, "_serrebiColumnMap", [])
-			if not 0 <= index < len(fields) or fields[index] == "source":
+			if not 0 <= index < len(fields) or fields[index] in ("source", "firstPublished"):
 				return
 			field = fields[index]
 			name = field if isinstance(field, str) else field.name

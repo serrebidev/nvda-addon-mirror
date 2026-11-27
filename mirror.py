@@ -309,6 +309,11 @@ GITHUB_API = "https://api.github.com"
 #: /api/v1/repos/{owner}/{repo}/releases. Public releases need no token.
 FORGEJO_WEB = "https://git.serrebiradio.com"
 FORGEJO_API = FORGEJO_WEB + "/api/v1"
+#: Releases per listing request: one request either way, and a listing shorter
+#: than a page holds the whole history, so the first release is known. GitHub
+#: allows 100 per page, Forgejo 50 by default.
+GITHUB_RELEASE_PAGE = 100
+FORGEJO_RELEASE_PAGE = 50
 #: Public base URL of the published mirror. NVDA fetches
 #: {base}/{lang}/{channel}/{apiVersion}.json from here, and hosted pinned
 #: bundles are rewritten under {base}/downloads/.
@@ -316,7 +321,7 @@ DEFAULT_SITE_BASE_URL = "https://nvda.serrebiradio.com"
 #: Fallback helper add-on version for the site's home page, used only when
 #: the latest Forgejo release cannot be looked up at build time (see
 #: latest_helper_version). The tagged Forgejo release carries the asset.
-HELPER_VERSION = "1.8.2"
+HELPER_VERSION = "1.9.0"
 HELPER_RELEASES_URL = (
     "https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases"
 )
@@ -2451,7 +2456,7 @@ def _github_release_asset_state(repo, previous_state=None):
     owner, name = repo.split("/", 1)
     url = (
         f"{GITHUB_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
-        "/releases?per_page=20"
+        f"/releases?per_page={GITHUB_RELEASE_PAGE}"
     )
     if not isinstance(previous_state, dict):
         previous_state = {}
@@ -2460,6 +2465,7 @@ def _github_release_asset_state(repo, previous_state=None):
     cached_etag = (
         previous_state.get("etag")
         if "latest_version" in previous_state
+        and not _needs_release_history(previous_state)
         else None
     )
     releases, etag, not_modified = _github_json_conditional(
@@ -2484,7 +2490,9 @@ def _github_release_asset_state(repo, previous_state=None):
         updated["tree_etag"] = tree_state["etag"]
         updated["default_branch"] = tree_state["branch"]
         return committed, updated
-    candidates = _release_asset_candidates_from_records(repo, releases or [])
+    candidates = _release_asset_candidates_from_records(
+        repo, releases or [], page_size=GITHUB_RELEASE_PAGE,
+    )
     release_versions = [
         _release_tag_version(release.get("tag_name") or release.get("tagName") or "")
         for release in (releases or [])
@@ -2535,8 +2543,91 @@ def _release_state_version(state):
         return None
 
 
-def _release_asset_candidates_from_records(repo, releases):
+def _attach_first_publication(entries, candidates):
+    """Copy each release asset's first-release evidence onto its catalog row.
+
+    Rows reused from the catalog or the manifest cache never saw the listing,
+    so this runs over every row by download URL.
+    """
+    by_url = {
+        candidate.get("download_url"): candidate
+        for candidate in candidates
+        if candidate.get("first_published_at") and candidate.get("first_release_url")
+    }
+    for entry in entries:
+        candidate = by_url.get(entry.get("download_url"))
+        stamp = parse_iso8601_to_ms(candidate["first_published_at"]) if candidate else None
+        if stamp:
+            entry["first_published_ms"] = stamp
+            entry["first_published_url"] = candidate["first_release_url"]
+
+
+def carry_first_publication(before, after):
+    """Give each deduped winner the earliest proven first release of its add-on.
+
+    First publication belongs to the add-on, not to the row that won: a newer
+    bestmidi copy can beat the GitHub row that knows when the add-on began.
+    """
+    earliest = {}
+    for entry in before:
+        stamp = entry.get("first_published_ms")
+        if stamp and entry.get("first_published_url"):
+            key = (entry.get("name") or "").casefold()
+            if key not in earliest or stamp < earliest[key][0]:
+                earliest[key] = (stamp, entry["first_published_url"])
+    for entry in after:
+        found = earliest.get((entry.get("name") or "").casefold())
+        if found:
+            entry["first_published_ms"], entry["first_published_url"] = found
+
+
+def _needs_release_history(state):
+    """Cached release candidates from before first-publication tracking.
+
+    Their listing is fetched in full once, so the first release can be read
+    from it; afterwards the stored answer rides along with every 304.
+    """
+    return any(
+        isinstance(candidate, dict)
+        and candidate.get("release_tag")
+        and "first_published_at" not in candidate
+        for candidate in (state.get("candidates") or [])
+    )
+
+
+def _first_releases(releases, page_size):
+    """Oldest release carrying each asset family, as (published_at, URL).
+
+    Only a listing shorter than one page holds a repository's whole history;
+    a full page may have older releases behind it, so it proves nothing.
+    """
+    if page_size is None or len(releases) >= page_size:
+        return {}
+    first = {}
+    for release in releases:
+        if release.get("draft", release.get("isDraft", False)):
+            continue
+        published = release.get("published_at") or release.get("publishedAt")
+        stamp = parse_iso8601_to_ms(published)
+        url = release.get("html_url") or release.get("url") or ""
+        if not stamp or not url.startswith("https://"):
+            continue
+        raw_assets = release.get("assets", release.get("releaseAssets", []))
+        if isinstance(raw_assets, dict):
+            raw_assets = raw_assets.get("nodes", [])
+        for asset in raw_assets:
+            asset_name = asset.get("name") or ""
+            if not asset_name.casefold().endswith(".nvda-addon"):
+                continue
+            family = _asset_family(_windows_asset_name(asset_name))
+            if family not in first or stamp < first[family][0]:
+                first[family] = (stamp, published, url)
+    return {family: (published, url) for family, (_stamp, published, url) in first.items()}
+
+
+def _release_asset_candidates_from_records(repo, releases, page_size=None):
     """Normalize REST or GraphQL release records into selected asset families."""
+    first = _first_releases(releases, page_size)
     selected = {}
     for release in releases:
         if release.get("draft", release.get("isDraft", False)):
@@ -2578,6 +2669,9 @@ def _release_asset_candidates_from_records(repo, releases):
                 "release_tag": release.get("tag_name") or release.get("tagName") or "",
                 "published_at": release.get("published_at") or release.get("publishedAt"),
                 "changelog": release.get("body") or release.get("description") or "",
+                # None when the listing cannot prove which release came first.
+                "first_published_at": first.get(key[1], (None, None))[0],
+                "first_release_url": first.get(key[1], (None, None))[1],
             }
     # Do not retain an obsolete prerelease when a newer stable asset from the
     # same family already exists. Keep incomparable build-style versions.
@@ -3543,6 +3637,7 @@ def fetch_github_owners(
             completed += 1
             if completed % 25 == 0:
                 _write_github_owner_cache(new_cache, cache_path)
+    _attach_first_publication(entries, candidates)
     new_cache["__discovery__"] = discovery_snapshot
     _write_github_owner_cache(new_cache, cache_path)
     if failures:
@@ -3660,7 +3755,7 @@ def _forgejo_release_asset_state(repo, previous_state=None):
     owner, name = repo.split("/", 1)
     url = (
         f"{FORGEJO_API}/repos/{quote(owner, safe='')}/{quote(name, safe='')}"
-        "/releases?limit=20"
+        f"/releases?limit={FORGEJO_RELEASE_PAGE}"
     )
     if not isinstance(previous_state, dict):
         previous_state = {}
@@ -3671,6 +3766,7 @@ def _forgejo_release_asset_state(repo, previous_state=None):
     cached_etag = (
         previous_state.get("etag")
         if "latest_version" in previous_state
+        and not _needs_release_history(previous_state)
         else None
     )
     releases, etag, not_modified = _forgejo_json_conditional(
@@ -3682,7 +3778,9 @@ def _forgejo_release_asset_state(repo, previous_state=None):
         if not isinstance(cached_candidates, list):
             raise RuntimeError(f"Forgejo returned 304 without cached candidates: {repo}")
         return cached_candidates, previous_state
-    candidates = _release_asset_candidates_from_records(repo, releases or [])
+    candidates = _release_asset_candidates_from_records(
+        repo, releases or [], page_size=FORGEJO_RELEASE_PAGE,
+    )
     release_versions = [
         _release_tag_version(release.get("tag_name") or release.get("tagName") or "")
         for release in (releases or [])
@@ -3876,6 +3974,7 @@ def fetch_forgejo_owners(
         key: value for key, value in old_cache.items()
         if key != FORGEJO_CACHE_SECTION
     }
+    _attach_first_publication(entries, candidates)
     new_cache[FORGEJO_CACHE_SECTION] = {
         "release_state": new_release_state,
         "entries": new_entries,
@@ -4388,6 +4487,10 @@ def transform(entry, sha256):
         # Keep absolute URLs only; a bare path renders as a broken link.
         if homepage.startswith("http"):
             obj["homepage"] = homepage
+    # The helper shows this only with its evidence URL, never a guessed date.
+    if entry.get("first_published_ms") and entry.get("first_published_url"):
+        obj["originalPublicationTime"] = entry["first_published_ms"]
+        obj["originalPublicationSource"] = entry["first_published_url"]
     scan = entry.get("scan_results")
     if scan:
         obj["scanResults"] = scan
@@ -6272,6 +6375,7 @@ def main():
     # 3. Dedupe across sources.
     before_dedupe = list(todo)
     todo = dedupe(todo)
+    carry_first_publication(before_dedupe, todo)
     duplicate_rejections = dedupe_rejections(before_dedupe, todo)
     if duplicate_rejections:
         rejected.extend(duplicate_rejections)

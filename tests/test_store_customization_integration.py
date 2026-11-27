@@ -617,6 +617,20 @@ class StoreCustomizationIntegrationTests(unittest.TestCase):
         store._getAvailableAddonsInBG()
         self.assertEqual(["1 add-on", "12 add-ons"], sys.modules["ui"].messages)
 
+    def test_shared_count_waits_for_reload_only_on_loading_tabs(self):
+        dialog = self._dialog()
+        store = dialog._storeVM
+        store.listVM.count = 3
+        self.module.announceCount(store, reloads=True)
+        self.assertEqual(["3 add-ons"], sys.modules["ui"].messages)
+        store._filteredStatusKey = _StatusKey.UPDATE
+        store.listVM.count = 0
+        self.module.announceCount(store, reloads=True)
+        self.assertEqual(["3 add-ons"], sys.modules["ui"].messages)
+        store.listVM.count = 1217
+        store._getAvailableAddonsInBG()
+        self.assertEqual(["3 add-ons", "1217 add-ons"], sys.modules["ui"].messages)
+
     def test_store_gets_a_settings_button_beside_external_install(self):
         added = []
         sizer = types.SimpleNamespace(Add=lambda item, **kwargs: added.append(item))

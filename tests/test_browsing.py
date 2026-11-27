@@ -39,11 +39,24 @@ class BrowsingTests(unittest.TestCase):
 
     def test_column_order_hidden_fields_and_name_requirement(self):
         fields = [types.SimpleNamespace(name=name) for name in ("displayName", "status", "publisher")]
-        layout = self.module._layoutFields(fields, ["source", "status", "source", "obsolete"],
-                                            ["publisher", "displayName"])
+        order = ["source", "status", "source", "obsolete"]
+        layout = self.module._layoutFields(fields, order,
+                                            self.module._hiddenColumns(order, ["publisher", "displayName"]))
         self.assertEqual(["source", "status", "displayName"],
                          [field if isinstance(field, str) else field.name for field in layout])
         self.assertEqual(["displayName", "status", "publisher"], [field.name for field in fields])
+
+    def test_first_published_column_is_opt_in_until_a_saved_layout_lists_it(self):
+        fields = [types.SimpleNamespace(name="displayName")]
+        names = lambda order, hidden: [field if isinstance(field, str) else field.name
+            for field in self.module._layoutFields(fields, order, self.module._hiddenColumns(order, hidden))]
+        # Fresh install and a layout saved before the column existed: not spoken.
+        self.assertNotIn("firstPublished", names([], []))
+        self.assertNotIn("firstPublished", names(["displayName", "source"], []))
+        # Saved unchecked stays hidden; saved checked is shown in its place.
+        self.assertNotIn("firstPublished", names(["firstPublished", "displayName"], ["firstPublished"]))
+        self.assertEqual(["firstPublished", "displayName", "source"],
+                         names(["firstPublished", "displayName"], []))
 
     def test_invalid_and_future_state_are_ignored(self):
         for text in ("invalid", "[]", '{"version":2,"stores":{"x":{}}}', '{"stores":[]}'):
@@ -262,6 +275,42 @@ class BrowsingTests(unittest.TestCase):
             self.assertEqual("saved", vm._serrebiPendingSelection)
             vm.setSelection(None)
             self.assertIsNone(vm._serrebiPendingSelection)
+
+    def test_filter_change_count_waits_for_the_background_reload(self):
+        # Every wrapped handler calls store.refresh(); Available loads in a thread
+        # that sets _isLoading only once it runs. Speaking at once said "No add-ons".
+        modules, plugin, Dialog, ListVM, Settings, Field, Channel, Enabled, Action = self._makeAdapter()
+        calls = []
+        shared = types.ModuleType("fakepkg._addonStoreCustomization")
+        shared.announceCount = lambda store, reloads=False: calls.append((store, reloads))
+        globalVars = types.ModuleType("globalVars")
+        globalVars.appArgs = types.SimpleNamespace(secure=False)
+        modules = {**modules, "globalVars": globalVars, "fakepkg": types.ModuleType("fakepkg"),
+            "fakepkg._addonStoreCustomization": shared}
+        # Resolve the module's relative import against the stub package.
+        self.module.__package__, self.module.__spec__ = "fakepkg", None
+        with mock.patch.dict(sys.modules, modules):
+            self.module.enable(plugin, Settings)
+            vm = ListVM()
+            vm._addonsFilteredOrdered = []
+            vm._addons = {}
+            vm.updated = Action()
+            vm._sortByModelField = Field.displayName
+            vm._reverseSort = False
+            vm._filterString = None
+            vm._serrebiSources = None
+            vm.selectedAddonId = None
+            vm._isLoading = False
+            store = types.SimpleNamespace(
+                listVM=vm, _filteredStatusKey=types.SimpleNamespace(name="AVAILABLE"),
+                _filterChannelKey=Channel.STABLE, _filterEnabledDisabled=Enabled.ALL,
+                _filterIncludeIncompatible=False,
+            )
+            dialog = object.__new__(Dialog)
+            dialog._storeVM = store
+            dialog._serrebiCurrentTab = "AVAILABLE"
+            dialog.onChannelFilterChange(None)
+        self.assertEqual([(store, True)], calls)
 
     def test_adapter_persists_session_state_when_restart_memory_is_enabled_later(self):
         modules, plugin, Dialog, ListVM, Settings, Field, Channel, Enabled, Action = self._makeAdapter()

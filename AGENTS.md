@@ -132,6 +132,16 @@ rechecks that URL once per distinct claim. A stale hash is NVDA's "checksum
 failed". The key is `VT_API_KEY` in `/etc/nvda-addon-mirror.env` on the
 server only.
 
+## First publication comes only from a whole release history
+
+`originalPublicationTime` (helper column "First published", opt-in) is the
+oldest release carrying that asset family, read from the release listing the
+owner sources already fetch (`GITHUB_RELEASE_PAGE` 100, `FORGEJO_RELEASE_PAGE`
+50). A full page may hide older releases, so it publishes nothing rather than
+a wrong date. Never page further or guess from repo `created_at`: the
+official store's `submissionTime` is the listed version's date, not the first.
+`_needs_release_history()` forces one full listing per cached repo, once.
+
 ## Two add-ons, one manifest name
 
 NVDA keys add-ons by manifest `name`, so two authors' add-ons sharing one

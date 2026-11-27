@@ -1714,7 +1714,7 @@ class GitHubOwnerTests(unittest.TestCase):
 
     def test_releaseless_repo_picks_newest_committed_build(self):
         def conditional(url, etag=None, timeout=120):
-            if url.endswith("/releases?per_page=20"):
+            if url.endswith(f"/releases?per_page={mirror.GITHUB_RELEASE_PAGE}"):
                 return [], '"release-etag"', False
             if "/git/trees/" in url and url.endswith("?recursive=1"):
                 return {
@@ -1735,7 +1735,7 @@ class GitHubOwnerTests(unittest.TestCase):
 
         def repos_meta(url, timeout=120):
             calls.append(url)
-            if url.endswith("/releases?per_page=20"):
+            if url.endswith(f"/releases?per_page={mirror.GITHUB_RELEASE_PAGE}"):
                 raise AssertionError("releases are read conditionally")
             if url.endswith("/git/trees/main?recursive=1"):
                 raise AssertionError("trees are read conditionally")
@@ -1801,7 +1801,7 @@ class GitHubOwnerTests(unittest.TestCase):
         }
 
         def conditional(url, etag=None, timeout=120):
-            if url.endswith("/releases?per_page=20"):
+            if url.endswith(f"/releases?per_page={mirror.GITHUB_RELEASE_PAGE}"):
                 return None, '"release-etag"', True
             return None, '"tree-etag"', True
 
@@ -1822,7 +1822,7 @@ class GitHubOwnerTests(unittest.TestCase):
 
     def test_unchanged_releases_still_scan_legacy_states(self):
         def conditional(url, etag=None, timeout=120):
-            if url.endswith("/releases?per_page=20"):
+            if url.endswith(f"/releases?per_page={mirror.GITHUB_RELEASE_PAGE}"):
                 return None, '"release-etag"', True
             return {
                 "tree": [
@@ -1857,7 +1857,7 @@ class GitHubOwnerTests(unittest.TestCase):
 
     def test_empty_repository_reports_no_committed_builds(self):
         def conditional(url, etag=None, timeout=120):
-            if url.endswith("/releases?per_page=20"):
+            if url.endswith(f"/releases?per_page={mirror.GITHUB_RELEASE_PAGE}"):
                 return [], '"release-etag"', False
             raise httpError(url, 404, "no branch")
 
@@ -1957,6 +1957,45 @@ class GitHubOwnerTests(unittest.TestCase):
             {"brailab-3.1.5.nvda-addon", "brailabEmulated-3.2.2.nvda-addon"},
             {candidate["asset_name"] for candidate in candidates},
         )
+
+    def test_first_release_is_known_only_from_a_whole_history(self):
+        def release(tag, published, asset):
+            return {
+                "tag_name": tag, "published_at": published,
+                "html_url": f"https://github.com/example/demo/releases/tag/{tag}",
+                "assets": [{"name": asset, "browser_download_url": f"https://dl/{asset}"}],
+            }
+        releases = [
+            release("v2", "2026-05-01T00:00:00Z", "demo-2.0.nvda-addon"),
+            release("v1", "2023-02-03T00:00:00Z", "demo-1.0.nvda-addon"),
+        ]
+        (candidate,) = mirror._release_asset_candidates_from_records(
+            "example/demo", releases, page_size=mirror.GITHUB_RELEASE_PAGE
+        )
+        self.assertEqual("2023-02-03T00:00:00Z", candidate["first_published_at"])
+        self.assertTrue(candidate["first_release_url"].endswith("/tag/v1"))
+        self.assertFalse(mirror._needs_release_history({"candidates": [candidate]}))
+
+        # A full page may hide older releases: no date rather than a wrong one.
+        (full,) = mirror._release_asset_candidates_from_records(
+            "example/demo", releases, page_size=len(releases)
+        )
+        self.assertIsNone(full["first_published_at"])
+        self.assertFalse(mirror._needs_release_history({"candidates": [full]}))
+        legacy = {k: v for k, v in full.items() if not k.startswith("first_")}
+        self.assertTrue(mirror._needs_release_history({"candidates": [legacy]}))
+
+        entries = [{"name": "demo", "download_url": candidate["download_url"]}]
+        mirror._attach_first_publication(entries, [candidate])
+        winner = {"name": "Demo", "download_url": "https://bestmidi/demo.nvda-addon"}
+        mirror.carry_first_publication(entries + [winner], [winner])
+        self.assertEqual(entries[0]["first_published_ms"], winner["first_published_ms"])
+        obj = mirror.transform(dict(winner, version="2.0"), "0" * 64)
+        self.assertEqual(
+            mirror.parse_iso8601_to_ms("2023-02-03T00:00:00Z"), obj["originalPublicationTime"]
+        )
+        self.assertEqual(candidate["first_release_url"], obj["originalPublicationSource"])
+        self.assertNotIn("originalPublicationTime", mirror.transform({"name": "x", "version": "1"}, "0" * 64))
 
     def test_bundle_requires_root_manifest(self):
         stream = io.BytesIO()

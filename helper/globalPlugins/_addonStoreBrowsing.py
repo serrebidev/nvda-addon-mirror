@@ -81,10 +81,21 @@ def _sourceKey(model: Any) -> str:
 	return text.strip().casefold() if isinstance(text, str) and text.strip() else _UNKNOWN_SOURCE
 
 
+#: Columns added after a user may already have saved a layout. They stay hidden
+#: until the user checks them, so an upgrade never changes what is spoken.
+_OPT_IN_COLUMNS = ("firstPublished",)
+
+
+def _hiddenColumns(order: list[str], hidden: list[str]) -> list[str]:
+	"""Saved hidden columns plus opt-in columns the saved layout never listed."""
+	return list(hidden) + [name for name in _OPT_IN_COLUMNS if name not in order]
+
+
 def _layoutFields(fields: list, order: list[str], hidden: list[str]) -> list:
 	"""Return visual map without modifying native fields or validation."""
 	byName = {field.name: field for field in fields}
 	byName["source"] = "source"
+	byName["firstPublished"] = "firstPublished"
 	hidden = set(hidden) - {"displayName"}
 	names = []
 	for name in list(order) + list(byName):
@@ -362,21 +373,17 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		restore(dialog, refresh)
 
 	def announceCount(dialog):
-		def announce():
-			if _isSecure() or getattr(dialog, "_serrebiRestoring", False):
-				return
-			isBeingDeleted = getattr(dialog, "IsBeingDeleted", None)
-			if callable(isBeingDeleted) and isBeingDeleted():
-				return
-			try:
-				# Same count speech as the settings customization feature; the
-				# wording stays identical so every path announces alike.
-				from ._addonStoreCustomization import _speakCount
-				_speakCount(dialog._storeVM.listVM)
-			except Exception:
-				# Announcement must never block filtering.
-				pass
-		wx.CallAfter(announce)
+		if _isSecure() or getattr(dialog, "_serrebiRestoring", False):
+			return
+		try:
+			# Every wrapped handler calls store.refresh(). Speaking now would say
+			# "No add-ons" while Available or Updatable is still loading; the
+			# shared announcer waits for that background load to finish.
+			from ._addonStoreCustomization import announceCount as announceShared
+			announceShared(dialog._storeVM, reloads=True)
+		except Exception:
+			# Announcement must never block filtering.
+			pass
 
 	def announceAfter(original):
 		def wrapper(dialog, evt):
@@ -446,7 +453,8 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 	def columns(control):
 		originalColumns(control)
 		control._serrebiColumnMap = _layoutFields(
-			control._addonsListVM.presentedFields, _getSetting("columnOrder"), _getSetting("hiddenColumns"),
+			control._addonsListVM.presentedFields, _getSetting("columnOrder"),
+			_hiddenColumns(_getSetting("columnOrder"), _getSetting("hiddenColumns")),
 		)
 		layout = getattr(control.GetParent(), "_serrebiContextualLayout", None)
 		if callable(layout):
@@ -458,6 +466,9 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 				label, width = _("Source"), 140
 			elif field == "lastUpdated":
 				label, width = _("Last updated"), 150
+			elif field == "firstPublished":
+				# Translators: Add-on Store column with the date of an add-on's first release.
+				label, width = _("First published"), 150
 			else:
 				label, width = field.displayString, field.width or 100
 			control.InsertColumn(control.GetColumnCount(), label, width=control.scaleSize(width))
@@ -473,6 +484,11 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 			if field == "source":
 				item = control._addonsListVM.getAddonAtIndex(row)
 				return getattr(item.model, "_serrebiStoreSource", "")
+			if field == "firstPublished":
+				from ._addonStoreChangelogs import publicationTime
+				from datetime import datetime
+				stamp = publicationTime(control._addonsListVM.getAddonAtIndex(row).model)
+				return datetime.fromtimestamp(stamp / 1000).strftime("%Y-%m-%d") if stamp else _("Unknown")
 			if field == "lastUpdated":
 				from ._addonStoreChangelogs import updatedTime
 				from datetime import datetime
@@ -489,7 +505,7 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		if not hasattr(control, "_serrebiColumnMap"):
 			return originalClick(control, evt)
 		field = control._serrebiColumnMap[evt.GetColumn()]
-		if field == "source":
+		if field in ("source", "firstPublished"):
 			return
 		vm = control._addonsListVM
 		reverse = not vm._reverseSort if vm._sortByModelField == field else False
@@ -555,6 +571,7 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		byName = {field.name: field.displayString for field in fields}
 		# Translators: The catalog-source column can be shown, hidden or moved.
 		byName["source"] = _("Source")
+		byName["firstPublished"] = _("First published")
 		panel._columnNames = [
 			field if isinstance(field, str) else field.name
 			for field in _layoutFields(fields, _getSetting("columnOrder"), [])
@@ -562,8 +579,9 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		# Translators: Settings checklist; checked columns are spoken/shown in this order.
 		helper.addItem(wx.StaticText(panel, label=_("&Columns to show, in announcement order:")))
 		panel._columnsList = wx.CheckListBox(panel, choices=[byName[name] for name in panel._columnNames])
+		hidden = _hiddenColumns(_getSetting("columnOrder"), _getSetting("hiddenColumns"))
 		for index, name in enumerate(panel._columnNames):
-			panel._columnsList.Check(index, name not in _getSetting("hiddenColumns") or name == "displayName")
+			panel._columnsList.Check(index, name not in hidden or name == "displayName")
 		panelRef = weakref.ref(panel)
 		def onColumnCheck(evt):
 			current = panelRef()

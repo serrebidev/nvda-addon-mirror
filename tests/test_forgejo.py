@@ -182,7 +182,7 @@ class ForgejoReleaseStateTests(unittest.TestCase):
             )
         [(url, etag)] = seen
         self.assertEqual(
-            f"{mirror.FORGEJO_API}/repos/serrebi/demo/releases?limit=20",
+            f"{mirror.FORGEJO_API}/repos/serrebi/demo/releases?limit={mirror.FORGEJO_RELEASE_PAGE}",
             url,
         )
         self.assertIsNone(etag)
