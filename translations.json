@@ -5483,6 +5483,10 @@
     "previousLetterNav": {
       "summary": "Navigate Back by Letter in File Lists, AKA Navigare înapoi după literă în liste de fișiere",
       "description": "In Explorer, on the desktop and in open/save dialogs, Shift+letter moves focus to the previous item that starts with that letter (the opposite of typing a plain letter). Letters pressed quickly one after another search by prefix, as in Explorer."
+    },
+    "farcle": {
+      "summary": "Farkle",
+      "description": "An accessible add-on for playing Farkle, the dice game, with NVDA."
     }
   }
 }
