@@ -111,6 +111,23 @@ class ClassifyTests(unittest.TestCase):
             audit_translations.classify("TDK ve Sözlükler", short_name=True)
         )
 
+    def test_short_name_is_flagged_on_one_lowercase_accented_word(self):
+        # Published untranslated for weeks: no function word, too short for
+        # langdetect, and only one accented word.
+        for name in ("Sunet la distanță", "Tuya - dostępny odczyt",
+                     "Überschriftenmanager für Microsoft Word"):
+            self.assertIsNotNone(audit_translations.classify(name, short_name=True), name)
+
+    def test_short_description_is_judged_like_a_name(self):
+        self.assertIsNotNone(
+            audit_translations.classify("Lokalny odczyt urządzeń Tuya w NVDA.")
+        )
+
+    def test_polish_function_words_are_a_signal(self):
+        self.assertIsNotNone(
+            audit_translations.classify("Dodatek dla NVDA, który jest prosty oraz szybki.")
+        )
+
     def test_one_stray_function_word_does_not_flag_a_description(self):
         self.assertIsNone(
             audit_translations.classify(

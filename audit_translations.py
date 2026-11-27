@@ -87,6 +87,8 @@ _LATIN_FUNCTION_WORDS = (
     "sırasında|tarafından|otomatik|engeller|ayarları|"
     # Indonesian
     "dengan|untuk|yang|adalah|pada|dari|akan|bisa|dapat|"
+    # Polish
+    "dla|jest|się|oraz|przez|lub|który|która|które|"
     # Vietnamese
     "của|dùng|không|người|tiếng|"
     "cộng|đồng|trực|tiếp"
@@ -158,12 +160,15 @@ def classify(text, short_name=False):
         match.casefold() for match in _LOWERCASE_ACCENTED_WORD_RE.findall(allowed)
     }
 
-    threshold = 1 if short_name and len(text) <= SHORT_NAME_LENGTH else 2
+    short = len(text) <= SHORT_NAME_LENGTH
+    threshold = 1 if short_name and short else 2
     if len(words) >= threshold:
         return "non-English function words: " + ", ".join(sorted(words)[:6])
     if words and accented:
         return "non-English function words and accented words"
-    if len(accented) >= 3:
+    # Short text has no room for a stray accented word: "Sunet la distanță"
+    # and "Lokalny odczyt urządzeń Tuya w NVDA." each carry exactly one.
+    if len(accented) >= 3 or (short and accented):
         return "accented words: " + ", ".join(sorted(accented)[:6])
 
     if detect_langs is not None and len(stripped) >= MIN_DETECTOR_LENGTH:

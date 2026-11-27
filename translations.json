@@ -124,7 +124,7 @@
       "description": "The DecTalk add-on is a speech synthesizer for NVDA with built-in voices.\nThe add-on supports 32-64 bit NVDA.\nAfter installing the speech synthesizer, the following versions will be available in the synthesizer selection settings:\nDECtalk 4.41.\nDECtalk 4.51.\nDECtalk 4.60.\nAnd in the choice of voices:\nPerfect Paul.\nBeautiful Betty.\nHuge Harry.\nFrail Frank.\nDoctor Dennis.\nKit The Kid.\nUppity Ursula.\nRough Rita.\nWhispering Wendy."
     },
     "calendario_simples_BR": {
-      "summary": "CalendarioSimplesBR (Simple calendar - Brazil",
+      "summary": "Simple Calendar for Brazil, AKA CalendarioSimplesBR",
       "description": "CalendarioSimplesBR is a convenient and feature-rich add-on for NVDA that provides quick access to a calendar with advanced features.\nIt not only allows you to easily navigate through dates, but also work with personal notes, track the phases of the moon, view Brazilian holidays (both fixed and moving), copy dates to the clipboard, and calculate the days remaining until the end of the year.\nThe calendar opens with the combination NVDA+Shift+C or through the NVDA Tools menu.\nNavigation is carried out using arrows (by day and week), Page Up/Down (by month), Home/End (by the beginning/end of the month) and Ctrl+Home/End (by year).\nAdditional functions are available using the letter keys: H - go to today, G - enter a specific date, F - information about the phase of the moon, D - days until the end of the year, L - list of holidays, C - copy the date, Enter - edit notes.\nF1 calls up help, Esc closes the window.\nThe add-on interface is voiced: when you pass the current date, a high-pitched signal sounds.\nNotes are saved in a secure format and synchronized between sessions."
     },
     "softvoice": {
@@ -297,6 +297,7 @@
       "description": "The LinkLibrary add-on helps the user organize their links or bookmarks in a library way.\nIn the main libraries dialog box, you can select the library or category you like and press enter.\nIn the dialog box that opens, you will have all the links in that category in a list and access the source URL and information about each link, if present.\nThis add-on does not come with a default keyboard shortcut assigned.\nYou can, as always, add a command or change an existing one by going to:\nNVDA Menu, Options, Input Gestures, Link Library."
     },
     "recordatorios": {
+      "summary": "Reminders, AKA Recordatorios",
       "description": "The Recordatorios add-on allows the user to easily add reminders, notifying with NVDA sound or custom sound when the scheduled time arrives.\nThe addition includes 3 unassigned gestures in the NVDA input settings, in the Reminders category:\nOpen a window to add a reminder. This option will allow you to add one or more reminders. When the window opens, the focus will automatically be set to the field for entering the reminder text.\nCheck active reminders. This option will allow you to view your configured reminders. Selecting this option will open a window where you can scroll through the list of reminders along with their scheduled times.\nOpen the dialog for deleting reminders. This will open a selection dialog so you can delete the reminder.\nAnd in the NVDA settings there is a reminder settings panel with functions: number of notifications, notification interval.\nThe add-on help describes in detail all the features of Recordatorios."
     },
     "wikiFusion": {
@@ -645,6 +646,7 @@
       "description": "The WeatherPlus add-on adds the ability to quickly find out local temperature and a 24-hour forecast and a 2-day forecast.\nNVDA+w for current weather.\nNVDA+Shift+W for forecast for the next 24 hours and 2 days.\nNVDA+Shift+w, pressed twice, provides an hourly forecast of weather conditions.\nNVDA+shift+control+w for quickly entering a temporary city.\nNVDA+Shift+Control+Alt+w to open Weather Plus settings.\nNVDA+alt+w announces the date of the last weather report update.\nShift+Ctrl+w toggle between Fahrenheit, Celsius and Kelvin scale.\nFor more instructions, you can click the Help button in the Add-on Manager."
     },
     "YoutubeChatClientForNVDA": {
+      "summary": "YouTube Live Chat Client, AKA Youtube Canlı Yayın Sohbet İstemcisi",
       "description": "The YouTube Live Chat Client add-on for NVDA allows you to monitor and access chat during a YouTube live broadcast.\nIt reads chat messages, Super Chat donations, and real-time new member notifications.\nThe add-on interface includes a main window for connecting to a stream via URL, managing the flow of messages, and navigating through chat history.\nSettings allow you to personalize your experience: specify an API key to access YouTube Data API v3, enable or disable timestamps, automatically read new messages, and automatically move focus.\nThe add-on helps blind and visually impaired users fully participate in the interactive life of streams, reacting in a timely manner to events in the chat.\nTo work, you need to create and configure an API key in Google Cloud Console.\nThe keyboard shortcut can be changed in the input gestures, under the YouTube Live Chat Client category."
     },
     "weatherReport": {
@@ -769,15 +771,18 @@
       "description": "Engelsiz Mail is an add-on for NVDA Narrator.\nIt allows Gmail users to perform basic email actions through a simple and accessible interface.\n• View incoming messages.\n• Reading and sending letters.\n• Reply and forward messages.\n• Saving attached files.\n• Marking, archiving and deleting emails.\nThe add-on only works from your computer to Google servers and does not transfer data to third parties.\nA Google app password is required to connect.\nKeyboard shortcut to open: Ctrl + Shift + M.\nKeys for navigation and actions are available in the main window.\nThe letter is opened by pressing Enter.\nThe add-on supports the Inbox, Sent Items, Drafts, Trash, Spam and All Emails folders.\nArchiving and deleting messages are accompanied by prompts.\nEngelsiz Mail is designed for everyday tasks without the complexity of a web interface.\nThe add-on is independent of Google and is intended for the convenience of NVDA users.\nNote: The add-on interface is in Turkish, the developer has not implemented the possibility of localization."
     },
     "getem": {
+      "summary": "GETEM E-Library, AKA GETEM E-Kütüphane",
       "description": "GETEM Electronic Library is an add-on for NVDA Narrator.\nIt helps blind users quickly find books in the GETEM electronic catalog of Istanbul Bogazici University.\n• Search by title of the work.\n• Search by author and reader.\n• Search by topic, publisher and genre.\n• Search by book format and language.\n• Search by source institution and page number.\n• View detailed information about the found book.\n• Copy book information to the clipboard.\n• Add books to favorites for quick access.\n• Opening a book page on the GETEM website in a browser.\nTo launch the add-on, use Control + Shift + G.\nThe add-on can be opened through the NVDA menu: Tools, GETEM Electronic Library.\nFavorites are only stored locally on your computer and are not shared with anyone.\nThere is no direct listening or downloading of files through the add-on.\nThe user is redirected to the book's official page on the GETEM website.\nThis is done out of respect for the work of GETEM and respect for copyright.\nNote: The add-on interface is in Turkish, the developer has not implemented the possibility of localization."
     },
     "elevenlabsForNVDA": {
       "description": "The ElevenLabsForNVDA add-on for NVDA allows you to convert any text into high-quality audio files (MP3 or WAV) using speech synthesis from ElevenLabs.\nIt does not replace the standard NVDA synthesizer, but works as a separate tool for creating files.\nIt requires an API key from ElevenLabs, which can be obtained for free on their website with a limited number of characters.\nIn the settings you can select the synthesis model, voice, adjust the speed, tone and volume.\nThe conversion runs in the background with a progress bar.\nThe finished file is saved to the specified folder, and NVDA announces the path to it.\nThe add-on includes managing API profiles, checking remaining credits, and has convenient hotkeys for quick access to basic functions.\nThe functionality of the add-on is described in more detail in the help."
     },
     "kurum_rehberi": {
+      "summary": "Organization Directory, AKA Kurum Rehberi",
       "description": "Organization Directory is a convenient add-on for NVDA Narrator.\nIt helps you save and quickly find contact information for your organization's employees.\n• Storing the employee's first name, last name and position.\n• Storage of department and telephone number.\n• Storing extension number and email address.\n• Storing additional notes about the employee.\n• Creating new entries and editing existing ones.\n• Removing entries from the directory.\n• Quick search across all visible fields.\n• Copying employee information to the clipboard.\n• Export all recordings to a backup file.\n• Import records from a previously created backup.\nTo open the add-on, use the combination NVDA+Shift+R.\nAll entries are automatically sorted by first and last name.\nUnnecessary fields can be disabled in the settings.\nThe add-on can be used as a telephone or postal directory.\nAll data is stored only locally on your computer.\nThe add-on does not connect to the Internet and does not collect personal data.\nNote: The add-on interface is in Turkish, the developer has not implemented the possibility of localization."
     },
     "suno": {
+      "summary": "Suno AI Prompt Generator, AKA Suno AI Prompt Oluşturucu",
       "description": "The Suno AI Prompt Generator is an add-on for NVDA that creates ready-made English music prompts for the Suno AI platform.\n• Selecting a musical genre and subgenre.\n• Selection of Turkish music style and maqam.\n• Setting the pace and emotional mood.\n• Choosing the type of harmony and song structure.\n• Select rhythm and bass line.\n• Selection of melodic and accompanying instruments.\n• Set up vocal type, style, timbre and effects.\n• Choosing a mixing and production style.\nTo open the add-on, use the combination NVDA + Alt + P.\nThe following hotkeys are available in the add-on window: Alt+P to create a prompt, Alt+O to copy and Alt+S to reset.\nAll selected options are processed locally on your computer.\nThe add-on does not collect personal data and does not transfer it to third parties.\nThe created prompt can be copied to the clipboard and pasted into Suno AI.\nNote: The add-on interface is in Turkish, the developer has not implemented the possibility of localization."
     },
     "engelsiz_nota": {
@@ -1221,6 +1226,7 @@
       "description": "The SimpleCopy add-on for NVDA expands your ability to capture text, links, and voice messages.\n• URL Capture:\nA single click copies the address of the current page.\nDouble-clicking copies the URL of the hyperlink under the cursor.\n• Working with text:\nA single click copies the selection or adds it to the existing contents of the buffer.\nDouble tapping clears the clipboard.\n• Speech history management:\nA single press copies the last message NVDA spoke.\nDouble-clicking adds the last speech to the buffer.\nA triple press copies the entire accumulated speech history.\nA quadruple press opens the speech recording file for viewing.\nAll actions are accompanied by voice confirmation."
     },
     "tabelaBrasileirao": {
+      "summary": "Brasileirão Standings Table, AKA Tabela do Brasileirão",
       "description": "Tabela Brasileirão is an add-on for NVDA that allows you to view the Brazilian Serie A standings with full accessibility.\nThe data is obtained from the website www.sentidodabola.com.br.\nTo open a table, use the standard keyboard shortcut Control+Shift+T.\nInside the table window, a Refresh Table button is available to force the data to refresh.\nThe add-on uses the cache for 30 minutes, which speeds up opening and saves Internet traffic.\nThe following hotkeys are available in the list of commands for quickly viewing statistics.\n• Up and down arrows move through the list with beeps at the beginning and end.\n• The F1 key opens help with a list of all hotkeys.\n• V shows the team's number of wins.\n• E shows the number of ties.\n• D shows the number of lesions.\n• S displays the difference between goals scored and goals conceded.\n• J shows the number of matches played.\n• P displays the number of goals scored.\n• C shows the number of goals conceded.\n• A displays the percentage of points scored.\nYou can change the keyboard shortcut to open the add-on in the NVDA menu: Options - Input Gestures - Tabela Brasileirão."
     },
     "IBMTTS": {
@@ -1307,6 +1313,7 @@
       "description": "The ContextGestures add-on allows you to view a list of available NVDA gestures for the current context.\n• Activate the help layer using the NVDA+H key.\n• Press 1 to view commands for the current object, application module, and general NVDA commands.\n• Press 2 to view commands specific to the current process or application.\n• Press 3 to view all collected commands.\nThe report opens in a convenient HTML format with grouping by categories and displaying assigned gestures.\nThe NVDA+H shortcut can be changed in Input Gestures, under the Tools category for the shortcut \"Activates the Gesture View Command Layer\"."
     },
     "odtwarzaczeksplorer": {
+      "summary": "Explorer Player, AKA Odtwarzacz Eksplorer",
       "description": "The Odtwarzacz Eksplorer add-on automatically plays audio and video files in the background when you receive focus on a file in Windows Explorer, standard file selection dialogs or Total Commander.\nWhen focus moves to another file, the previous playback stops.\nYou can enable continued playback after changing the window in the add-on settings.\nThe add-on uses the built-in mpv.exe engine, controlled via JSON IPC, and does not require a separate installation of the player.\nTo open the settings panel, go to the NVDA menu: Options - Settings - Explorer Player.\nThe default keyboard shortcut to turn background playback on or off is NVDA+Shift+P.\nYou can change this combination or assign additional commands in the NVDA section: Settings - Input Gestures - Explorer Player.\nAdditional available commands include play and pause, play and stop, volume up and down, playback fast and slow, forward and backward, and current time message.\nIn the settings, you can select the default adjustment step, volume and speed, and also adjust the detail of the messages.\nAll formats that the built-in mpv engine can reproduce are supported.\nThe add-on also recognizes local playlists with extensions pls, m3u, m3u8, asx and xspf."
     },
     "SessionTimer": {
@@ -1314,6 +1321,7 @@
       "description": "Session Timer is a simple and useful add-on for NVDA that tells you how much time has passed since NVDA Narrator started.\nYou can find out the exact running time of NVDA in hours, minutes and seconds.\nThe add-on allows you to get both a full report on the session duration and a short version.\nYou can also find out the exact startup time of NVDA.\nIf necessary, you can reset the session timer and the countdown will start again.\nAll functions are accessible through convenient keyboard shortcuts.\n• NVDA+Windows+N reports the full time of the current session.\n• NVDA+Windows+Shift+N reports a short session time (for example, “1h 25m 30s”).\n• NVDA+Windows+Shift+T reports the startup time of NVDA.\n• NVDA+Windows+R resets the session timer.\n• NVDA+Windows+I shows information about the add-on version.\nIn the NVDA menu in the “Tools” section, an “About Session Timer” item has been added, which displays the version, date of last update and information about the author.\nSession Timer will help you track NVDA running time and plan your tasks better."
     },
     "wifiInfo": {
+      "summary": "Network Information, AKA Informações da rede",
       "description": "The WiFiInfo add-on displays detailed information about the current network connection in a separate window.\nYou can find out the wireless network name (SSID) and its password.\nThe IPv4 and IPv6 addresses of the computer, the gateway address and the external IP address are also shown.\nThe add-on performs an Internet connection speed test displaying ping, jitter, packet loss, and download and upload speeds.\nThe window has a button to copy all information to the clipboard and a close button.\nThe default keyboard shortcut is NVDA+Alt+N.\nIt can be changed in the Input Gestures dialog, in the Miscellaneous category for the shortcut Shows network information and performs a speed test."
     },
     "referenceToneTuner": {
@@ -1867,6 +1875,7 @@
       "description": "The WhatsAppSimple add-on for NVDA provides convenient hotkeys for working with WhatsApp Desktop.\nMain functions: navigation between chats and messages (Alt+Arrows), managing messages (Alt+Delete - delete, Alt+E - edit, Alt+C - view original), recording voice messages (Ctrl+R) and getting information about the chat (Ctrl+Shift+T - name, Alt+I - information).\nThe add-on automatically clears phone numbers from chat titles and marks forwarded messages.\nAll functions only work when WhatsApp is active.\nNote: The add-on will only work on the native version of WhatsApp Desktop (Latest native version 2.2543.1 dated October 30, 2025).\nIn a newer web app using Microsoft Edge, WebView2 will not work."
     },
     "Virtual_explorer": {
+      "summary": "Virtual Explorer, AKA Explorador virtual",
       "description": "Virtual Explorer is a powerful add-on for NVDA that turns your screen reader into a full-featured virtual file manager.\nIt lets you create and organize your favorite folder and file paths into convenient categories, giving you quick access to frequently used locations without having to open Windows Explorer.\nWith intuitive keyboard shortcuts, you can instantly jump between saved paths, explore the contents of folders, perform basic file operations (copy, cut, paste), and even use special shortcuts to quickly access system folders like the Desktop or Downloads.\nThe add-on supports the creation of custom categories for optimal organization, pinning of important paths and a context menu of actions for efficient work with files.\nVirtual Explorer is ideal for users who need quick and easy access to their file system without switching between applications.\nAll control is carried out directly from NVDA, which makes file navigation as efficient and accessible as possible for blind and visually impaired users."
     },
     "RayoAI_connector_for_NVDA": {
@@ -2595,7 +2604,7 @@
       "description": "The JumpToLine add-on allows you to jump to any line in the text by pressing a key combination.\nThe following keyboard shortcut NVDA+Shift+J allows you to access a specific line in the document.\nA dialog box prompting you to enter a line number displays the line number, which makes the default initialization with the current line number.\nThe keyboard shortcut can be changed in input gestures, in the Miscellaneous subsection, for the Go to line shortcut."
     },
     "rastreiosCorreio": {
-      "summary": "Rastreios Correio",
+      "summary": "Brazilian Mail Tracking, AKA Rastreios Correio",
       "description": "The RastreiosCorreio add-on tracks orders on the correio do brasil website using the order code.\nKeyboard shortcut:\nNVDA+E: Get latest tracking code status.\nNVDA+Control+E: Get all statuses by tracking code.\nNVDA+Shift+Control+E: Get the status for the user-entered tracking code.\nYou can change the combination in input gestures, in the RastreioCorreios section."
     },
     "displayAddonsChangelog": {
@@ -3061,6 +3070,7 @@
       "summary": "AutoWindowMaximizer"
     },
     "Rutas_fav": {
+      "summary": "Favorite Paths, AKA Rutas favoritas",
       "description": "<em>RoutesFav</em>is an add-on for the NVDA screen reader that aims to quickly and easily manage the user's favorite paths, allowing them to be launched, deleted or added new ones in a simple and intuitive way for the user.\nBelow are the commands for using the functions described above (changed through the Input Gestures section in the Favorite Paths category:\nNVDA+ALT+A: Launches a dialog to enter the required data, such as the absolute path and ID to be displayed in the virtual menu.\nNVDA+ALT+J: Go to the previous item in the list of saved paths.\nNVDA+ALT+K: Moves to the next item in the list of saved paths.\nNVDA+ALT+L: Single click opens the selected path, double click quickly opens it and removes it from the list.\nMore information in the add-on help."
     },
     "num2words": {
@@ -3214,6 +3224,7 @@
       "summary": "Lunar"
     },
     "klicktel": {
+      "summary": "NVDA Add-on for Klicktel 2021, AKA NVDA-Erweiterung für Klicktel 2021",
       "description": "The Klicktel add-on improves the accessibility of the Klicktel program of the same name from German developers.\nWith Klicktel the whole city is at your fingertips. Here you will find all addresses, phone numbers and information from your region.\nFeatures of clicktel:\nTelephone and business directory with over 28 million phone numbers and addresses.\nRestaurants, ATMs, doctors, shops, gas stations and much more, find it quickly and easily.\nCurrent film programs, parties, theater performances and concerts in your city.\nklicktel - convenient categories and quick search\n• Reverse lookup of unknown phone numbers.\nHundreds of thousands of user reviews will help you choose the best supplier in your area.\nUseful features: saving found contacts, map views, local search, emergency services, etc."
     },
     "lazarus": {
@@ -4065,6 +4076,7 @@
       "description": "Converts text from PDF files into MP3 files with Brazilian Portuguese neural voices."
     },
     "vozNativaDoDosvox": {
+      "summary": "DOSVOX Native Voice, AKA Voz nativa do DOSVOX",
       "description": "Portuguese synthesizer for NVDA based on the native voice originating from the DOSVOX system, developed at UFRJ from 1993."
     },
     "youtube_subtitle_reader": {
@@ -4114,6 +4126,7 @@
       "summary": "InsightAid Bridge"
     },
     "JadwalKu": {
+      "summary": "JadwalKu - Accessible Agenda and Periodic Time Reminder, AKA JadwalKu - Pengingat Agenda & Waktu Berkala Aksesibel",
       "description": "Add-on for reminders of routine schedules (daily/weekly), periodic time reminders (from 5 minutes to 1 hour), a calendar, a world clock, and a standalone SAPI 5 TTS engine that is 100% screen reader accessibility friendly. Managed with an easy Combo Box & Checkbox interface via the NVDA + / Command Mode shortcut."
     },
     "KHW_Speak_Note": {
@@ -4126,6 +4139,7 @@
       "summary": "Lang Detect Speech"
     },
     "ListeIconesZoneNotification": {
+      "summary": "Notification Area Icon List, AKA Liste des icones de la zone de notification",
       "description": "Displays the list of icons in the notification area with NVDA+F11."
     },
     "MathCAT": {
@@ -4766,7 +4780,7 @@
       "description": "Lets you view and modify BIOS and UEFI options on Lenovo computers directly from Windows with NVDA, instead of navigating the boot menu blindly."
     },
     "climaAccesible": {
-      "summary": "ClimaAccesible",
+      "summary": "Accessible Weather, AKA ClimaAccesible",
       "description": "Check the current weather and your city's forecast using keyboard shortcuts. Works instantly with Open-Meteo, with no registration or API keys needed."
     },
     "copyURL": {
@@ -4795,7 +4809,7 @@
       "summary": "RadioTV - Vietnamese Radio and Television"
     },
     "ricerca_testuale_accesso_digitale": {
-      "summary": "Ricerca Testuale Accesso Digitale",
+      "summary": "Digital Access Text Search, AKA Ricerca Testuale Accesso Digitale",
       "description": "Lets you search for words, phrases, and textual elements inside documents, images, and multimedia content."
     },
     "soundtub": {
@@ -5189,6 +5203,7 @@
       "description": "TVP VOD, TVP Sport and test support for CANAL+, Polsat Box Go and Player. Catalogs, channels and accounts; the scope of operation depends on the provider. Checks for and, if needed, installs the Microsoft Edge WebView2 Runtime. Does not require mpv."
     },
     "accessWeather": {
+      "summary": "AccessWeather - Weather Forecast, AKA AccessWeather - Previsão do Tempo",
       "description": "Announces the current weather and the forecast using the Open-Meteo API. Press NVDA+Shift+W to hear the weather."
     },
     "huaweiSoundSchemes": {
@@ -5441,6 +5456,7 @@
       "description": "Opens a fast, searchable link list for Microsoft Edge and Google Chrome with NVDA+F8. Activates only the selected link and provides a scalable, accessible dialog window."
     },
     "wordHeadingsList": {
+      "summary": "Heading Manager for Microsoft Word, AKA Überschriftenmanager für Microsoft Word",
       "description": "Shows the headings of the open Word document with NVDA+F6. Supports search, level filtering, sorting, direct navigation, copying of text sections, and moving headings with text blocks."
     },
     "activeApplicationsList": {
@@ -5456,6 +5472,7 @@
       "description": "Hemant Language Switcher, version 1.2. It reads each language in your text with its own voice, using the synthesizers you already have in NVDA. It knows 104 languages of the world, all the languages Google TTS for NVDA has voices for and the others eSpeak NG speaks, including 25 languages of India; languages that share one script, such as English and French, are told apart sentence by sentence with Meta's fastText language identification, among the languages you tick. It reads numbers, mobile numbers, OTPs and emoji the way you choose.\nTo open the settings, press NVDA plus N, go to Preferences, and near the end choose Hemant Language Switcher Settings; the dialog box opens.\nTab goes to the next option and Shift plus Tab goes back, or press an option's Alt key to go straight to it.\nAlt plus K, Search languages: type part of a language's name in English or in its own script, such as fre, deu or Hindi; the list below shows only the matching languages, and after a moment NVDA says how many were found. Down arrow or Enter goes into the list.\nAlt plus L, Languages: 104 languages, the ticked ones first; press Space to check the ones you want. Tick only the languages you really read: each extra language of the same script makes the choice between them a little harder.\nClear all, a button after the list with no Alt key: unchecks every language except English.\nAlt plus C, Configure each selected language: choose the language you want to set up.\nAlt plus S, Synthesizer: only the synthesizers that have a voice for that language are listed. The arrow keys only move; press Enter to load the voices of the synthesizer you want.\nAlt plus V, Voice: only the voices of that language are listed.\nAlt plus I, Variant: choose the variant of that voice.\nAlt plus P, Play a sample: hear the chosen voice before you save.\nAlt plus R Rate, Alt plus T Pitch and Alt plus U Volume: speed, pitch and loudness of that voice.\nAlt plus D, Reset: puts rate, pitch and volume back to the synthesizer's own default.\nCapital letters, shown only for English: Alt plus Y says cap, Alt plus B beeps, Alt plus E changes the pitch.\nSeparate punctuation per language, no Alt key: experimental; you can leave it off.\nAlt plus N, Numbers spoken in: by default numbers follow the language of the text, and usually there is no need to change it.\nAlt plus J, Emoji spoken in: English by default, or in the language of the text.\nAlt plus G, Number Processing, for numbers of 5 to 9 digits: No processing, Single digit without pause, Single digit with pause, 3 digits with pause, or 5 digits with pause.\nAlt plus M, Mobile Number Processing, for all numbers of 10 digits and above: the same five ways; a country code such as plus 91 is read first.\nAlt plus F, OTP Processing: No processing, Read slowly, or Read slowly and copy. The copy is kept out of the Windows clipboard history.\nAlt plus Q, Always speak date and time in English: on by default. Every date and time, for example 21/11/2026 10:30 AM inside Hindi or Bengali text, is read as one piece by the English voice: 21 November 2026 at 10 30 A M. It is never taken for a mobile number. Uncheck it to read dates in the language of the text.\nAlt plus H, Crore/Lakh instead of Billion/Million, shown only when English is chosen: off by default.\nProfiles, a button with no Alt key: save your settings as Profile 1, Profile 2 and so on, and restore, share, import or export them. They are kept in Documents, Hemant Language Switcher, Profiles.\nAlt plus W, Write a problem report: on by default; it never contains the text you read.\nShare the problem report and Open folder of the problem report, two buttons with no Alt key: send the report by WhatsApp or email, or find it in Documents, Hemant Language Switcher.\nAlt plus X, Developer log: do not check it; it records the text you read, for the developer's testing only.\nCheck for updates automatically, and Check for updates now: new versions come from the add-on's GitHub page.\nAlt plus A, Apply: saves your changes and keeps the dialog open.\nAlt plus O, OK: saves everything and closes the dialog.\nEscape: closes the dialog without saving.\nNVDA plus Alt plus Shift plus O, anywhere: repeats the last OTP slowly; pressed twice, types it into the OTP field, also when every digit has its own box.\nNVDA plus Alt plus Shift plus P, anywhere: when something goes wrong, press it at once; it marks that moment in the problem report."
     },
     "distorsReaper": {
+      "summary": "Distortion Alerts for REAPER, AKA Addon NVDA: distors în REAPER",
       "description": "Announces when REAPER clips into distortion: a short beep and on which track and by how many dB to lower the volume. Works together with the Distors REAPER.lua script started in REAPER."
     },
     "subtitrariRomana": {
@@ -5463,6 +5480,7 @@
       "description": "Reads in Romanian the subtitles on the screen (NVDA+Alt+S) or what the characters say, through Windows 11 Live Captions (NVDA+Alt+V), translated if they are in another language."
     },
     "sunetLaDistanta": {
+      "summary": "Remote Sound, AKA Sunet la distanță",
       "description": "Brings the sound of the computer controlled through the Remote included in NVDA: music, videos, Windows and program sounds, not just the NVDA voice. It is installed on both computers. NVDA+Control+Shift+S starts or stops the sound, NVDA+Control+Shift+plus or minus changes the volume. From NVDA Settings, the Remote Sound category, you choose whether the sound starts automatically together with Remote (yes by default)."
     },
     "timpReaper": {
@@ -5487,6 +5505,36 @@
     "farcle": {
       "summary": "Farkle",
       "description": "An accessible add-on for playing Farkle, the dice game, with NVDA."
+    },
+    "gemini_sharh": {
+      "summary": "Gemini Commentary - Video Describer, AKA Gemini Sharh - Video Tavsiflovchi",
+      "description": "Creates synchronized audio descriptions and spoken commentary for videos with Google Gemini artificial intelligence."
+    },
+    "miAjedrezAccesible": {
+      "summary": "My Accessible Chess, AKA Mi Ajedrez Accesible"
+    },
+    "miSudokuAccesible": {
+      "summary": "My Accessible Sudoku, AKA MiSudokuAccesible"
+    },
+    "polskieDyktowanie": {
+      "summary": "Polish Dictation, AKA Polskie Dyktowanie"
+    },
+    "smpsoft": {
+      "summary": "SMP Speech Synthesizer, AKA syntezator mowy SMP"
+    },
+    "tuyaAccess": {
+      "summary": "Tuya - Accessible Reading, AKA Tuya - dostępny odczyt",
+      "description": "Reads Tuya smart devices locally in NVDA."
+    },
+    "f1Acessivel": {
+      "summary": "Formula 1, AKA Fórmula 1",
+      "description": "Shows the Formula 1 standings and race calendars in NVDA."
+    },
+    "pepper": {
+      "description": "Downloads and reads deals from Pepper.pl."
+    },
+    "zakupocholik": {
+      "description": "Reads OLX and Vinted headings and listing descriptions, with filters, search and favourite lists, on OLX, Vinted and Allegro Lokalnie in Chrome and Firefox."
     }
   }
 }

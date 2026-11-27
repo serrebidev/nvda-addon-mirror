@@ -2,6 +2,7 @@
 import builtins
 import importlib
 import json
+import threading
 import weakref
 
 import config
@@ -752,7 +753,10 @@ class CustomizationFeature:
 			try:
 				return originalLoad(store, *args, **kwargs)
 			finally:
-				if getattr(store, "_serrebiAnnounceCount", False):
+				# A filter change while loading starts a newer load (NVDA records it
+				# in _refreshAddonsThread). Only that one holds the final list.
+				newest = getattr(store, "_refreshAddonsThread", None)
+				if newest in (None, threading.current_thread()) 						and getattr(store, "_serrebiAnnounceCount", False):
 					store._serrebiAnnounceCount = False
 					wx.CallAfter(_speakCount, store.listVM)
 

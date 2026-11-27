@@ -631,6 +631,23 @@ class StoreCustomizationIntegrationTests(unittest.TestCase):
         store._getAvailableAddonsInBG()
         self.assertEqual(["3 add-ons", "1217 add-ons"], sys.modules["ui"].messages)
 
+    def test_only_the_newest_background_load_reports_the_count(self):
+        # Ticking "Include incompatible" while Available is still loading starts a
+        # second load. The first finishing must not speak the second's empty list.
+        import threading
+        dialog = self._dialog()
+        store = dialog._storeVM
+        store._filteredStatusKey = _StatusKey.AVAILABLE
+        store._refreshAddonsThread = threading.Thread(target=lambda: None)
+        store.listVM.count = 0
+        self.module.announceCount(store, reloads=True)
+        store._getAvailableAddonsInBG()
+        self.assertEqual([], sys.modules["ui"].messages)
+        store._refreshAddonsThread = threading.current_thread()
+        store.listVM.count = 2095
+        store._getAvailableAddonsInBG()
+        self.assertEqual(["2095 add-ons"], sys.modules["ui"].messages)
+
     def test_store_gets_a_settings_button_beside_external_install(self):
         added = []
         sizer = types.SimpleNamespace(Add=lambda item, **kwargs: added.append(item))
