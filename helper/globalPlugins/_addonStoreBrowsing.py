@@ -382,6 +382,15 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 				store.refresh = ownRefresh
 		dialog._serrebiCurrentTab = _tabName(dialog)
 		restore(dialog, refresh)
+		# Core clears the details only through a queued notification, so the
+		# pane kept showing the previous tab's add-on (on opening, the first
+		# Installed one) while the new list loaded. Paint the current selection
+		# now; the queued update then finds nothing changed.
+		details = getattr(dialog, "addonDetailsView", None)
+		detailsVM = getattr(store, "detailsVM", None)
+		if details and detailsVM is not None:
+			detailsVM.listItem = store.listVM.getSelection()
+			details._refresh()
 
 	def announceCount(dialog):
 		if _isSecure() or getattr(dialog, "_serrebiRestoring", False):

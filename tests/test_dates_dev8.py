@@ -386,5 +386,62 @@ class DateSemanticsTests(unittest.TestCase):
         self.assertIs(view._appendDetailsLabelValue.__func__, originalAppend.__func__)
 
 
+    def test_unchanged_details_are_not_rebuilt_for_each_queued_update(self):
+        class StoreModel:
+            pass
+
+        class Details:
+            def _appendDetailsLabelValue(self, label, value):
+                pass
+
+            def _refresh(self):
+                self.builds += 1
+
+            def _updatedListItem(self, detailsVM):
+                self._refresh()
+
+        modules = {
+            "gui.addonStoreGui.controls.details": types.SimpleNamespace(AddonDetails=Details),
+            "addonStore.models.addon": types.SimpleNamespace(_AddonStoreModel=StoreModel),
+        }
+
+        class Loader:
+            @staticmethod
+            def import_module(name):
+                if name in modules:
+                    return modules[name]
+                raise ImportError(name)
+
+        dates.ChangelogFeature(Plugin())._patchDateDetails(Loader, modules["addonStore.models.addon"])
+        listVM = types.SimpleNamespace(_isLoading=False, _storeVM=types.SimpleNamespace(_filteredStatusKey="AVAILABLE"))
+        selected = [1]
+        view = Details()
+        view.builds = 0
+        view.Parent = types.SimpleNamespace(addonListView=types.SimpleNamespace(
+            GetSelectedItemCount=lambda: selected[0]))
+        class Item:  # AddonListItemVM compares by identity
+            def __init__(self, model, status):
+                self.model, self.status = model, status
+
+        item = Item(StoreModel(), "available")
+        view._detailsVM = types.SimpleNamespace(listItem=item, _listVM=listVM)
+        for _ in range(4):
+            view._updatedListItem(view._detailsVM)
+        self.assertEqual(1, view.builds)
+        item.status = "installed"
+        view._updatedListItem(view._detailsVM)
+        selected[0] = 2
+        view._updatedListItem(view._detailsVM)
+        listVM._isLoading = True
+        view._updatedListItem(view._detailsVM)
+        view._detailsVM.listItem = Item(item.model, "installed")
+        view._updatedListItem(view._detailsVM)
+        self.assertEqual(5, view.builds)
+        # A view that cannot say what it shows is always rebuilt.
+        del view.Parent
+        view._updatedListItem(view._detailsVM)
+        view._updatedListItem(view._detailsVM)
+        self.assertEqual(7, view.builds)
+
 if __name__ == "__main__":
     unittest.main()

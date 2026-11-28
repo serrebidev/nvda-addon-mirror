@@ -480,6 +480,30 @@ class BrowsingTests(unittest.TestCase):
             dialog.onListTabPageChange(None)
             self.assertEqual(["refresh"], calls)
 
+    def test_tab_change_paints_the_new_selection_into_details_at_once(self):
+        modules, plugin, Dialog, ListVM, Settings, Field, Channel, Enabled, Action = self._makeAdapter()
+        self.config.conf["serrebiStore"].update({"browseMemory": "default", "rememberPosition": False})
+        with mock.patch.dict(sys.modules, modules):
+            self.module.enable(plugin, Settings)
+            vm = ListVM()
+            vm._addonsFilteredOrdered = []
+            vm._addons = {}
+            vm.updated = Action()
+            vm._serrebiSources = None
+            vm.getSelection = lambda: None
+            stale = object()
+            detailsVM = types.SimpleNamespace(listItem=stale)
+            painted = []
+            store = types.SimpleNamespace(
+                listVM=vm, detailsVM=detailsVM, _filteredStatusKey=types.SimpleNamespace(name="AVAILABLE"),
+                refresh=lambda: None,
+            )
+            dialog = object.__new__(Dialog)
+            dialog._storeVM = store
+            dialog.addonDetailsView = types.SimpleNamespace(_refresh=lambda: painted.append(detailsVM.listItem))
+            dialog.onListTabPageChange(None)
+            self.assertEqual([None], painted)
+
     def test_adapter_restores_date_sort_only_when_saved_state_has_it(self):
         modules, plugin, Dialog, ListVM, Settings, Field, Channel, Enabled, Action = self._makeAdapter()
 

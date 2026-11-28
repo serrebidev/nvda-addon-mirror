@@ -57,6 +57,23 @@ MAX_PENDING_REPOSITORIES = 64
 RATE_LIMIT_FALLBACK_SECONDS = 15 * 60
 MAX_RATE_LIMIT_COOLDOWN_SECONDS = 24 * 60 * 60
 
+
+def _paintedState(view):
+	"""What the details pane shows, or None when it cannot be told.
+
+	The item VM compares by identity; the model is a frozen dataclass, so a
+	replaced model with other values (an install, an update) differs."""
+	try:
+		item = view._detailsVM.listItem
+		return (
+			item, getattr(item, "model", None), getattr(item, "status", None),
+			view._detailsVM._listVM._isLoading,
+			view._detailsVM._listVM._storeVM._filteredStatusKey,
+			view.Parent.addonListView.GetSelectedItemCount(),
+		)
+	except Exception:
+		return None
+
 class HistoryFetchError(Exception):
 	"""An interrupted traversal, including notes from completed pages."""
 	def __init__(self, releases, reason, nextPage=None):
@@ -1299,6 +1316,7 @@ class ChangelogFeature:
 			view._appendDetailsLabelValue = correctedAppend
 			try:
 				original(view)
+				view._serrebiPainted = _paintedState(view)
 			finally:
 				if hadOverride:
 					view._appendDetailsLabelValue = append
@@ -1316,6 +1334,18 @@ class ChangelogFeature:
 				"It does not guarantee the exact last update or first-ever release date."
 			))
 		self.plugin._rememberPatch(cls, "_refresh", refresh)
+		originalUpdated = getattr(cls, "_updatedListItem", None)
+		if originalUpdated is None:
+			return
+		def updated(view, detailsVM):
+			# Opening Available queues the same item to the pane four or five
+			# times (selection, list reset, load end). Each rebuild of the rich
+			# text costs real time on NVDA's main thread; skip unchanged ones.
+			state = _paintedState(view)
+			if state is not None and state == getattr(view, "_serrebiPainted", None):
+				return
+			return originalUpdated(view, detailsVM)
+		self.plugin._rememberPatch(cls, "_updatedListItem", updated)
 
 	def _patchSortControl(self, importlib):
 		"""Dispatch the two appended sort choices without adding a fake enum."""

@@ -321,7 +321,7 @@ DEFAULT_SITE_BASE_URL = "https://nvda.serrebiradio.com"
 #: Fallback helper add-on version for the site's home page, used only when
 #: the latest Forgejo release cannot be looked up at build time (see
 #: latest_helper_version). The tagged Forgejo release carries the asset.
-HELPER_VERSION = "1.9.2"
+HELPER_VERSION = "1.9.3"
 HELPER_RELEASES_URL = (
     "https://git.serrebiradio.com/serrebi/nvda-addon-mirror/releases"
 )
