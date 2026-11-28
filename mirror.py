@@ -2586,11 +2586,15 @@ def _needs_release_history(state):
 
     Their listing is fetched in full once, so the first release can be read
     from it; afterwards the stored answer rides along with every 304.
+    Candidates picked before highest-build-first selection refetch once too:
+    a 304 would otherwise keep the first-listed asset (wintenApps 26.11.1
+    over 26.12) until the author's next release.
     """
     return any(
         isinstance(candidate, dict)
         and candidate.get("release_tag")
-        and "first_published_at" not in candidate
+        and ("first_published_at" not in candidate
+             or "highest_asset" not in candidate)
         for candidate in (state.get("candidates") or [])
     )
 
@@ -2640,6 +2644,16 @@ def _release_asset_candidates_from_records(repo, releases, page_size=None):
         raw_assets = release.get("assets", release.get("releaseAssets", []))
         if isinstance(raw_assets, dict):
             raw_assets = raw_assets.get("nodes", [])
+        # A release can carry several builds of one family, listed by name
+        # (josephsl/wintenApps 26.11: 26.11.1, 26.11, 26.12). The first seen
+        # wins below, so the highest filename version must come first.
+        raw_assets = sorted(
+            raw_assets,
+            key=lambda asset: sanitize_version(
+                _version_from_filename(asset.get("name"))
+            ) or (0, 0, 0),
+            reverse=True,
+        )
         for asset in raw_assets:
             asset_name = asset.get("name") or ""
             if not asset_name.casefold().endswith(".nvda-addon"):
@@ -2672,6 +2686,8 @@ def _release_asset_candidates_from_records(repo, releases, page_size=None):
                 # None when the listing cannot prove which release came first.
                 "first_published_at": first.get(key[1], (None, None))[0],
                 "first_release_url": first.get(key[1], (None, None))[1],
+                # Marks picks made highest-build-first (2026-11-27).
+                "highest_asset": True,
             }
     # Do not retain an obsolete prerelease when a newer stable asset from the
     # same family already exists. Keep incomparable build-style versions.
@@ -4696,6 +4712,35 @@ def virustotal_gate(results, previous):
     return kept, held
 
 
+def _drop_superseded_author_builds(entries):
+    """Drop author-release builds older than the repo's newest stable release.
+
+    Old release pages hold dated dev and try builds whose versions parse as
+    huge numbers: josephsl/wintenApps 22.09 ships "20220922A-dev" (20220922.0.0)
+    and "try-114145-20220914" (114145.20220914.0). Version order let them beat
+    the real 26.12, and NVDA's any-channel updates installed the 2022 build
+    over it (2026-11-27). Within one repository the release date is the
+    truth, so any build published before that repo's newest stable build of
+    the same add-on is gone, whatever channel or number it claims.
+    """
+    # ponytail: assumes one release line per repo; a legacy-branch stable
+    # published after a newer major would win. Key on min_nvda if that appears.
+    authors = ("github_owner", "forgejo_owner")
+    newest_stable = {}
+    for e in entries:
+        stamp = e.get("submission_ms")
+        if e.get("source") in authors and stamp and (e.get("channel") or "stable") == "stable":
+            key = (e["name"].casefold(), e.get("source_url"))
+            newest_stable[key] = max(newest_stable.get(key, 0), stamp)
+    return [
+        e for e in entries
+        if e.get("source") not in authors
+        or not e.get("submission_ms")
+        or e["submission_ms"] >= newest_stable.get(
+            (e["name"].casefold(), e.get("source_url")), 0)
+    ]
+
+
 def dedupe(entries):
     """Dedupe by (addonId, channel).
 
@@ -4726,6 +4771,7 @@ def dedupe(entries):
     is never carried over.
     """
     priority = SOURCE_PRIORITY
+    entries = _drop_superseded_author_builds(entries)
     by_key = {}
     for e in entries:
         key = (e["name"].casefold(), e.get("channel") or "stable")

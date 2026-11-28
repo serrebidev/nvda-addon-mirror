@@ -691,6 +691,37 @@ class DedupeTests(unittest.TestCase):
         self.assertEqual("es", rejected[0]["source"])
         self.assertIn("stronger source", rejected[0]["reason"])
 
+    def test_dedupe_drops_author_builds_older_than_newest_stable(self):
+        base = {
+            "name": "wintenApps", "source": "github_owner",
+            "source_url": "https://github.com/josephsl/wintenApps",
+            "summary": "Windows App Essentials", "description": "",
+        }
+        new = dict(base, version="26.12", channel="stable",
+                   submission_ms=1793000000000, download_url="https://a/26.12")
+        dated_dev = dict(base, version="20220922A-dev", channel="dev",
+                         submission_ms=1661706352000, download_url="https://a/dev")
+        try_build = dict(base, version="try-114145-20220914", channel="stable",
+                         submission_ms=1661706352000, download_url="https://a/try")
+        store_beta = dict(base, source="official", version="26.04.2026",
+                          channel="beta", submission_ms=1, download_url="https://a/b")
+
+        kept = mirror.dedupe([dated_dev, try_build, new, store_beta])
+
+        self.assertEqual(
+            {("stable", "26.12"), ("beta", "26.04.2026")},
+            {(e["channel"], e["version"]) for e in kept},
+        )
+
+    def test_release_candidate_takes_highest_build_in_one_release(self):
+        names = ["wintenApps-26.11.1.nvda-addon", "wintenApps-26.11.nvda-addon",
+                 "wintenApps-26.12.nvda-addon"]
+        releases = [{"tag_name": "26.11", "assets": [
+            {"name": n, "browser_download_url": f"https://dl/{n}"} for n in names]}]
+        (candidate,) = mirror._release_asset_candidates_from_records(
+            "josephsl/wintenApps", releases)
+        self.assertEqual("wintenApps-26.12.nvda-addon", candidate["asset_name"])
+
     def test_dedupe_rejections_empty_when_nothing_lost(self):
         entry = {
             "name": "exampleAddon",
