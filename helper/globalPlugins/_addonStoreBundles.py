@@ -504,7 +504,9 @@ class ExportBundleDialog(wx.Dialog):
 			_("{name} ({version})").format(name=item["displayName"], version=item["version"])
 			for item in installed
 		]
-		self.addonList = wx.CheckListBox(self, choices=choices)
+		from gui import nvdaControls
+		# NVDA's checklist speaks checked state; plain wx.CheckListBox does not.
+		self.addonList = nvdaControls.CustomCheckListBox(self, choices=choices)
 		for i in range(len(choices)):
 			self.addonList.Check(i)
 		sizer.Add(self.addonList, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
@@ -630,7 +632,9 @@ class ImportBundleDialog(wx.Dialog):
 		label.Wrap(420)
 		sizer.Add(label, 0, wx.ALL, 10)
 		choices = [self._labelFor(item) for item in self._resolved]
-		self.addonList = wx.CheckListBox(self, choices=choices)
+		from gui import nvdaControls
+		# NVDA's checklist speaks checked state; plain wx.CheckListBox does not.
+		self.addonList = nvdaControls.CustomCheckListBox(self, choices=choices)
 		for i, item in enumerate(self._resolved):
 			# Pre-check anything not already up to date and available.
 			self.addonList.Check(i, item["status"] in ("new", "update"))

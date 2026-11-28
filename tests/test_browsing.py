@@ -256,11 +256,36 @@ class BrowsingTests(unittest.TestCase):
             vm._serrebiPendingSelection = "saved"
             vm.resetListItems(["first", "saved"])
             self.assertEqual("saved", vm.selectedAddonId)
-            self.assertEqual(1, vm.updated.calls)
+            # No second full list refresh: it re-announced the restored row.
+            self.assertEqual(0, vm.updated.calls)
             vm._serrebiPendingSelection = "saved"
             vm.setSelection(0)
             self.assertIsNone(vm._serrebiPendingSelection)
             self.assertEqual("first", vm.selectedAddonId)
+
+    def test_restored_selection_syncs_only_a_list_that_already_shows_the_rows(self):
+        modules, plugin, _, ListVM, Settings, _, _, _, Action = self._makeAdapter()
+        with mock.patch.dict(sys.modules, modules):
+            self.module.enable(plugin, Settings)
+            for count, shown, expected in ((0, -1, 0), (2, 1, 0), (2, 0, 1)):
+                vm = ListVM()
+                vm._addonsFilteredOrdered = []
+                vm._isLoading = False
+                vm.updated = Action()
+                synced = []
+                control = types.SimpleNamespace(
+                    GetItemCount=lambda count=count: count, GetFirstSelected=lambda shown=shown: shown,
+                    _refreshSelection=lambda: synced.append(True),
+                )
+                dialog = types.SimpleNamespace(addonListView=control)
+                vm._serrebiBrowsingDialogRef = lambda dialog=dialog: dialog
+                vm._serrebiPendingSelection = "saved"
+                vm.resetListItems(["first", "saved"])
+                # Count 0: the queued native refresh draws the selection itself.
+                # Row already shown: nothing to do. Wrong row shown: sync once.
+                self.assertEqual("saved", vm.selectedAddonId)
+                self.assertEqual(expected, len(synced), (count, shown))
+                self.assertEqual(0, vm.updated.calls)
 
     def test_core_loading_selection_event_does_not_cancel_saved_selection(self):
         modules, plugin, _, ListVM, Settings, _, _, _, _ = self._makeAdapter()

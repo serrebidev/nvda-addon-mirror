@@ -13,6 +13,7 @@
 import builtins
 import importlib
 import os
+import sys
 import threading
 import weakref
 from typing import Any
@@ -159,6 +160,23 @@ class SerrebiStoreSettingsPanel(_SettingsPanelBase):
 		return True
 
 
+_storeDialogOverlayClass = None
+
+
+def _storeDialogOverlay():
+	"""An IAccessible overlay that gives the Add-on Store dialog no description."""
+	global _storeDialogOverlayClass
+	if _storeDialogOverlayClass is None:
+		from NVDAObjects.IAccessible import IAccessible
+
+		class AddonStoreDialogEmptyDescription(IAccessible):
+			def _get_description(self):
+				return ""
+
+		_storeDialogOverlayClass = AddonStoreDialogEmptyDescription
+	return _storeDialogOverlayClass
+
+
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
@@ -237,6 +255,27 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self._addToolsMenuItems()
 		self._registerSettingsPanel()
 		self._refreshStore()
+
+	def chooseNVDAObjectOverlayClasses(self, obj, clsList):
+		# NVDA describes a dialog by reading the text of its panes, so entering
+		# the Store spoke the whole details pane, often for an add-on from
+		# another tab that the pane still showed while the list loaded. NVDA's
+		# own settings dialog is silenced the same way (appModules/nvda.py).
+		# The details stay readable by tabbing to them.
+		if getattr(obj, "windowClassName", None) != "#32770" or obj.processID != os.getpid():
+			return
+		from NVDAObjects.IAccessible import IAccessible
+		if not isinstance(obj, IAccessible):
+			return
+		storeDialog = sys.modules.get("gui.addonStoreGui.controls.storeDialog")
+		if storeDialog is None or not any(
+			isinstance(window, storeDialog.AddonStoreDialog) and window.GetHandle() == obj.windowHandle
+			for window in wx.GetTopLevelWindows()
+		):
+			return
+		import controlTypes
+		if obj.role == controlTypes.Role.DIALOG:
+			clsList.insert(0, _storeDialogOverlay())
 
 	def _rememberPatch(self, owner, name, replacement):
 		"""Replace an attribute and remember enough state to restore it safely."""

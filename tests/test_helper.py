@@ -317,6 +317,53 @@ class HelperNvdaFloorTests(unittest.TestCase):
         self.assertIn("minimumNVDAVersion = 2025.1.0", manifest)
 
 
+class HelperStoreDialogDescriptionTests(unittest.TestCase):
+    """Entering the Store must not read the details pane as dialog text."""
+
+    _loadHelper = HelperSourceSupportTests._loadHelper
+
+    def test_only_the_store_dialog_loses_its_description(self):
+        helper = self._loadHelper({})
+
+        class IAccessible:
+            description = "native dialog text"
+
+        class StoreDialog:
+            def GetHandle(self):
+                return 42
+
+        class OtherDialog:
+            def GetHandle(self):
+                return 7
+
+        self.wx.GetTopLevelWindows = lambda: [OtherDialog(), StoreDialog()]
+        role = types.SimpleNamespace(DIALOG="dialog", LIST="list")
+        modules = {
+            "NVDAObjects": _package("NVDAObjects"),
+            "NVDAObjects.IAccessible": types.SimpleNamespace(IAccessible=IAccessible),
+            "controlTypes": types.SimpleNamespace(Role=role),
+            "gui.addonStoreGui.controls.storeDialog": types.SimpleNamespace(AddonStoreDialog=StoreDialog),
+        }
+
+        def choose(handle, role="dialog", windowClassName="#32770", processID=None):
+            obj = IAccessible()
+            obj.windowHandle, obj.role, obj.windowClassName = handle, role, windowClassName
+            obj.processID = os.getpid() if processID is None else processID
+            classes = [IAccessible]
+            with mock.patch.dict(sys.modules, modules):
+                helper.GlobalPlugin.chooseNVDAObjectOverlayClasses(None, obj, classes)
+            return classes
+
+        classes = choose(42)
+        self.assertEqual(2, len(classes))
+        # NVDA's AutoPropertyObject serves _get_description as .description.
+        self.assertTrue(issubclass(classes[0], IAccessible))
+        self.assertEqual("", classes[0]()._get_description())
+        for other in (choose(7), choose(42, role="list"), choose(42, windowClassName="wxWindowNR"),
+                choose(42, processID=os.getpid() + 1)):
+            self.assertEqual([IAccessible], other)
+
+
 class _FakeEvent:
     def __init__(self, eventType, keyCode=None, eventObject=None):
         self._eventType = eventType

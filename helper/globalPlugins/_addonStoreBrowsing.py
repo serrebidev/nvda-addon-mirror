@@ -151,7 +151,9 @@ class SourceFilterDialog(wx.Dialog):
 		sizer.Add(self.allCheck, flag=wx.ALL, border=8)
 		# Translators: Label for the list of individual source checkboxes.
 		sizer.Add(wx.StaticText(self, label=_("&Sources to show:")), flag=wx.LEFT, border=8)
-		self.list = wx.CheckListBox(self, choices=[labels[key] for key in self.keys])
+		from gui import nvdaControls
+		# NVDA's checklist speaks checked state; plain wx.CheckListBox does not.
+		self.list = nvdaControls.CustomCheckListBox(self, choices=[labels[key] for key in self.keys])
 		self.list.SetMinSize((440, 210))
 		selected = getattr(viewModel, "_serrebiSources", None)
 		for index, key in enumerate(self.keys):
@@ -222,9 +224,18 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 			finally:
 				vm._serrebiApplyingSelection = False
 			# resetListItems may already have notified the virtual list before this
-			# delayed selection was applied. Notify it again so visual and model
-			# selection cannot diverge based on queue ordering.
-			vm.updated.notify()
+			# delayed selection was applied; then only the selection needs syncing.
+			# A row count that differs means its notification is still queued and
+			# will draw this selection itself. A second full refresh re-announced
+			# the restored row and refreshed the details pane again.
+			dialogRef = getattr(vm, "_serrebiBrowsingDialogRef", None)
+			dialog = dialogRef() if callable(dialogRef) else None
+			control = getattr(dialog, "addonListView", None)
+			index = vm._addonsFilteredOrdered.index(addonId)
+			# A destroyed wx control is falsy.
+			if (control and control.GetItemCount() == len(vm._addonsFilteredOrdered)
+					and control.GetFirstSelected() != index):
+				control._refreshSelection()
 		elif not getattr(vm, "_isLoading", False):
 			vm._serrebiPendingSelection = None
 
@@ -578,7 +589,9 @@ def enable(plugin: Any, settingsPanel: Any) -> None:
 		]
 		# Translators: Settings checklist; checked columns are spoken/shown in this order.
 		helper.addItem(wx.StaticText(panel, label=_("&Columns to show, in announcement order:")))
-		panel._columnsList = wx.CheckListBox(panel, choices=[byName[name] for name in panel._columnNames])
+		from gui import nvdaControls
+		# NVDA's checklist speaks checked state; plain wx.CheckListBox does not.
+		panel._columnsList = nvdaControls.CustomCheckListBox(panel, choices=[byName[name] for name in panel._columnNames])
 		hidden = _hiddenColumns(_getSetting("columnOrder"), _getSetting("hiddenColumns"))
 		for index, name in enumerate(panel._columnNames):
 			panel._columnsList.Check(index, name not in hidden or name == "displayName")
